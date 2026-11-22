@@ -3,7 +3,7 @@
 One configuration, built step by step: the one the author runs. Every step says what to click in the
 [GUI](../guides/gui.md) and what it writes to the file. Use either; they edit the same file.
 
-The goal, for the 8 strips (slots) of the X-Touch:
+The goal, for the 8 strips (slots) of the X-Touch Extender:
 
 | Slot | Shows |
 |---|---|
@@ -12,7 +12,7 @@ The goal, for the 8 strips (slots) of the X-Touch:
 | 4 to 6 | A person of the voice chat each. People start at the right: the first person gets slot 6, the next slot 5, then slot 4. A slot without a person shows an application. |
 | 7, 8 | VoIP on slot 7 and the microphone on slot 8 while you are in a call. Otherwise they show applications. |
 
-You need the daemon installed and the X-Touch [set up and tested](first-steps.md), or the
+You need the daemon installed and the control surface [set up and tested](first-steps.md), or the
 [virtual one](without-a-device.md). Without a configuration file, the GUI (`xtouch-daemon gui`) edits a new, empty
 one and writes it with the first "Save and apply". In an empty file every slot shows `auto`.
 
@@ -154,7 +154,7 @@ reset_volume = 35
 ```
 
 On **Settings**, **Extender**, the author picks the startup sequence `show` and sets `touchless_faders` for fader 1,
-whose touch sensor is broken ([Behavior](../configuration/behavior.md#faders-without-a-touch-sensor)). On
+whose touch sensor is broken ([General settings](../configuration/behavior.md#faders-without-a-touch-sensor)). On
 **Channels**, the pool **People** lights the strips of people yellow:
 
 ```toml

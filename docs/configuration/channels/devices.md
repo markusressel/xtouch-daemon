@@ -177,7 +177,7 @@ Rules for `choices`:
   next one). If you turn Select off with `select = false`, another button must do it.
 
 `profiles` (below) still works, but `choices` does the same with one button. In the GUI, `device` and `choices` are
-one list, "Device" (the sound device, not the X-Touch): it writes `choices` once an entry has a label, a profile or
+one list, "Device" (the sound device, not the control surface): it writes `choices` once an entry has a label, a profile or
 a volume range. The GUI shows `profiles` only for a channel that has it.
 
 ## Profiles

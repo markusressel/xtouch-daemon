@@ -340,7 +340,7 @@ How a claim behaves:
   Until the first line, a color is white, a line is empty, an LED is dark and the meter rests.
 - On the slots of the chord, `[controls]` can claim the LED of Solo, but not its press.
 
-`[switching]` has two options: the chord changes the mode from the X-Touch, the banner is the text on the LCDs when
+`[switching]` has two options: the chord changes the mode from the control surface, the banner is the text on the LCDs when
 a mode changes:
 
 | Option of `[switching]` | Default | Meaning |

@@ -4,11 +4,11 @@ xtouch-daemon turns a Behringer X-Touch Extender into a hardware mixer for PipeW
 meters and scribble strips control your headphones, your applications and the people of your voice chat. A strip can
 also belong to Home Assistant, for lights, speakers in other rooms or scenes.
 
-![The GUI: the X-Touch as it is, the slots and the inspector of the slot picked](images/gui.png)
+![The GUI: the control surface as it is, the slots and the inspector of the slot picked](images/gui.png)
 
 ## How it works
 
-The X-Touch has 8 strips, and the configuration has a **slot** for each. A slot is a list of the things its strip
+The X-Touch Extender has 8 strips, and the configuration has a **slot** for each. A slot is a list of the things its strip
 can control. The strip shows the first entry whose condition is true. A condition uses **states**, such as "gaming"
 or "in a call", which you define from what the daemon sees: a program that runs, headphones that connect, you in the
 voice chat.
@@ -47,9 +47,9 @@ applications that play and the people of your voice chat. [Concepts](concepts.md
 
 ## Tools
 
-- A [GUI](guides/gui.md) shows the X-Touch live, with every option, a Simulate of other situations and a preview
+- A [GUI](guides/gui.md) shows the control surface live, with every option, a Simulate of other situations and a preview
   before you save.
-- A [command line](reference/commands.md) tests the X-Touch, checks the configuration and explains what a slot shows.
+- A [command line](reference/commands.md) tests the control surface, checks the configuration and explains what a slot shows.
 - A systemd user service keeps the daemon running and applies a changed configuration without a restart.
 
 ## Requirements
@@ -57,7 +57,7 @@ applications that play and the people of your voice chat. [Concepts](concepts.md
 - Linux with PipeWire and `pipewire-pulse`. Plain PulseAudio is not enough: the meters need `pw-record`.
 - Python 3.14 (the Arch Linux package brings its own, `uv` installs it for a [source install](getting-started/install.md)).
 - An X-Touch Extender in **MC** mode on **USB**: [First steps](getting-started/first-steps.md#set-up-the-device). No
-  X-Touch yet? A [virtual one](getting-started/without-a-device.md) stands in.
+  control surface yet? A [virtual one](getting-started/without-a-device.md) stands in.
 - For Home Assistant: an MQTT broker that Home Assistant also uses.
 
 There is no Windows or macOS version.
@@ -66,7 +66,7 @@ There is no Windows or macOS version.
 
 | I want to | Go to |
 |---|---|
-| Install, set up the X-Touch, run the service | [Getting started](getting-started/install.md) |
+| Install, set up the control surface, run the service | [Getting started](getting-started/install.md) |
 | Build a whole configuration step by step | [Setup tour](getting-started/tour.md) |
 | Understand channels, slots, states, pools | [Concepts](concepts.md) |
 | Edit in a window, with Simulate and preview | [GUI](guides/gui.md) |

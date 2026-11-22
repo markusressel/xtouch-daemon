@@ -19,7 +19,7 @@ xtouch-daemon check-config     # validates the file and shows what each slot sho
 xtouch-daemon list-devices     # the names of your outputs and inputs, for `device` of a channel
 ```
 
-`check-config` needs no X-Touch; its output is described in [Commands](../reference/commands.md#check-config). To run
+`check-config` needs no control surface; its output is described in [Commands](../reference/commands.md#check-config). To run
 the daemon as a service and read its log, see [First steps](../getting-started/first-steps.md).
 
 A configuration can start programs (the `launch` of a channel, `run` in
@@ -74,9 +74,9 @@ own; `check-config` checks the rest, e.g. that a slot names a channel that exist
 | `[pool.people]`, `[voip]` | The people of the voice chat, and which strips they take. | [People](channels/people.md) |
 | `[pool.devices]` | Outputs and inputs without a channel (a USB headset). | [Devices](channels/devices.md#devices-without-a-channel) |
 | `[pool.<id>]` | A pool of your own, e.g. of all your headphones. | [Pools of channels](slots.md#pools-of-channels) |
-| `[device]` | Which sound card is the X-Touch, and its startup and shutdown. | [Behavior](behavior.md#device) |
-| `[behavior]` | Volume limit, encoder step, reset volume, meters. | [Behavior](behavior.md#behavior) |
-| `[aliases]` | Names to show for applications on `apps` and `auto` slots. | [Behavior](behavior.md#aliases) |
+| `[device]` | Which sound card is the control surface, and its startup and shutdown. | [General settings](behavior.md#device) |
+| `[behavior]` | Volume limit, encoder step, reset volume, meters. | [General settings](behavior.md#behavior) |
+| `[aliases]` | Names to show for applications on `apps` and `auto` slots. | [General settings](behavior.md#aliases) |
 | `[switching]` | The chord (Solo buttons held together switch the modes) and the banner of a new mode. | [Controls](slots.md#controls-and-the-chord) |
 | `[mqtt]` | The MQTT broker of Home Assistant. | [Home Assistant](../guides/home-assistant.md#mqtt) |
 
@@ -108,7 +108,7 @@ xtouch-daemon check-config && systemctl --user reload xtouch-daemon
 
 One section needs a restart (`systemctl --user restart xtouch-daemon`): a changed `[mqtt]`. It blocks the whole
 reload: until the restart, the daemon ignores every change in the file, not only the ones in `[mqtt]`. The log says
-so. A changed `[device] name` or `virtual` needs no restart: the daemon connects to the other X-Touch.
+so. A changed `[device] name` or `virtual` needs no restart: the daemon connects to the other control surface.
 
 The GUI applies a file when you save it: it reloads the running daemon, or offers a restart when one is needed, and
 tells you whether the daemon took the file.

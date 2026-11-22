@@ -73,7 +73,7 @@ delay_off = 5         # seconds: stays on 5 s after you leave
 7 = ["mic if call", "auto"]
 ```
 
-To start Mumble from the X-Touch, give a slot a `launch` in `[controls]` with a `mumble://` URL:
+To start Mumble from the control surface, give a slot a `launch` in `[controls]` with a `mumble://` URL:
 
 ```toml
 [controls]

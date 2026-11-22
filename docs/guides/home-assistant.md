@@ -1,7 +1,7 @@
 # Home Assistant
 
 [Home Assistant](https://www.home-assistant.io/) is a home automation program. An *entity* is one thing in it, such
-as the light `light.desk`. There are three ways to connect the X-Touch to it:
+as the light `light.desk`. There are three ways to connect the control surface to it:
 
 | You want | Use | Needs |
 |---|---|---|
@@ -26,7 +26,7 @@ reports what happens on its controls (as an *event*, a message such as "this but
 
 The MQTT broker of Home Assistant, e.g. the Mosquitto add-on. You need the section for `homeassistant` channels,
 `"homeassistant"` as the value of a part or control, and `homeassistant = true` on a state. Without those it is
-optional; with it, the daemon also shows the X-Touch, its modes, states and slots in Home Assistant.
+optional; with it, the daemon also shows the control surface, its modes, states and slots in Home Assistant.
 
 | Option | Default | Meaning |
 |---|---|---|
@@ -38,7 +38,7 @@ optional; with it, the daemon also shows the X-Touch, its modes, states and slot
 | `password_env` | none | An environment variable that holds the password instead, e.g. set with `systemctl --user edit xtouch-daemon` (`Environment=`). |
 | `discovery_prefix` | `"homeassistant"` | Home Assistant's MQTT discovery prefix. |
 | `namespace` | `"xtouch"` | Starts every entity ID (`number.xtouch_living_room_fader`) and is part of the MQTT topics. Lower case letters, digits, `_`. |
-| `device_name` | `"X-Touch Extender"` | The name of the X-Touch in Home Assistant, where it is one Home Assistant device with all the entities. |
+| `device_name` | `"X-Touch Extender"` | The name of the control surface in Home Assistant, where it is one Home Assistant device with all the entities. |
 
 Set at most one of `password`, `password_file` and `password_env`. A password file that can't be read, or a
 variable that is not set, stops the daemon at the start.
@@ -53,7 +53,7 @@ password_file = "~/.config/xtouch-daemon/mqtt-password"
 A changed `[mqtt]` section needs a restart of the daemon (`systemctl --user restart xtouch-daemon`): a reload keeps
 the whole configuration it runs, also the changes in other sections, until then.
 
-Home Assistant greys the entities out while the daemon is not running or the X-Touch is not connected, also after a
+Home Assistant greys the entities out while the daemon is not running or the control surface is not connected, also after a
 crash (the broker tells Home Assistant, by an MQTT "last will"). The daemon connects to the broker again by itself.
 
 The [GUI](gui.md#live-view) shows whether the daemon is connected, and why not (e.g. a wrong password); its "Test
@@ -190,7 +190,7 @@ control of a slot its `id` or `slot_<n>`. The id of the channel names the entiti
 A button does not switch its own [LED](../configuration/strip/leds.md) on a Home Assistant strip: an automation reacts to the event and sets the LED to
 show the result. The broker keeps the last value that Home Assistant set (an MQTT *retained message*), so after a
 restart of the daemon the strips show it again. While the broker can't be reached, a strip shows its label,
-`offline` and its color, and the X-Touch does nothing on it.
+`offline` and its color, and the control surface does nothing on it.
 
 Entities of a channel that was removed from the configuration are removed from Home Assistant on the next reload.
 
@@ -199,7 +199,7 @@ Entities of a channel that was removed from the configuration are removed from H
 With `[mqtt]`, an `output` or `input` channel with [`choices`](../configuration/channels/devices.md#choices) has
 `select.<ns>_<id>_output` (`select.<ns>_<id>_input`): the choice the strip shows, one option per choice, named by its
 `label` (or its `device`; a second choice of the same name gets a number, e.g. `Out 2`). Choosing one switches to it
-like Select on the X-Touch; one that isn't there is refused and the select goes back. The select follows the strip,
+like Select on the control surface; one that isn't there is refused and the select goes back. The select follows the strip,
 also when the default changes elsewhere.
 
 ## States, modes and slots

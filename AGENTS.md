@@ -85,10 +85,12 @@ The pages of `docs/` are for someone who meets the project for the first time. T
   situation".
 - Examples and the text agree: a comment in an example says no less than the table it illustrates.
 - One word for one thing, and never one word for two things:
-    - The hardware is "the X-Touch" ("the X-Touch Extender" the first time on a page), never a bare "the device",
-      "the surface" or "the extender". A strip is one of its 8 columns.
-    - The GUI's names stay as the GUI shows them: the window "Device", the "virtual device" (the X-Touch drawn in
-      the window), explained the first time on a page.
+    - The hardware is "the control surface": the daemon may drive other ones later. "The physical control surface"
+      where the virtual one is the other choice. A fact of the model (8 strips, MC mode, its setup menu, the
+      protocol) names it: "the X-Touch Extender". Never a bare "X-Touch" (that is the bigger desk, with 9 faders,
+      which the Extender extends), "the device" or "the extender". A strip is one of its columns.
+    - The GUI's names stay as the GUI shows them: the window "Device", the "virtual device" (the control surface
+      drawn in the window), explained the first time on a page.
     - A sound device is "an output" (headphones, speakers) or "an input" (a microphone), or "a sound device" when
       it can be either. Never a bare "device" for it. Names in the configuration stay as they are: the types
       `output` and `input`, the pool `devices`, the option `device`.

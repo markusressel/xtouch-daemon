@@ -1,8 +1,10 @@
 """
-The pages of the documentation use one word for one thing (AGENTS.md, "Writing docs"). "Device" meant two: the X-Touch
-and a sound device. So a page never says a bare "device": the hardware is the X-Touch, a sound device is an output, an
-input or a sound device. The names of the configuration (`devices`, `device`, in code) and of the GUI (the window
-"Device", the virtual device) stay. docs/development is for developers and is not checked.
+The pages of the documentation use one word for one thing (AGENTS.md, "Writing docs"). "Device" meant two: the
+control surface and a sound device. So a page never says a bare "device": the hardware is the control surface (the
+X-Touch Extender, for a fact of the model), a sound device is an output, an input or a sound device. Nor "X-Touch"
+alone: that is the bigger desk that the Extender extends. The names of the configuration (`devices`, `device`, in
+code) and of the GUI (the window "Device", the virtual device) stay.
+docs/development is for developers and is not checked.
 """
 
 import re
@@ -22,7 +24,7 @@ GUI_LABELS = (
     "Not on the device yet",
     "Saved, on the device",
 )
-"""Texts of the GUI that say "device" for the X-Touch: the docs quote them as the GUI shows them, as long as it does."""
+"""Texts of the GUI that say "device" for the control surface: the docs quote them as the GUI shows them."""
 
 QUALIFIED = re.compile(
     r"\b(?:sound|audio|virtual|MIDI|USB|Bluetooth|ALSA|PipeWire|PulseAudio|input|output|block)\s+[Dd]evices?\b"
@@ -65,3 +67,30 @@ def test_a_label_of_the_gui_may_break_across_lines():
 
 def test_code_is_not_prose():
     assert not bare_devices("```toml\ndevice = 'x'\n```\nThe option `device`.")
+
+
+BARE_XTOUCH = re.compile(r"X-Touch(?! Extender)(?!-Ext)")
+"""The X-Touch alone: the bigger desk. `X-Touch-Ext` is the name of the sound card of the Extender."""
+THE_BIGGER_ONE = re.compile(r"the bigger X-Touch")
+"""Where a page says what the X-Touch is."""
+
+
+def bare_xtouches(text: str) -> list[str]:
+    """The lines of `text` (its prose and headings, without code) that say "X-Touch" for the X-Touch Extender."""
+    text = re.sub(r"^```.*?^```", "", text, flags=re.S | re.M)
+    text = THE_BIGGER_ONE.sub("", re.sub(r"`[^`\n]*`", "", text))
+    return [line.strip() for line in text.splitlines() if BARE_XTOUCH.search(line)]
+
+
+@pytest.mark.parametrize("page", pages(), ids=lambda page: page.relative_to(DOCS).as_posix())
+def test_a_page_says_control_surface(page: Path):
+    bare = bare_xtouches(page.read_text())
+    where = page.relative_to(DOCS)
+    assert not bare, f"{where} says X-Touch (the bigger desk): the control surface, or the X-Touch Extender?\n" + (
+        "\n".join(bare)
+    )
+
+
+def test_the_extender_and_its_card_are_fine():
+    assert not bare_xtouches("The X-Touch Extender, the card `X-Touch-Ext`, the bigger X-Touch.")
+    assert bare_xtouches("The X-Touch has 8 strips.") == ["The X-Touch has 8 strips."]
