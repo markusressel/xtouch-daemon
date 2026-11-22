@@ -94,6 +94,10 @@ def test_lines_and_logs(tmp_path: Path):
     away = Observation(absent=frozenset({"screen"}))
     assert from_line(to_line(2, away)) == (2.0, away)
     assert from_line(to_line(2, away).replace(', "absent": ["screen"]', ""))[1].absent == frozenset()
+    # states whose command says on; a recording from before them has none
+    said = Observation(commands=frozenset({"vpn"}))
+    assert from_line(to_line(3, said)) == (3.0, said)
+    assert from_line(to_line(3, said).replace(', "commands": ["vpn"]', ""))[1].commands == frozenset()
     log = tmp_path / "log.jsonl"
     log.write_text(to_line(1, observation) + "\n\n" + to_line(2, Observation()) + "\n")
     assert read_log(log) == [(1.0, observation), (2.0, Observation())]

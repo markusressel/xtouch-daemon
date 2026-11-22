@@ -94,12 +94,18 @@ def last_line(output: str) -> str:
 
 
 async def poll_lines(
-    commands: Commands, argv: Sequence[str], every: float, what: str, on_line: Callable[[str], None]
+    commands: Commands,
+    argv: Sequence[str],
+    every: float,
+    what: str,
+    on_line: Callable[[str], None],
+    failed: str | None = None,
 ) -> None:
     """
     Runs a `poll` program every `every` seconds, each run to its end, and calls `on_line` with the last line it
     printed (`last_line()`), until cancelled. A run that takes longer than `every` is killed, so runs never overlap. A
-    failed run gives no line; it is logged as a warning, the same failure again only after a run that worked.
+    failed run gives the line `failed` (None: no line); it is logged as a warning, the same failure again only after a
+    run that worked.
     """
     loop = asyncio.get_running_loop()
     failure: str | None = None
@@ -111,23 +117,32 @@ async def poll_lines(
             if str(e) != failure:
                 _LOGGER.warning(f"{what}: poll: {e}")
             failure = str(e)
+            if failed is not None:
+                on_line(failed)
         else:
             failure = None
             on_line(last_line(output))
         await asyncio.sleep(max(0.0, started + every - loop.time()))
 
 
-async def feed_lines(commands: Commands, feed: Feed, what: str, on_line: Callable[[str], None]) -> None:
-    """The lines of a `watch` (`watch_lines()`) or of a `poll` (`poll_lines()`) to `on_line`, until cancelled."""
+async def feed_lines(
+    commands: Commands, feed: Feed, what: str, on_line: Callable[[str], None], failed: str | None = None
+) -> None:
+    """
+    The lines of a `watch` (`watch_lines()`) or of a `poll` (`poll_lines()`, a failed run gives `failed`) to
+    `on_line`, until cancelled.
+    """
     if feed.every is None:
         await watch_lines(commands, feed.argv, what, on_line)
     else:
-        await poll_lines(commands, feed.argv, feed.every, what, on_line)
+        await poll_lines(commands, feed.argv, feed.every, what, on_line, failed)
 
 
-def start_feed(commands: Commands, feed: Feed, what: str, on_line: Callable[[str], None]) -> asyncio.Task[None]:
+def start_feed(
+    commands: Commands, feed: Feed, what: str, on_line: Callable[[str], None], failed: str | None = None
+) -> asyncio.Task[None]:
     """A task of `commands` that runs `feed_lines()`."""
-    return commands.start(feed_lines(commands, feed, what, on_line), f"{what}: {feed.option}")
+    return commands.start(feed_lines(commands, feed, what, on_line, failed), f"{what}: {feed.option}")
 
 
 class WatchedLine:
@@ -136,14 +151,15 @@ class WatchedLine:
     Its listeners are called when the line changed. `strips.entity.EntityLine` is the same for an entity.
     """
 
-    def __init__(self, feed: Feed, commands: Commands, what: str):
+    def __init__(self, feed: Feed, commands: Commands, what: str, failed: str | None = None):
+        """`failed`: the line a failed run of a `poll` gives; None: it gives none, the line stays."""
         self.feed = feed
         self.source: tuple[object, ...] = ("program", feed)
         """What it shows the lines of: the same source, the same lines."""
         self.line: str | None = None
         """The line the program printed last; None before the first."""
         self.listeners: list[Callable[[], None]] = []
-        self._task = start_feed(commands, feed, what, self._printed)
+        self._task = start_feed(commands, feed, what, self._printed, failed)
 
     def _printed(self, line: str) -> None:
         if line != self.line:

@@ -195,7 +195,18 @@ processes = ["@steam-games"]
 
 Sources
 :   A state is on while any of its sources is: `apps` (playing), `recording`, `voice_chat`, `processes`, `devices`,
-    `channels`, `homeassistant` (a switch in Home Assistant) or `when` (a [condition](#conditions)).
+    `channels`, `homeassistant` (a switch in Home Assistant), `command` (a program of your own, below) or `when` (a
+    [condition](#conditions)).
+
+A program of your own
+:   `command` takes a `watch` or a `poll`, as a [binding](strip/bindings.md#watch-or-poll) does. The state is on
+    while the newest line the program printed is `on`, `1`, `true` or `yes` (in any case). Any other line turns it
+    off, and so does a run of `poll` that fails. Until the program prints its first line, the state is off.
+
+    ```toml
+    [state.vpn]
+    command = { poll = "/home/me/bin/vpn-up", every = 5 }   # the script prints "on" while the VPN is connected
+    ```
 
 Delays
 :   `delay_on` (default 0) and `delay_off` (default 3 seconds, 10 for a mode) smooth it: the state changes only after

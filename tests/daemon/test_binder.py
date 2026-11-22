@@ -284,6 +284,74 @@ async def test_a_reload_keeps_the_absence_until_the_new_watch_tells(surface: Rec
     await commands.wait_closed()
 
 
+COMMAND = """
+[voip]
+provider = "demo"
+
+[channel.out]
+type = "output"
+device = "speaker"
+label = "Speaker"
+
+[channel.tunnel]
+type = "custom"
+label = "VPN"
+
+[state.vpn]
+command = { watch = "vpn --follow" }
+delay_off = 0
+
+[state.other]
+command = { watch = "other --follow" }
+
+[slots]
+1 = ["tunnel if vpn", "out"]
+"""
+
+
+async def test_a_state_is_on_while_its_command_says_on(surface: RecordingSurface) -> None:
+    commands = ProgramCommands()
+    woken: list[str] = []
+    rig = Rig(surface, parse_config(COMMAND), commands=commands, on_presence=lambda: woken.append("woken"))
+    rig.step(STATE)
+    # nothing printed yet: off
+    assert rig.labels()[0] == "Speaker"
+    commands.print_to("vpn --follow", "ON ")
+    await settle()
+    assert rig.engine.commands == {"vpn"}
+    assert woken == ["woken"]
+    rig.step(STATE)
+    assert rig.labels()[0] == "VPN"
+    # the same again, or another word for on, tells nobody
+    commands.print_to("vpn --follow", "yes")
+    await settle()
+    assert woken == ["woken"]
+    # any other line is off
+    commands.print_to("vpn --follow", "connecting")
+    await settle()
+    assert rig.engine.commands == frozenset()
+    rig.step(STATE)
+    assert rig.labels()[0] == "Speaker"
+    commands.print_to("vpn --follow", "1")
+    commands.print_to("other --follow", "true")
+    await settle()
+    assert rig.engine.commands == {"vpn", "other"}
+    rig.mixer.close()
+    # a reload: the states that still have a command keep what it said until it prints again
+    rig.mixer = SlotMixer(
+        surface,
+        FakeBackend(()),
+        parse_config(COMMAND.replace('command = { watch = "other --follow" }', "")),
+        rig.engine,
+        rig.desk,
+        rig.voip,
+        commands=commands,
+    )
+    assert rig.engine.commands == {"vpn"}
+    rig.mixer.close()
+    await commands.wait_closed()
+
+
 async def test_a_member_has_no_entities_in_home_assistant(
     surface: RecordingSurface, caplog: pytest.LogCaptureFixture
 ) -> None:

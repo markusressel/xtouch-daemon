@@ -84,6 +84,8 @@ class SlotEngine:
         """The states whose input in Home Assistant is on (`homeassistant = true`, see `daemon.homeassistant`)."""
         self.absent: frozenset[str] = frozenset()
         """The custom channels whose `present` says they are not there (see `daemon.binder`)."""
+        self.commands: frozenset[str] = frozenset()
+        """The states whose `command` says on (see `daemon.binder`)."""
         self.made_absent: frozenset[str] | None = None
         """
         The custom channels a twin's made-up situation makes absent: when set, they replace `absent` (the situation
@@ -296,7 +298,7 @@ class SlotEngine:
     ) -> Result:
         """Resolves the slots with what the system shows at `now`; `held` are the slots (from 1) under a finger."""
         absent = self.absent if self.made_absent is None else self.made_absent
-        observation = self.observer.observe(audio, processes, voip, now, self.homeassistant, absent)
+        observation = self.observer.observe(audio, processes, voip, now, self.homeassistant, absent, self.commands)
         if self.what_if is not None and self.situation is not None:
             # reality waits; nothing of the situation is kept
             what_if = self.what_if

@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- A state can follow a program of your own: `command = { watch = "..." }` or `{ poll = "...", every = 5 }` in
+  `[state.<id>]`. The state is on while the newest line the program printed is `on`, `1`, `true` or `yes`; any
+  other line, and a run of `poll` that fails, turns it off. The GUI has it in the menu Add source of the page
+  States. See [States and modes](docs/configuration/slots.md#states-and-modes).
 - A TeamSpeak 3 plugin (`integrations/teamspeak`, TeamSpeak 3.6 and later) for the strips of people: the people of
   your channel in the shown server tab, who talks and how loud, the fader for TeamSpeak's own volume of each person
   (100 % is 0 dB, 200 % is +6 dB; a volume changed in TeamSpeak moves the fader) and Mute for TeamSpeak's "Mute

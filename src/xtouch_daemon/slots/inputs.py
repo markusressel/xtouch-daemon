@@ -123,6 +123,8 @@ class Observation:
     """The node names of the default output and the default input."""
     homeassistant: frozenset[str] = frozenset()
     """The states whose input switch in Home Assistant is on."""
+    commands: frozenset[str] = frozenset()
+    """The states whose `command` says on."""
     absent: frozenset[str] = frozenset()
     """The custom channels whose `present` program says they are not there; the others are."""
 
