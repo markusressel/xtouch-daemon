@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -1292,7 +1292,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -3007,7 +3007,7 @@
 
 
 <h1 id="devices-output-and-input-channels">Devices: <code>output</code> and <code>input</code> channels<a class="headerlink" href="#devices-output-and-input-channels" title="Permanent link">&para;</a></h1>
-<p>An <code>output</code> or <code>input</code> channel controls one sound device: an output such as your speakers or an input such as your
+<p>An <code>output</code> or <code>input</code> channel controls one sound device at a time: an output such as your speakers or an input such as your
 microphone. It can follow a fixed one, pick one of several, or follow whichever is the default. With
 <a href="#choices"><code>choices</code></a>, Select switches between several, each optionally in a profile of its sound card.</p>
 <table>
@@ -3105,7 +3105,7 @@ description can be the same for several sound devices. Use the node name to be s
 the default; pressed on the default one, it switches to the next and makes that the default. Without <code>label</code>, the
 LCD shows which one it is.</p>
 <h2 id="devices-without-a-channel">Devices without a channel<a class="headerlink" href="#devices-without-a-channel" title="Permanent link">&para;</a></h2>
-<p>The built-in <a href="../../slots/#pools-of-channels">pool</a> <code>devices</code> holds the outputs and inputs that no channel owns, for
+<p>The built-in <a href="../../slots/#slots">pool</a> <code>devices</code> holds the outputs and inputs that no channel owns, for
 example a USB headset or Bluetooth speakers. A channel owns a sound device when its <code>device</code> matches it, or when it
 has no <code>device</code> and the sound device is the default. So with a bare <code>[channel.out]</code>, the default output is never in
 the pool.</p>
@@ -3223,7 +3223,7 @@ the card name without <code>alsa_card.</code>, a dot, and the output part of the
   next one). If you turn Select off with <code>select = false</code>, another button must do it.</li>
 </ul>
 <p><code>profiles</code> (below) still works, but <code>choices</code> does the same with one button. In the GUI, <code>device</code> and <code>choices</code> are
-one list, "Device" (the sound device, not the X-Touch): it writes <code>choices</code> once an entry has a label, a profile or
+one list, "Device" (the sound device, not the control surface): it writes <code>choices</code> once an entry has a label, a profile or
 a volume range. The GUI shows <code>profiles</code> only for a channel that has it.</p>
 <h2 id="profiles">Profiles<a class="headerlink" href="#profiles" title="Permanent link">&para;</a></h2>
 <p>A sound card has profiles that decide which outputs and inputs it has, e.g. analog or digital (S/PDIF, IEC958)

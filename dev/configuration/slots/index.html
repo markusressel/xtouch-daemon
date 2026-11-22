@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -1318,7 +1318,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -3028,7 +3028,7 @@
 <p>This page decides what each of the 8 strips shows. Its four main parts build on each other:</p>
 <ol>
 <li><strong>Channels</strong> are what a strip can control (an output, a group of applications, a person). You define them.</li>
-<li>Each strip has a <strong>slot</strong>, numbered 1 to 8 from the left, with a list of candidates: the channels it can show, best first.</li>
+<li>Each strip has a <strong>slot</strong>, numbered 1 to 8 from the left, with a list of candidates: the channels and pools it can show, best first.</li>
 <li><strong>States</strong> (in a call, gaming) are on or off. A condition in the list asks about them.</li>
 <li><strong>Controls</strong> add button, fader or encoder actions to a slot.</li>
 </ol>
@@ -3054,7 +3054,7 @@ go. The <a href="../../development/design/slots/">design</a> has every detail;
 <h2 id="slots">Slots<a class="headerlink" href="#slots" title="Permanent link">&para;</a></h2>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[slots]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">1</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"out"</span><span class="w">                                   </span><span class="c1"># always the output</span>
-</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">                </span><span class="c1"># the voice chat in a call, else the next application</span>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="n">2</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">                </span><span class="c1"># VoIP in a call, else the next application or person</span>
 </span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">3</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"game if gaming"</span><span class="p">,</span><span class="w"> </span><span class="s2">"-"</span><span class="p">]</span><span class="w">                 </span><span class="c1"># the game in the mode gaming, else dark</span>
 </span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a><span class="n">4</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[{</span><span class="w"> </span><span class="n">show</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">,</span><span class="w"> </span><span class="n">color</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"blue"</span><span class="w"> </span><span class="p">}]</span><span class="w">     </span><span class="c1"># options of the place</span>
 </span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="n">5</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"people"</span><span class="p">,</span><span class="w"> </span><span class="s2">"apps"</span><span class="p">]</span><span class="w">                      </span><span class="c1"># a person of the voice chat, else the next application</span>
@@ -3065,6 +3065,8 @@ go. The <a href="../../development/design/slots/">design</a> has every detail;
   <a href="#conditions">Conditions</a>.</li>
 <li><code>apps</code>, <code>people</code>, <code>auto</code> and <code>devices</code> are pools: not channels that you define, but suppliers of members. See the
   table below.</li>
+<li>A channel shows on one strip at a time. When several slots could show it, the slot that lists it higher gets it
+  (on a tie, the left one), and the others go on to their next candidate.</li>
 <li>A slot without an entry is <code>auto</code>, and so is a slot whose candidates all don't hold. <code>-</code> is nothing: the slot is
   dark.</li>
 <li>The table form <code>{ show = ..., when = ..., ... }</code> takes options of the look at this place, see <a href="#places">Places</a>.</li>
@@ -3357,10 +3359,10 @@ asks about channels with its <code>channels</code> source instead.</p>
   present</code>. Parentheses say otherwise.</li>
 <li>The words are lowercase. Names are those of the file (<code>[state.&lt;name&gt;]</code>, <code>[channel.&lt;name&gt;]</code>, <code>[pool.&lt;name&gt;]</code>) and
   the built-in pools.</li>
-<li>A candidate without a condition always holds, so the candidates below it never show. The exception is a pool without
-  a member for the slot: the slot goes on to the candidate below it.</li>
+<li>A candidate without a condition always holds, so the candidates below it never show. The exceptions are a pool
+  without a member for the slot and a channel that another slot shows: the slot goes on to the candidate below it.</li>
 <li>Present means it has something to control: an <code>apps</code> channel while its application plays, an <code>output</code> or <code>input</code>
-  channel while one of its <code>devices</code> is there (always without <code>devices</code>), a <code>person</code> channel while the person is in
+  channel while an output or input that its <code>device</code> names is there (always without <code>device</code>), a <code>person</code> channel while the person is in
   the voice chat, a <code>homeassistant</code> channel always. A channel stays present <code>absent_after</code> seconds (3 by default)
   after that ended. A pool is present while it has a member: <code>auto</code> while an application or a person is there, a
   pool of channels while one of its channels is present.</li>
@@ -3461,7 +3463,7 @@ one of these:</p>
   Until the first line, a color is white, a line is empty, an LED is dark and the meter rests.</li>
 <li>On the slots of the chord, <code>[controls]</code> can claim the LED of Solo, but not its press.</li>
 </ul>
-<p><code>[switching]</code> has two options: the chord changes the mode from the X-Touch, the banner is the text on the LCDs when
+<p><code>[switching]</code> has two options: the chord changes the mode from the control surface, the banner is the text on the LCDs when
 a mode changes:</p>
 <table>
 <thead>

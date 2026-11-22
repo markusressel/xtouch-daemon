@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -1303,7 +1303,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -3247,7 +3247,8 @@ is. A turn of the encoder then starts at <code>push</code> if the encoder has on
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>sysctrl<span class="w"> </span>display<span class="w"> </span>redshift<span class="w"> </span>brightness<span class="w"> </span>-d<span class="w"> </span>DisplayPort-1<span class="w"> </span>--watch<span class="w"> </span><span class="p">|</span><span class="w"> </span>awk<span class="w"> </span><span class="s1">'{ print ($1 &lt; 1 ? "on" : "off"); fflush() }'</span>
 </span></code></pre></div>
 <h2 id="present">Present<a class="headerlink" href="#present" title="Permanent link">&para;</a></h2>
-<p>With <code>present</code>, the channel is a candidate of the slots only while it is there, e.g. a screen that is plugged in.
+<p>With <code>present</code>, the channel says whether it is there, e.g. a screen that is plugged in. While it is not, its strip is
+dark and does nothing, and <code>"screen_left if present"</code> in a slot shows the next candidate instead.
 <code>present = { watch }</code> or <code>{ poll, every }</code>: a line with text makes it present, an empty line absent. Until the first
 line it counts as present. A <code>poll</code> that prints no text makes it absent; a run that fails changes nothing. With
 <code>{target}</code> in the program (see <a href="#targets">Targets</a>), one watch or poll runs per target, and the channel is present

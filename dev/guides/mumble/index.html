@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -1279,7 +1279,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -2953,8 +2953,8 @@
   the button.</li>
 </ul>
 <p>It needs Mumble 1.4 or later on Linux (x86_64), and xtouch-daemon installed (see <a href="../../getting-started/install/">Install</a>).
-The configuration needs no change: a strip without an entry in <code>[slots]</code> shows the pool <code>auto</code>, and the people fill
-the free strips from the right (see <a href="../../configuration/slots/#pools-of-applications-and-of-people">Slots</a>). Their
+The configuration needs no change: a strip without an entry in <a href="../../configuration/slots/#slots"><code>[slots]</code></a> shows the pool <code>auto</code>, and the people fill
+the free strips from the right (see <a href="../../configuration/channels/people/#where-people-sit">Where people sit</a>). Their
 look is set in <code>[pool.people]</code>, see <a href="../../configuration/channels/people/#the-strips-of-people">People</a>.</p>
 <p>The plugin talks to the daemon through <a href="../../reference/voice-chat-bridge/">the voice chat bridge</a>, which is on by
 default (<code>[voip]</code> has <code>provider = "bridge"</code>). Set <code>provider = "demo"</code> only to try the strips without Mumble.</p>
@@ -3004,7 +3004,7 @@ with the preset <code>@voip</code>, see <a href="../../configuration/presets/">P
 </span><span id="__span-1-19"><a id="__codelineno-1-19" name="__codelineno-1-19" href="#__codelineno-1-19"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"voip if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span><span class="w">       </span><span class="c1"># Mumble while the state call is on</span>
 </span><span id="__span-1-20"><a id="__codelineno-1-20" name="__codelineno-1-20" href="#__codelineno-1-20"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mic if call"</span><span class="p">,</span><span class="w"> </span><span class="s2">"auto"</span><span class="p">]</span>
 </span></code></pre></div>
-<p>To start Mumble from the X-Touch, give a slot a <code>launch</code> in <code>[controls]</code> with a <code>mumble://</code> URL:</p>
+<p>To start Mumble from the control surface, give a slot a <code>launch</code> in <code>[controls]</code> with a <code>mumble://</code> URL:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[controls]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">6</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">launch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">,</span><span class="w"> </span><span class="s2">"mumble://me@voice.example.org/Gaming"</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"not call"</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
@@ -3025,8 +3025,8 @@ with the preset <code>@voip</code>, see <a href="../../configuration/presets/">P
   people of other channels, and whispers.</li>
 <li><strong>The meter</strong> shows the voice as it arrives from Mumble, before Mumble's own volume and positional audio.
   <code>meter_point</code> sets whether it is measured before the fader (<code>"pre_fader"</code>) or after it (<code>"post_fader"</code>). Mumble
-  does not fetch the voice of someone you muted: a meter before the fader lights while they talk but shows no level,
-  and a meter after the fader stays dark.</li>
+  does not fetch the voice of someone you muted, so there is no level: while they talk, a meter before the fader
+  shows a fixed high level, and a meter after the fader stays dark.</li>
 </ul>
 <h2 id="flatpak">Flatpak<a class="headerlink" href="#flatpak" title="Permanent link">&para;</a></h2>
 <p>A Mumble in a Flatpak can't see the socket of the daemon (the file <code>xtouch-daemon-voip.sock</code> in your runtime

@@ -33,7 +33,7 @@
     
     
       
-        <title>Behavior, X-Touch and aliases - xtouch-daemon</title>
+        <title>General settings - xtouch-daemon</title>
       
     
     
@@ -129,7 +129,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Behavior, X-Touch and aliases
+              General settings
             
           </span>
         </div>
@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -1175,7 +1175,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -1192,7 +1192,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -2970,8 +2970,8 @@
   
 
 
-<h1 id="behavior-x-touch-and-aliases">Behavior, X-Touch and aliases<a class="headerlink" href="#behavior-x-touch-and-aliases" title="Permanent link">&para;</a></h1>
-<p>Three sections that you only need when the defaults do not fit: <code>[device]</code> is about the X-Touch itself,
+<h1 id="general-settings">General settings<a class="headerlink" href="#general-settings" title="Permanent link">&para;</a></h1>
+<p>Three sections that you only need when the defaults do not fit: <code>[device]</code> is about the control surface itself,
 <code>[behavior]</code> about the faders, encoders and meters of all strips, and <code>[aliases]</code> about the names that application
 strips show. The <a href="../../guides/gui/">GUI</a> has them on the page Settings.</p>
 <h2 id="device"><code>[device]</code><a class="headerlink" href="#device" title="Permanent link">&para;</a></h2>
@@ -2987,17 +2987,17 @@ strips show. The <a href="../../guides/gui/">GUI</a> has them on the page Settin
 <tr>
 <td><code>name</code></td>
 <td><code>"X-Touch-Ext"</code></td>
-<td>Part of the name of the sound card of the X-Touch, as <code>/proc/asound/cards</code> lists it. The daemon takes the first card whose id or description contains this text, with the same upper and lower case. In the card line <code>0 [XTouchExt      ]: USB-Audio - X-Touch-Ext</code>, the id is <code>XTouchExt</code> and the description is <code>USB-Audio - X-Touch-Ext</code>. The default fits the X-Touch Extender, so you rarely change it.</td>
+<td>Part of the name of the sound card of the control surface, as <code>/proc/asound/cards</code> lists it. The daemon takes the first card whose id or description contains this text, with the same upper and lower case. In the card line <code>0 [XTouchExt      ]: USB-Audio - X-Touch-Ext</code>, the id is <code>XTouchExt</code> and the description is <code>USB-Audio - X-Touch-Ext</code>. The default fits the X-Touch Extender, so you rarely change it.</td>
 </tr>
 <tr>
 <td><code>virtual</code></td>
 <td><code>false</code></td>
-<td>Drive the <a href="../../getting-started/without-a-device/">virtual device</a> (the X-Touch drawn in the GUI) instead of the real X-Touch (<code>xtouch-daemon run --virtual-device</code> does the same for one run).</td>
+<td>Drive the <a href="../../getting-started/without-a-device/">virtual device</a> (the control surface drawn in the GUI) instead of the physical control surface (<code>xtouch-daemon run --virtual-device</code> does the same for one run).</td>
 </tr>
 <tr>
 <td><code>touch_required</code></td>
 <td><code>true</code></td>
-<td>Whether a fader changes a value only while the X-Touch reports a touch. <code>false</code> makes every move count, see <a href="#faders-without-a-touch-sensor">below</a>.</td>
+<td>Whether a fader changes a value only while the control surface reports a touch. <code>false</code> makes every move count, see <a href="#faders-without-a-touch-sensor">below</a>.</td>
 </tr>
 <tr>
 <td><code>touchless_faders</code></td>
@@ -3016,7 +3016,7 @@ strips show. The <a href="../../guides/gui/">GUI</a> has them on the page Settin
 </tr>
 </tbody>
 </table>
-<p>A reload takes every option of <code>[device]</code>: with another <code>name</code> or <code>virtual</code>, the daemon connects to the other X-Touch without a restart, and the strips show the same on it.</p>
+<p>A reload takes every option of <code>[device]</code>: with another <code>name</code> or <code>virtual</code>, the daemon connects to the other control surface without a restart, and the strips show the same on it.</p>
 <h3 id="startup-and-shutdown-sequences">Startup and shutdown sequences<a class="headerlink" href="#startup-and-shutdown-sequences" title="Permanent link">&para;</a></h3>
 <p>After a connect the strips light up and their faders come up to their values; when the daemon stops, the strips go
 dark and their faders go down. <code>startup</code> and <code>shutdown</code> choose how:</p>
@@ -3074,7 +3074,7 @@ not notice your finger, e.g. when you push the fader from below.</p>
 <li><strong>Resting fingers:</strong> a finger that rests on the fader without moving it counts as gone after half a second. If the
   value changed somewhere else in the meantime (e.g. in the volume control of the desktop), the fader moves out
   from under your finger.</li>
-<li><strong>The first 3 seconds after a connect:</strong> the X-Touch moves all its faders down by itself, so in these 3 seconds a
+<li><strong>The first 3 seconds after a connect:</strong> the X-Touch Extender moves all its faders down by itself, so in these 3 seconds a
   fader counts a move only with a real touch.</li>
 </ul>
 <h2 id="behavior"><code>[behavior]</code><a class="headerlink" href="#behavior" title="Permanent link">&para;</a></h2>
@@ -3095,12 +3095,12 @@ not notice your finger, e.g. when you push the fader from below.</p>
 <tr>
 <td><code>unity_at</code></td>
 <td><code>77</code></td>
-<td>Where on the fader 100 % is, 10..95 percent of the travel from the bottom. The scale printed next to the faders of the X-Touch marks 0 dB at about 77. See <a href="#the-volume-scale">the volume scale</a>.</td>
+<td>Where on the fader 100 % is, 10..95 percent of the travel from the bottom. The scale printed next to the faders of the X-Touch Extender marks 0 dB at about 77. See <a href="#the-volume-scale">the volume scale</a>.</td>
 </tr>
 <tr>
 <td><code>encoder_step</code></td>
 <td><code>1</code></td>
-<td>Percent per encoder step, 1..10. Used by the <code>volume</code> <a href="../strip/encoders/">encoder</a> and by the encoders of <code>homeassistant</code> channels.</td>
+<td>Percent per encoder step, 1..10. Used by the <code>volume</code> and <code>homeassistant</code> <a href="../strip/encoders/">encoders</a>, and as the default <code>step</code> of a <a href="../channels/custom/#a-value">value of your own</a>.</td>
 </tr>
 <tr>
 <td><code>reset_volume</code></td>

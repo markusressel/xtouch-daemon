@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -1325,7 +1325,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -3205,7 +3205,7 @@ redirects and loops belong in a script of your own: make it executable (<code>ch
 <tr>
 <td><code>poll</code></td>
 <td>Runs to its end every <code>every</code> seconds (10 by default).</td>
-<td>The last line of each run that has text.</td>
+<td>The last line of each run (empty if it printed nothing).</td>
 <td><code>poll = "date +%H:%M", every = 10</code></td>
 </tr>
 </tbody>
@@ -3267,7 +3267,8 @@ them, and <code>step</code> above 0. <code>format</code> must show a number, e.g
 <h2 id="example-the-brightness-of-a-screen">Example: the brightness of a screen<a class="headerlink" href="#example-the-brightness-of-a-screen" title="Permanent link">&para;</a></h2>
 <p>The encoder of the speakers sets the brightness of a screen with
 <a href="https://github.com/markusressel/system-control">system-control</a> (<code>sysctrl</code>, a separate tool: adapt the commands to
-yours). The fader stays the volume. A push sets the full brightness. <code>watch</code> prints the brightness, e.g. <code>0.60</code>.</p>
+yours). The fader stays the volume. A push sets the full brightness, and Solo resets the whole redshift of the screen (also its
+color temperature). <code>watch</code> prints the brightness, e.g. <code>0.60</code>.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.out]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
 </span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Speaker"</span>

@@ -33,7 +33,7 @@
     
     
       
-        <title>Without an X-Touch - xtouch-daemon</title>
+        <title>Without a physical control surface - xtouch-daemon</title>
       
     
     
@@ -129,7 +129,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Without an X-Touch
+              Without a physical control surface
             
           </span>
         </div>
@@ -444,7 +444,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -461,7 +461,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -1235,7 +1235,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -2852,31 +2852,31 @@
   
 
 
-<h1 id="without-an-x-touch">Without an X-Touch<a class="headerlink" href="#without-an-x-touch" title="Permanent link">&para;</a></h1>
-<p>A virtual X-Touch Extender stands in for the real one: use it to follow the <a href="../tour/">Setup tour</a> before your X-Touch
+<h1 id="without-a-physical-control-surface">Without a physical control surface<a class="headerlink" href="#without-a-physical-control-surface" title="Permanent link">&para;</a></h1>
+<p>A virtual X-Touch Extender stands in for the real one: use it to follow the <a href="../tour/">Setup tour</a> before your control surface
 arrives, or to try a configuration. The daemon treats it like the real one.
 <a href="../../reference/hardware/#the-virtual-device">Hardware</a> lists what is assumed. Use it in the GUI (the easy way) or in
 terminals.</p>
 <h2 id="in-the-gui">In the GUI<a class="headerlink" href="#in-the-gui" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span>gui
 </span></code></pre></div>
-<p>While no daemon runs, click "Try without a device" above the drawing of the X-Touch. The GUI starts a daemon with a
-virtual X-Touch, which the GUI calls the <strong>virtual device</strong>, and shows it in the drawing. This daemon ends when you
+<p>While no daemon runs, click "Try without a device" above the drawing of the control surface. The GUI starts a daemon with a
+virtual control surface, which the GUI calls the <strong>virtual device</strong>, and shows it in the drawing. This daemon ends when you
 close the window.</p>
-<p>The mouse works on the drawing like a hand on the X-Touch (the mode <strong>Play</strong>). See
+<p>The mouse works on the drawing like a hand on the control surface (the mode <strong>Play</strong>). See
 <a href="../../guides/gui/#select-and-play">GUI</a>.</p>
 <h2 id="in-terminals">In terminals<a class="headerlink" href="#in-terminals" title="Permanent link">&para;</a></h2>
-<p>First start the virtual X-Touch in a terminal. It has no window and runs until you press Ctrl+C:</p>
+<p>First start the virtual control surface in a terminal. It has no window and runs until you press Ctrl+C:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a>xtouch-daemon<span class="w"> </span>virtual-device
 </span></code></pre></div>
-<p>Then, in another terminal, use it in place of the real X-Touch. Only one program can use it at a time, so pick one of
+<p>Then, in another terminal, use it in place of the physical control surface. Only one program can use it at a time, so pick one of
 these two. The <a href="../first-steps/#test-the-device">self-test</a> checks every control; <code>run</code> starts the daemon:</p>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a>xtouch-daemon<span class="w"> </span><span class="nb">test</span><span class="w"> </span>--virtual-device<span class="w">         </span><span class="c1"># the self-test</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>xtouch-daemon<span class="w"> </span>run<span class="w"> </span>--virtual-device<span class="w">          </span><span class="c1"># the daemon, using the virtual X-Touch instead of the real one</span>
 </span></code></pre></div>
-<p><code>xtouch-daemon gui</code> can run beside them: it talks to the daemon, not to the virtual X-Touch. To always use the virtual
-X-Touch, set <code>virtual = true</code> in <code>[device]</code> instead of passing <code>--virtual-device</code>.</p>
-<p>A daemon that runs but finds no real X-Touch can switch to the virtual one without a restart. Click "Use the virtual
+<p><code>xtouch-daemon gui</code> can run beside them: it talks to the daemon, not to the virtual control surface. To always use the virtual
+control surface, set <code>virtual = true</code> in <code>[device]</code> instead of passing <code>--virtual-device</code>.</p>
+<p>A daemon that runs but finds no physical control surface can switch to the virtual one without a restart. Click "Use the virtual
 device" above the drawing. It sets <code>virtual = true</code> in <code>[device]</code> of your configuration file and opens the virtual
 device in the window. To go back, set <code>virtual</code> to <code>false</code> and
 save. The <a href="../../guides/gui/#the-virtual-device">GUI</a> guide describes the bars above the drawing.</p>

@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -733,7 +733,7 @@
   <a href="#the-x-touch" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The X-Touch
+        The control surface
       </span>
     </span>
   </a>
@@ -1290,7 +1290,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -2812,7 +2812,7 @@
   <a href="#the-x-touch" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        The X-Touch
+        The control surface
       </span>
     </span>
   </a>
@@ -2971,8 +2971,8 @@
 </span></code></pre></div>
 <p>The GUI shows the same log in View → <a href="../gui/#log">Log</a>. It reads the log of the running daemon, so it also works for a
 daemon that you started in a terminal.</p>
-<p>A healthy start logs that the X-Touch connected (and, with a <a href="../home-assistant/">broker</a>, the MQTT connection). For
-more detail, run the daemon in the foreground with debug messages (only one daemon can hold the X-Touch):</p>
+<p>A healthy start logs that the control surface connected (and, with a <a href="../home-assistant/">broker</a>, the MQTT connection). For
+more detail, run the daemon in the foreground with debug messages (only one daemon can hold the control surface):</p>
 <ol>
 <li><code>systemctl --user stop xtouch-daemon</code></li>
 <li><code>xtouch-daemon run -l debug</code> (stop it with Ctrl+C)</li>
@@ -2989,22 +2989,22 @@ or its directory, so they could put a command into it. Remove that right, e.g. <
 keeps the configuration it runs.</p>
 <p><strong><code>other users can read ...</code>.</strong> A warning: other users can read a file that holds a secret, e.g. <code>[mqtt] password_file</code>
 or <code>[homeassistant] token_file</code>. The daemon still uses it. Close it with <code>chmod go-rw</code> and the path from the message.</p>
-<h2 id="the-x-touch">The X-Touch<a class="headerlink" href="#the-x-touch" title="Permanent link">&para;</a></h2>
-<p><strong>The LCD shows <code>IP: 192.168.001.100 wait...</code>.</strong> The X-Touch is in a setup mode for the network and ignores USB. Switch
+<h2 id="the-x-touch">The control surface<a class="headerlink" href="#the-x-touch" title="Permanent link">&para;</a></h2>
+<p><strong>The LCD shows <code>IP: 192.168.001.100 wait...</code>.</strong> The X-Touch Extender is in a setup mode for the network and ignores USB. Switch
 it to MC mode on USB in its setup menu, see <a href="../../getting-started/first-steps/#set-up-the-device">Getting started</a>.</p>
 <p><strong><code>... is it switched on, in MC mode on USB?</code></strong> The daemon (and <code>xtouch-daemon test</code>) can't find the sound card of the
-X-Touch. The daemon keeps waiting and connects when the card appears. Check that the X-Touch is on and that
+control surface. The daemon keeps waiting and connects when the card appears. Check that the control surface is on and that
 <code>/proc/asound/cards</code> lists it. If the card has another name, set <code>[device] name</code> to a part of that name.</p>
-<p><strong><code>can't open X-Touch-Ext (... Device or resource busy)</code>.</strong> Another program has the X-Touch, e.g. a DAW or a MIDI tool.
+<p><strong><code>can't open X-Touch-Ext (... Device or resource busy)</code>.</strong> Another program has the control surface, e.g. a DAW or a MIDI tool.
 Close it. While the daemon runs, <code>xtouch-daemon test</code> asks the daemon to run the test.</p>
 <p><strong><code>... Permission denied</code>.</strong> Your user can't open the MIDI port in <code>/dev/snd</code>. Without a desktop session (SSH, headless),
 add the user to the <code>audio</code> group (<code>sudo usermod -aG audio $USER</code>) and log in again. See
 <a href="../../reference/hardware/#linux-access">Hardware</a>.</p>
-<p><strong>A fader does not change the volume.</strong> The daemon counts a move only while the X-Touch reports a touch, and the motor
+<p><strong>A fader does not change the volume.</strong> The daemon counts a move only while the control surface reports a touch, and the motor
 pushes the fader back otherwise. <code>xtouch-daemon test</code> (or "Test the device" in the GUI) shows <code>touch</code> on the LCD while
 you touch the fader; if it does not, the sensor is broken. Until you repair it,
 <a href="../../configuration/behavior/#faders-without-a-touch-sensor"><code>touchless_faders</code></a> makes the fader work without it.</p>
-<p><strong>A fader jumps on its first move after the daemon started.</strong> The X-Touch can't report where its faders are, so the
+<p><strong>A fader jumps on its first move after the daemon started.</strong> The X-Touch Extender can't report where its faders are, so the
 daemon assumes the bottom. If you moved a fader while the daemon did not run, the first move starts from the old
 position. Nothing is broken. See <a href="../../reference/hardware/#motor-faders">Hardware</a>.</p>
 <h2 id="audio">Audio<a class="headerlink" href="#audio" title="Permanent link">&para;</a></h2>
@@ -3031,11 +3031,11 @@ match more than you meant. <code>check-config</code> shows what the <a href="../
 <p><strong>A slot shows something else than I expected.</strong> With the daemon running, <code>xtouch-daemon why 3</code> says why slot 3 shows
 what it shows, and <code>xtouch-daemon why browser</code> where the channel <code>browser</code> is, see <a href="../../reference/commands/#why"><code>why</code></a>.
 The inspector of the slot in the GUI shows the same.</p>
-<p><strong>A change does not show on the X-Touch.</strong> If the file has errors, the daemon logs them and keeps the old configuration:
+<p><strong>A change does not show on the control surface.</strong> If the file has errors, the daemon logs them and keeps the old configuration:
 run <code>xtouch-daemon check-config</code>. A changed <code>[mqtt]</code> section needs <code>systemctl --user restart xtouch-daemon</code>. The
-<a href="../gui/#save-and-apply">GUI</a> tells whether the X-Touch runs the saved file.</p>
+<a href="../gui/#save-and-apply">GUI</a> tells whether the control surface runs the saved file.</p>
 <h2 id="home-assistant">Home Assistant<a class="headerlink" href="#home-assistant" title="Permanent link">&para;</a></h2>
-<p><strong>The entities are unavailable.</strong> They are available only while the daemon runs and the X-Touch is connected. Check the
+<p><strong>The entities are unavailable.</strong> They are available only while the daemon runs and the control surface is connected. Check the
 broker settings in <code>[mqtt]</code> and the log; the popover of the service pill in the GUI shows how the connection is doing,
 and Settings, Home Assistant has "Test connection".</p>
 <p><strong>The second line of a strip shows <code>offline</code>.</strong> The strip takes its text from Home Assistant, and the daemon can't

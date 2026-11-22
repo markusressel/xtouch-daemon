@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -708,6 +708,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Choices
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#states-modes-and-slots" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        States, modes and slots
       </span>
     </span>
   </a>
@@ -1301,7 +1312,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -2886,6 +2897,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#states-modes-and-slots" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        States, modes and slots
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#automations" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -2988,7 +3010,7 @@
 
 <h1 id="home-assistant">Home Assistant<a class="headerlink" href="#home-assistant" title="Permanent link">&para;</a></h1>
 <p><a href="https://www.home-assistant.io/">Home Assistant</a> is a home automation program. An <em>entity</em> is one thing in it, such
-as the light <code>light.desk</code>. There are three ways to connect the X-Touch to it:</p>
+as the light <code>light.desk</code>. There are three ways to connect the control surface to it:</p>
 <table>
 <thead>
 <tr>
@@ -3005,7 +3027,7 @@ as the light <code>light.desk</code>. There are three ways to connect the X-Touc
 </tr>
 <tr>
 <td>A strip whose parts are tied straight to an entity that Home Assistant has, with no automation</td>
-<td>A <a href="../../configuration/strip/bindings/#an-entity-of-home-assistant">binding</a> such as <code>fader = { entity = "light.desk" }</code>, in a <code>custom</code> channel (a strip you build part by part).</td>
+<td>A <a href="../../configuration/strip/bindings/#an-entity-of-home-assistant">binding</a> such as <code>fader = { entity = "light.desk" }</code>, on any channel, e.g. a <code>custom</code> channel (a strip you build part by part).</td>
 <td>The <a href="#homeassistant"><code>[homeassistant]</code></a> section, with a token</td>
 </tr>
 <tr>
@@ -3029,7 +3051,7 @@ reports what happens on its controls (as an <em>event</em>, a message such as "t
 <h2 id="mqtt"><code>[mqtt]</code><a class="headerlink" href="#mqtt" title="Permanent link">&para;</a></h2>
 <p>The MQTT broker of Home Assistant, e.g. the Mosquitto add-on. You need the section for <code>homeassistant</code> channels,
 <code>"homeassistant"</code> as the value of a part or control, and <code>homeassistant = true</code> on a state. Without those it is
-optional; with it, the daemon also shows the X-Touch, its modes, states and slots in Home Assistant.</p>
+optional; with it, the daemon also shows the control surface, its modes, states and slots in Home Assistant.</p>
 <table>
 <thead>
 <tr>
@@ -3082,7 +3104,7 @@ optional; with it, the daemon also shows the X-Touch, its modes, states and slot
 <tr>
 <td><code>device_name</code></td>
 <td><code>"X-Touch Extender"</code></td>
-<td>The name of the X-Touch in Home Assistant, where it is one Home Assistant device with all the entities.</td>
+<td>The name of the control surface in Home Assistant, where it is one Home Assistant device with all the entities.</td>
 </tr>
 </tbody>
 </table>
@@ -3095,7 +3117,7 @@ variable that is not set, stops the daemon at the start.</p>
 </span></code></pre></div>
 <p>A changed <code>[mqtt]</code> section needs a restart of the daemon (<code>systemctl --user restart xtouch-daemon</code>): a reload keeps
 the whole configuration it runs, also the changes in other sections, until then.</p>
-<p>Home Assistant greys the entities out while the daemon is not running or the X-Touch is not connected, also after a
+<p>Home Assistant greys the entities out while the daemon is not running or the control surface is not connected, also after a
 crash (the broker tells Home Assistant, by an MQTT "last will"). The daemon connects to the broker again by itself.</p>
 <p>The <a href="../gui/#live-view">GUI</a> shows whether the daemon is connected, and why not (e.g. a wrong password); its "Test
 connection" button tries settings before they are saved. To check it by hand, open Settings → Devices &amp; services →
@@ -3231,7 +3253,7 @@ it has no suggestions.</p>
 <p>The entities belong to the channel, not to a slot: they stay in Home Assistant whichever slot shows the channel, and
 while none does. All entities of a strip are listed in <a href="#entities">Entities</a>.</p>
 <h2 id="audio-strips-with-home-assistant-controls">Audio strips with Home Assistant controls<a class="headerlink" href="#audio-strips-with-home-assistant-controls" title="Permanent link">&para;</a></h2>
-<p>An audio channel (of the type <code>output</code>, <code>input</code>, <code>apps</code> or <code>auto</code>) can hand parts to Home Assistant by setting them
+<p>An audio channel (of the type <code>output</code>, <code>input</code> or <code>apps</code>) can hand parts to Home Assistant by setting them
 to <code>"homeassistant"</code> (see <a href="../../configuration/strip/bindings/#home-assistant">Bindings</a>). Hand over only the fader,
 and the encoder sets the volume; hand over only the encoder, and the fader keeps it. The Select, Rec and Solo buttons
 keep their audio function unless you hand them over too (<code>select = { press = "homeassistant" }</code> or
@@ -3306,14 +3328,15 @@ control of a slot its <code>id</code> or <code>slot_&lt;n&gt;</code>. The id of 
 <p>A button does not switch its own <a href="../../configuration/strip/leds/">LED</a> on a Home Assistant strip: an automation reacts to the event and sets the LED to
 show the result. The broker keeps the last value that Home Assistant set (an MQTT <em>retained message</em>), so after a
 restart of the daemon the strips show it again. While the broker can't be reached, a strip shows its label,
-<code>offline</code> and its color, and the X-Touch does nothing on it.</p>
+<code>offline</code> and its color, and the control surface does nothing on it.</p>
 <p>Entities of a channel that was removed from the configuration are removed from Home Assistant on the next reload.</p>
 <h2 id="choices">Choices<a class="headerlink" href="#choices" title="Permanent link">&para;</a></h2>
 <p>With <code>[mqtt]</code>, an <code>output</code> or <code>input</code> channel with <a href="../../configuration/channels/devices/#choices"><code>choices</code></a> has
 <code>select.&lt;ns&gt;_&lt;id&gt;_output</code> (<code>select.&lt;ns&gt;_&lt;id&gt;_input</code>): the choice the strip shows, one option per choice, named by its
 <code>label</code> (or its <code>device</code>; a second choice of the same name gets a number, e.g. <code>Out 2</code>). Choosing one switches to it
-like Select on the X-Touch; one that isn't there is refused and the select goes back. The select follows the strip,
+like Select on the control surface; one that isn't there is refused and the select goes back. The select follows the strip,
 also when the default changes elsewhere.</p>
+<h2 id="states-modes-and-slots">States, modes and slots<a class="headerlink" href="#states-modes-and-slots" title="Permanent link">&para;</a></h2>
 <p>With <code>[mqtt]</code>, Home Assistant sees and sets the <a href="../../configuration/slots/#states-and-modes">states and modes</a>:</p>
 <table>
 <thead>
@@ -3358,7 +3381,7 @@ also when the default changes elsewhere.</p>
 </span></code></pre></div>
 <h2 id="automations">Automations<a class="headerlink" href="#automations" title="Permanent link">&para;</a></h2>
 <p>These automations are for the channel <code>living_room</code> of the <a href="#homeassistant-channels">example above</a>. They go into
-<code>automations.yaml</code> (or the automation editor in YAML mode) and use the <code>triggers:</code> and <code>actions:</code> syntax of Home
+<code>configuration.yaml</code> (in <code>automations.yaml</code> or the automation editor, leave out the line <code>automation:</code>) and use the <code>triggers:</code> and <code>actions:</code> syntax of Home
 Assistant 2024.10 or later. The fader dims a light and shows its brightness on the LCD, and Mute toggles it:</p>
 <div class="language-yaml highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="nt">automation</span><span class="p">:</span>
 </span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="w">  </span><span class="p p-Indicator">-</span><span class="w"> </span><span class="nt">alias</span><span class="p">:</span><span class="w"> </span><span class="s">"X-Touch:</span><span class="nv"> </span><span class="s">fader</span><span class="nv"> </span><span class="s">dims</span><span class="nv"> </span><span class="s">the</span><span class="nv"> </span><span class="s">living</span><span class="nv"> </span><span class="s">room"</span>

@@ -533,7 +533,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -1264,7 +1264,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -2863,15 +2863,15 @@
 <p>xtouch-daemon turns a Behringer X-Touch Extender into a hardware mixer for PipeWire on Linux. Its motor faders, LED
 meters and scribble strips control your headphones, your applications and the people of your voice chat. A strip can
 also belong to Home Assistant, for lights, speakers in other rooms or scenes.</p>
-<p><img alt="The GUI: the X-Touch as it is, the slots and the inspector of the slot picked" src="images/gui.png" /></p>
+<p><img alt="The GUI: the control surface as it is, the slots and the inspector of the slot picked" src="images/gui.png" /></p>
 <h2 id="how-it-works">How it works<a class="headerlink" href="#how-it-works" title="Permanent link">&para;</a></h2>
-<p>The X-Touch has 8 strips, and the configuration has a <strong>slot</strong> for each. A slot is a list of the things its strip
+<p>The X-Touch Extender has 8 strips, and the configuration has a <strong>slot</strong> for each. A slot is a list of the things its strip
 can control. The strip shows the first entry whose condition is true. A condition uses <strong>states</strong>, such as "gaming"
 or "in a call", which you define from what the daemon sees: a program that runs, headphones that connect, you in the
 voice chat.</p>
-<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.buds]</span><span class="w">                  </span><span class="c1"># a channel: one thing a strip controls</span>
+<div class="language-toml highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="k">[channel.buds]</span><span class="w">                  </span><span class="c1"># a channel: what one strip controls</span>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
-</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"bluez_output.*"</span><span class="w">       </span><span class="c1"># any Bluetooth headphones</span>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"bluez_output.*"</span><span class="w">       </span><span class="c1"># your Bluetooth headphones; with two pairs, Select switches</span>
 </span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>
 </span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a><span class="k">[channel.game]</span>
 </span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span><span class="w">                   </span><span class="c1"># every sound stream of some applications</span>
@@ -2900,9 +2900,9 @@ applications that play and the people of your voice chat. <a href="concepts/">Co
 </ul>
 <h2 id="tools">Tools<a class="headerlink" href="#tools" title="Permanent link">&para;</a></h2>
 <ul>
-<li>A <a href="guides/gui/">GUI</a> shows the X-Touch live, with every option, a Simulate of other situations and a preview
+<li>A <a href="guides/gui/">GUI</a> shows the control surface live, with every option, a Simulate of other situations and a preview
   before you save.</li>
-<li>A <a href="reference/commands/">command line</a> tests the X-Touch, checks the configuration and explains what a slot shows.</li>
+<li>A <a href="reference/commands/">command line</a> tests the control surface, checks the configuration and explains what a slot shows.</li>
 <li>A systemd user service keeps the daemon running and applies a changed configuration without a restart.</li>
 </ul>
 <h2 id="requirements">Requirements<a class="headerlink" href="#requirements" title="Permanent link">&para;</a></h2>
@@ -2910,7 +2910,7 @@ applications that play and the people of your voice chat. <a href="concepts/">Co
 <li>Linux with PipeWire and <code>pipewire-pulse</code>. Plain PulseAudio is not enough: the meters need <code>pw-record</code>.</li>
 <li>Python 3.14 (the Arch Linux package brings its own, <code>uv</code> installs it for a <a href="getting-started/install/">source install</a>).</li>
 <li>An X-Touch Extender in <strong>MC</strong> mode on <strong>USB</strong>: <a href="getting-started/first-steps/#set-up-the-device">First steps</a>. No
-  X-Touch yet? A <a href="getting-started/without-a-device/">virtual one</a> stands in.</li>
+  control surface yet? A <a href="getting-started/without-a-device/">virtual one</a> stands in.</li>
 <li>For Home Assistant: an MQTT broker that Home Assistant also uses.</li>
 </ul>
 <p>There is no Windows or macOS version.</p>
@@ -2924,7 +2924,7 @@ applications that play and the people of your voice chat. <a href="concepts/">Co
 </thead>
 <tbody>
 <tr>
-<td>Install, set up the X-Touch, run the service</td>
+<td>Install, set up the control surface, run the service</td>
 <td><a href="getting-started/install/">Getting started</a></td>
 </tr>
 <tr>

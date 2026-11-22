@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -1166,7 +1166,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -2813,11 +2813,12 @@
 
 <h1 id="configuration">Configuration<a class="headerlink" href="#configuration" title="Permanent link">&para;</a></h1>
 <p>xtouch-daemon reads a TOML file, by default <code>~/.config/xtouch-daemon/config.toml</code> (<code>$XDG_CONFIG_HOME</code> is respected).
-Every command takes <code>-c FILE</code> after its name (e.g. <code>xtouch-daemon check-config -c my.toml</code>) to use another file.</p>
+The commands that read it (<code>run</code>, <code>check-config</code>, <code>list-apps</code>, <code>test</code> and <code>gui</code>) take <code>-c FILE</code> after their name
+(e.g. <code>xtouch-daemon check-config -c my.toml</code>) to use another file.</p>
 <p>Start with the
 <a href="https://github.com/markusressel/xtouch-daemon/blob/main/src/xtouch_daemon/config.example.toml">example configuration</a>
 that ships with the daemon. It puts the default input on slot 7, the default output on slot 8 and <code>auto</code> (the next
-application that plays) on the other six. A slot without an entry is always <code>auto</code>. The
+application that plays, or a person of the voice chat) on the other six. A slot without an entry is always <code>auto</code>. The
 <a href="#complete-example">complete example</a> at the end of this page is longer.</p>
 <p>Without a file at the default path, the daemon runs with the example file, and the <a href="../guides/gui/">GUI</a> starts
 with an empty file and writes it at the first save.</p>
@@ -2825,7 +2826,7 @@ with an empty file and writes it at the first save.</p>
 </span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>xtouch-daemon<span class="w"> </span>check-config<span class="w">     </span><span class="c1"># validates the file and shows what each slot shows when</span>
 </span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>xtouch-daemon<span class="w"> </span>list-devices<span class="w">     </span><span class="c1"># the names of your outputs and inputs, for `device` of a channel</span>
 </span></code></pre></div>
-<p><code>check-config</code> needs no X-Touch; its output is described in <a href="../reference/commands/#check-config">Commands</a>. To run
+<p><code>check-config</code> needs no control surface; its output is described in <a href="../reference/commands/#check-config">Commands</a>. To run
 the daemon as a service and read its log, see <a href="../getting-started/first-steps/">First steps</a>.</p>
 <p>A configuration can start programs (the <code>launch</code> of a channel, <code>run</code> in
 <a href="slots/#controls-and-the-chord"><code>[controls]</code></a>), and the daemon runs them as you. So it refuses a file in which
@@ -2906,18 +2907,18 @@ own; <code>check-config</code> checks the rest, e.g. that a slot names a channel
 </tr>
 <tr>
 <td><code>[device]</code></td>
-<td>Which sound card is the X-Touch, and its startup and shutdown.</td>
-<td><a href="behavior/#device">Behavior</a></td>
+<td>Which sound card is the control surface, and its startup and shutdown.</td>
+<td><a href="behavior/#device">General settings</a></td>
 </tr>
 <tr>
 <td><code>[behavior]</code></td>
 <td>Volume limit, encoder step, reset volume, meters.</td>
-<td><a href="behavior/#behavior">Behavior</a></td>
+<td><a href="behavior/#behavior">General settings</a></td>
 </tr>
 <tr>
 <td><code>[aliases]</code></td>
-<td>Names to show for applications on <code>auto</code> slots.</td>
-<td><a href="behavior/#aliases">Behavior</a></td>
+<td>Names to show for applications on <code>apps</code> and <code>auto</code> slots.</td>
+<td><a href="behavior/#aliases">General settings</a></td>
 </tr>
 <tr>
 <td><code>[switching]</code></td>
@@ -2961,6 +2962,11 @@ own; <code>check-config</code> checks the rest, e.g. that a slot names a channel
 <td>Nothing by itself: its parts are entities in Home Assistant.</td>
 <td><a href="../guides/home-assistant/">Home Assistant</a></td>
 </tr>
+<tr>
+<td><code>custom</code></td>
+<td>Something other than audio, e.g. screen brightness, with your own commands.</td>
+<td><a href="channels/custom/">Custom channels</a></td>
+</tr>
 </tbody>
 </table>
 <p>In a slot, <code>apps</code> is not the channel type <code>apps</code>: it is a built-in pool, as are <code>people</code>, <code>auto</code> and <code>devices</code> (see
@@ -2976,7 +2982,7 @@ the file):</p>
 </span></code></pre></div>
 <p>One section needs a restart (<code>systemctl --user restart xtouch-daemon</code>): a changed <code>[mqtt]</code>. It blocks the whole
 reload: until the restart, the daemon ignores every change in the file, not only the ones in <code>[mqtt]</code>. The log says
-so. A changed <code>[device] name</code> or <code>virtual</code> needs no restart: the daemon connects to the other X-Touch.</p>
+so. A changed <code>[device] name</code> or <code>virtual</code> needs no restart: the daemon connects to the other control surface.</p>
 <p>The GUI applies a file when you save it: it reloads the running daemon, or offers a restart when one is needed, and
 tells you whether the daemon took the file.</p>
 <h2 id="complete-example">Complete example<a class="headerlink" href="#complete-example" title="Permanent link">&para;</a></h2>

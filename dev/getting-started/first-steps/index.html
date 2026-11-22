@@ -436,7 +436,7 @@
   <a href="#set-up-the-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Set up the X-Touch
+        Set up the control surface
       </span>
     </span>
   </a>
@@ -447,7 +447,7 @@
   <a href="#test-the-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Test the X-Touch
+        Test the control surface
       </span>
     </span>
   </a>
@@ -526,7 +526,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -1257,7 +1257,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -2768,7 +2768,7 @@
   <a href="#set-up-the-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Set up the X-Touch
+        Set up the control surface
       </span>
     </span>
   </a>
@@ -2779,7 +2779,7 @@
   <a href="#test-the-device" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Test the X-Touch
+        Test the control surface
       </span>
     </span>
   </a>
@@ -2897,10 +2897,10 @@
 
 
 <h1 id="first-steps">First steps<a class="headerlink" href="#first-steps" title="Permanent link">&para;</a></h1>
-<p>Set up the X-Touch Extender, test it, write a configuration and run the daemon as a service. No X-Touch at hand? See
-<a href="../without-a-device/">Without an X-Touch</a>.</p>
-<h2 id="set-up-the-device">Set up the X-Touch<a class="headerlink" href="#set-up-the-device" title="Permanent link">&para;</a></h2>
-<p>The X-Touch has to be in <strong>MC</strong> (Mackie Control) mode on <strong>USB</strong>. Out of the box it may be set to the network
+<p>Set up the X-Touch Extender, test it, write a configuration and run the daemon as a service. No X-Touch Extender at hand? See
+<a href="../without-a-device/">Without a physical control surface</a>.</p>
+<h2 id="set-up-the-device">Set up the control surface<a class="headerlink" href="#set-up-the-device" title="Permanent link">&para;</a></h2>
+<p>The X-Touch Extender has to be in <strong>MC</strong> (Mackie Control) mode on <strong>USB</strong>. Out of the box it may be set to the network
 interface: then it shows <code>IP: 192.168.001.100 wait...</code> and ignores USB.</p>
 <ol>
 <li>Switch it off.</li>
@@ -2910,18 +2910,18 @@ interface: then it shows <code>IP: 192.168.001.100 wait...</code> and ignores US
 </ol>
 <p>Connect it over USB. It needs no driver. Your user needs access to it: a desktop session grants that to the logged-in
 user. See <a href="../../reference/hardware/#linux-access">Hardware</a> for other cases.</p>
-<h2 id="test-the-device">Test the X-Touch<a class="headerlink" href="#test-the-device" title="Permanent link">&para;</a></h2>
+<h2 id="test-the-device">Test the control surface<a class="headerlink" href="#test-the-device" title="Permanent link">&para;</a></h2>
 <div class="language-shell highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>xtouch-daemon<span class="w"> </span><span class="nb">test</span>
 </span></code></pre></div>
 <p>Every strip lights its LCD, LEDs, ring and meter, and moves its fader. Afterwards every strip answers its own
 controls (<a href="../../reference/commands/#test"><code>test</code></a> has the details). Ctrl+C stops it.</p>
 <p>A running service does not need to stop: <code>xtouch-daemon test</code> asks the daemon to run the test. Close DAWs that use
-the X-Touch.</p>
+the control surface.</p>
 <h2 id="write-a-configuration">Write a configuration<a class="headerlink" href="#write-a-configuration" title="Permanent link">&para;</a></h2>
 <p>A configuration defines <strong>channels</strong> (what a strip can control), <strong>states</strong> (in a call, gaming) and, for each of the 8
 slots, what its strip shows when. <a href="../../concepts/">Concepts</a> explains these words. Without a file the daemon uses the
 <a href="../../configuration/">example configuration</a>.</p>
-<p>The easiest way to make it yours is the <a href="../../guides/gui/">GUI</a>: it shows the X-Touch live and every option with its
+<p>The easiest way to make it yours is the <a href="../../guides/gui/">GUI</a>: it shows the control surface live and every option with its
 help, and "Save and apply" writes the file and loads it into the running daemon. <a href="../install/#the-gui">How to start it</a>.
 The <a href="../tour/">Setup tour</a> builds a whole configuration that way, step by step.</p>
 <p>To work by hand, let <code>init-config</code> write the example file, then edit it:</p>
@@ -2934,7 +2934,7 @@ The <a href="../tour/">Setup tour</a> builds a whole configuration that way, ste
 <p>For example, Bluetooth headphones on slot 1 while they are connected, and VoIP on slot 2 during a call:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="k">[channel.buds]</span>
 </span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"output"</span>
-</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"bluez_output.*"</span><span class="w">   </span><span class="c1"># any Bluetooth headphones (the name holds an address; list-devices shows it)</span>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="n">device</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"bluez_output.*"</span><span class="w">   </span><span class="c1"># your Bluetooth headphones (the name holds an address; list-devices shows it)</span>
 </span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">label</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"Buds"</span>
 </span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a><span class="n">color</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"green"</span>
 </span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>
@@ -2987,11 +2987,11 @@ that one instead:</p>
 <td><code>systemctl --user restart xtouch-daemon</code></td>
 </tr>
 <tr>
-<td>Stop (the X-Touch then goes dark, and another program can use it)</td>
+<td>Stop (the control surface then goes dark, and another program can use it)</td>
 <td><code>systemctl --user stop xtouch-daemon</code></td>
 </tr>
 <tr>
-<td>See whether the X-Touch, the sound server and, with Home Assistant, the MQTT broker are connected</td>
+<td>See whether the control surface, the sound server and, with Home Assistant, the MQTT broker are connected</td>
 <td><code>systemctl --user status xtouch-daemon</code></td>
 </tr>
 <tr>

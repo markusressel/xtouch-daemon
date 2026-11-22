@@ -433,7 +433,7 @@
   <span class="md-ellipsis">
     
   
-  Without an X-Touch
+  Without a physical control surface
 
     
   </span>
@@ -1265,7 +1265,7 @@
   <span class="md-ellipsis">
     
   
-  Behavior, X-Touch and aliases
+  General settings
 
     
   </span>
@@ -3056,9 +3056,9 @@ with names of your own: <code>match = ["@voip", "my-voice-app"]</code>.</p>
 The channel remembers its volume while the daemon runs: when a stream comes back, the fader goes up to it and the
 stream plays at that volume.</p>
 <h2 id="apps-and-auto"><code>apps</code> and <code>auto</code><a class="headerlink" href="#apps-and-auto" title="Permanent link">&para;</a></h2>
-<p>A <a href="../../slots/#pools-of-applications-and-of-people">pool</a> hands out applications that you don't list one by one:
+<p>A <a href="../../slots/#slots">pool</a> hands out applications that you don't list one by one:
 <code>apps</code> hands out the applications that play, one per slot. <code>auto</code> hands out the same applications and the people of
-the voice chat share its slots (the people from the right, the applications from the left, see
+the voice chat: the people fill its slots from the right, the applications from the left (see
 <a href="../people/#where-people-sit">People</a>). A slot without an entry shows <code>auto</code>.</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="k">[pool.apps]</span>
 </span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a><span class="n">from</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"left"</span><span class="w">                 </span><span class="c1"># the side the applications fill their slots from (also in auto)</span>
@@ -3110,6 +3110,7 @@ shows. Here Select on strip 7 starts Mumble while the <a href="../../slots/#stat
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="k">[controls]</span>
 </span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">7</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">select</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">{</span><span class="w"> </span><span class="n">launch</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"mumble"</span><span class="p">]</span><span class="w"> </span><span class="p">},</span><span class="w"> </span><span class="n">when</span><span class="w"> </span><span class="p">=</span><span class="w"> </span><span class="s2">"not call"</span><span class="w"> </span><span class="p">}</span>
 </span></code></pre></div>
+<p>On a channel, Select of its strip starts Mumble and connects it to a server:</p>
 <div class="language-toml highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="k">[channel.voip]</span>
 </span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">type</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"apps"</span>
 </span><span id="__span-4-3"><a id="__codelineno-4-3" name="__codelineno-4-3" href="#__codelineno-4-3"></a><span class="n">match</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="p">[</span><span class="s2">"@voip"</span><span class="p">]</span>
