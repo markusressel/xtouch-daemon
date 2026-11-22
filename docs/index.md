@@ -11,7 +11,7 @@ also belong to Home Assistant, for lights, speakers in other rooms or scenes.
 The X-Touch Extender has 8 strips, and the configuration has a **slot** for each. A slot is a list of the things its
 strip can control. The strip shows the first entry whose condition is true. A **state**, such as "gaming" or "in a
 call", can be that condition. You define it from what the daemon sees (a program that runs, headphones that connect,
-you in the voice chat), and it is on or off: `"game if gaming"` shows the game while `gaming` is on.
+you in the voice chat, a script of your own), and it is on or off: `"game if gaming"` shows the game while `gaming` is on.
 
 ```toml
 [channel.buds]                  # a channel: what one strip controls
