@@ -6,6 +6,7 @@ composed states. Pure: the caller passes the time.
 from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
+from pathlib import Path
 
 from xtouch_daemon.config.presets import Kind, expand
 from xtouch_daemon.slots.inputs import Observation, app_matches, device_matches
@@ -56,6 +57,8 @@ def source(
             return f"{channel} is present"
     if state.homeassistant and name in observation.homeassistant:
         return "Home Assistant"
+    if state.command is not None and name in observation.commands:
+        return f"{Path(state.command.feed.argv[0]).name} says on"
     return None
 
 

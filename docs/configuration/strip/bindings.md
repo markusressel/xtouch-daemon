@@ -103,7 +103,7 @@ takes it for Home Assistant. The other bindings:
 
 | Binding | For | Option | Default | Meaning |
 |---|---|---|---|---|
-| A watch or a poll | `lcd`, `color`, a button's `led`, `present` of a custom channel | `watch`, `poll`, `every` | `every`: `10` | As [above](#watch-or-poll). The part shows the newest line. |
+| A watch or a poll | `lcd`, `color`, a button's `led`, `present` of a custom channel, `command` of a [state](../slots.md#states-and-modes) | `watch`, `poll`, `every` | `every`: `10` | As [above](#watch-or-poll). The part shows the newest line. |
 | A level | `meter` | `watch`, `poll`, `every`, `min`, `max` | `0`, `100` | Each line is a number; `min` is the meter dark, `max` full. |
 | A program to run | a button's `press`, `hold` | `run` | | The program and its arguments; `{value}` is the value (above). |
 
@@ -119,7 +119,8 @@ them, and `step` above 0. `format` must show a number, e.g. `{value:.0%}`.
   ends or can't start runs again after 5 seconds. A `poll` runs when the configuration is loaded, then every `every`
   seconds, one run at a time; a run that takes longer than `every` is stopped, and the next starts at once.
 - A run of `poll` that fails (an exit status other than 0), can't start or is stopped gives no line: the part keeps
-  the line before, and the log has a warning. A run that ends well but prints no text gives an empty line.
+  the line before, and the log has a warning. The `command` of a state is the exception: such a run turns the state
+  off. A run that ends well but prints no text gives an empty line.
 - While a value is set, or its fader is under a finger, the lines of `watch` and `poll` don't move it.
 
 ## Example: the brightness of a screen

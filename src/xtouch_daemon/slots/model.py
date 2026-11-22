@@ -47,6 +47,7 @@ from xtouch_daemon.config.bindings import (
 )
 from xtouch_daemon.config.names import Presets
 from xtouch_daemon.config.presets import Kind, expand
+from xtouch_daemon.config.values import Command
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.slots.expressions import RESERVED, Condition, ExpressionError, parse
 
@@ -607,6 +608,21 @@ class ControlsConfig(_Section):
         return HOME_ASSISTANT in parts + buttons
 
 
+class StateCommand(WatchBinding):
+    """A program of your own that tells whether a state is on: by the newest line it printed."""
+
+    watch: Command | None = None
+    """
+    A program that runs all the time and prints a line per change. The state is on while the newest line is `on`,
+    `1`, `true` or `yes`. E.g. `["my-vpn-status", "--follow"]`.
+    """
+    poll: Command | None = None
+    """
+    A program that runs to its end every `every` seconds. The state is on while the last line it printed is `on`,
+    `1`, `true` or `yes`. E.g. `"systemctl is-active --quiet sshd && echo on"`.
+    """
+
+
 class StateConfig(_Section):
     mode: bool = False
     """It is a mode: one mode is on at a time, the one with the highest `priority` whose sources are on."""
@@ -628,6 +644,8 @@ class StateConfig(_Section):
     """On while one of these channels is present."""
     homeassistant: bool = False
     """On while its switch in Home Assistant is on. Needs `[mqtt]`."""
+    command: StateCommand | None = None
+    """On while a program of your own says `on`, `1`, `true` or `yes`: a `watch` or a `poll`."""
     when: str | None = None
     """On while this condition of other states holds, e.g. `call and not gaming`. Instead of sources."""
     delay_on: float = 0.0
@@ -653,6 +671,7 @@ class StateConfig(_Section):
             or self.devices
             or self.channels
             or self.homeassistant
+            or self.command is not None
         )
 
 

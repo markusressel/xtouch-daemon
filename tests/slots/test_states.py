@@ -27,6 +27,9 @@ devices = ["bluez_output.*"]
 [state.night]
 homeassistant = true
 
+[state.vpn]
+command = { poll = ["/usr/local/bin/vpn-up", "--quiet"], every = 5 }
+
 [state.manual]
 
 [state.quiet]
@@ -66,17 +69,20 @@ def test_each_source_with_the_reason():
             processes=frozenset({"reaper"}),
             devices=frozenset({"bluez_output.1"}),
             homeassistant=frozenset({"night"}),
+            commands=frozenset({"vpn"}),
         ),
         frozenset({"spotify"}),
         0,
     )
     on = {name for name, value in states.values.items() if value}
-    assert on == {"music", "call", "wireless", "night", "gaming"}
+    assert on == {"music", "call", "wireless", "night", "vpn", "gaming"}
     assert states.mode == "gaming"
     assert states.reasons["call"] == "Discord records"
     assert states.reasons["music"] == "spotify is present"
     assert states.reasons["wireless"] == "bluez_output.1 is there"
     assert states.reasons["night"] == "Home Assistant"
+    # the program by its name, without its folder and arguments
+    assert states.reasons["vpn"] == "vpn-up says on"
     assert states.reasons["gaming"] == "steam_app_42 plays"
     assert states.reasons["quiet"] == ""
     assert engine().update(Observation(voice_chat=True), frozenset(), 0).reasons["call"] == "in a voice chat"
