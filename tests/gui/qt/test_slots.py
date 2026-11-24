@@ -16,7 +16,8 @@ from tests.support.gui import snapshot as device_snapshot
 from xtouch_daemon.gui.domain.live_preview import Place
 from xtouch_daemon.gui.domain.simulate import WhatIf
 from xtouch_daemon.gui.qt.fields.basics import DOT_ICON
-from xtouch_daemon.gui.qt.pages.slot_cards import CandidateRow, StackList
+from xtouch_daemon.gui.qt.fields.controls import LcdBadge
+from xtouch_daemon.gui.qt.pages.slot_cards import CandidateRow, ShowChip, StackList
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.theme import style
 from xtouch_daemon.gui.qt.theme.tokens import THEMES, ThemeMode
@@ -374,6 +375,37 @@ def test_a_place_shows_what_it_takes_from_its_channel_or_pool(window: MainWindow
     # nothing: no look
     page.lists[2].setCurrentRow(2)
     assert page.place_header.isHidden()
+
+
+def test_the_chip_of_what_a_candidate_shows_has_the_colors_of_its_lcd(window: MainWindow):
+    page = panel(window)
+    window.document.set(("slots", "1"), [{"show": "out", "color": "red"}])
+    window.document.set(("slots", "3"), "-")
+    window.editor.edited()
+    row = page.lists[0].itemWidget(page.lists[0].item(0))  # pyright: ignore[reportArgumentType]
+    assert row is not None
+    (shows,) = row.findChildren(ShowChip)
+    assert shows.text() == "out"
+    assert shows.colors == ("red",)
+    assert "The LCD: red (color of this candidate)" in shows.toolTip()
+    # the swatches have room before the name
+    assert shows.contentsMargins().left() > 0
+    assert shows.grab().size() == shows.size()
+    # a dark strip has no chip: a tiny dark LCD
+    dark = page.lists[2].itemWidget(page.lists[2].item(0))  # pyright: ignore[reportArgumentType]
+    assert dark is not None
+    assert not dark.findChildren(ShowChip)
+    assert [badge.name for badge in dark.findChildren(LcdBadge)] == ["off"]
+
+
+def test_picking_a_slot_scrolls_the_cards_only_up_and_down(window: MainWindow):
+    page = panel(window)
+    bar = page.card_scroll.horizontalScrollBar()
+    assert bar is not None
+    bar.setRange(0, 100)
+    bar.setValue(50)
+    page.select_slot(4)
+    assert bar.value() == 0
 
 
 def test_problems_show_on_the_card_and_in_the_inspector(window: MainWindow):

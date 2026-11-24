@@ -116,6 +116,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   nothing could undo a pick. The card of the slot picked has an outline, and the drawing selects its strip, also when
   a candidate is picked on the page. The window opens with nothing picked: an overview of all slots (what each shows,
   its candidates and problems) takes the place of the inspector, which showed slot 1 before.
+- GUI: on the cards of the page Slots, the backlight color of the LCD is a small square inside the chip of what a
+  candidate shows, instead of a tiny LCD after the row; the rows get narrower. Picking a slot no longer scrolls the
+  cards sideways to their right end.
 - Documentation: the hardware is "the control surface" (the physical one where the virtual one is the other choice),
   and a fact of the model names "the X-Touch Extender". "The X-Touch" meant the Extender, but it is the bigger desk
   with 9 faders, which the daemon doesn't need; a test fails a page that says it alone. Claims that the code

@@ -1,6 +1,7 @@
 """
 The cards of the page Slots: the candidates of a slot on a rail (`StackList`), each as a rule (`candidate_rule`):
-its condition as chips, what it shows, and where it stands against the one the device shows.
+its condition as chips, what it shows (with the colors of its LCD, see `ShowChip`), and where it stands against the
+one the device shows.
 """
 
 from collections.abc import Mapping
@@ -13,6 +14,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QVBoxLayout,
@@ -225,6 +227,39 @@ class CandidateRow(QWidget):
             painter.drawText(band, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "else")
 
 
+SWATCH = 10
+"""The side of a swatch of an LCD color in the chip of what a slot shows."""
+
+
+class ShowChip(QLabel):
+    """
+    What a candidate shows as a filled chip in the color of the channels, with the backlights its LCD can have as
+    small swatches before the name: one for a channel, several for a pool that hands out channels of other colors.
+    """
+
+    def __init__(self, text: str, colors: tuple[str, ...]):
+        super().__init__(text)
+        set_role(self, "chip")
+        set_role(self, Entity.CHANNEL.value, "entity")
+        self.colors = colors
+        if colors:
+            # room for the swatches, before the padding of the chip
+            self.setContentsMargins(len(colors) * (SWATCH + Space.XS) - Space.XS // 2, 0, 0, 0)
+
+    def paintEvent(self, a0: QPaintEvent | None) -> None:
+        super().paintEvent(a0)
+        if not self.colors:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(QColor(current_colors().control_border), 1))
+        top = (self.height() - SWATCH) / 2
+        for index, color in enumerate(self.colors):
+            painter.setBrush(QColor(LCD_COLORS[color]))
+            left = Space.S + index * (SWATCH + Space.XS)
+            painter.drawRoundedRect(QRectF(left + 0.5, top + 0.5, SWATCH - 1, SWATCH - 1), 2, 2)
+
+
 def chip(text: str, show: str, values: Mapping[str, Any]) -> QWidget:
     """
     A part of a condition as an outlined chip: in words (`present` says what has to be present, see `readable`), in
@@ -286,18 +321,21 @@ def candidate_rule(
                 layout.addWidget(label("or", "hint"))
             layout.addWidget(chip(part, candidate.show, values))
     layout.addWidget(label("→", "hint"))
+    # a color the LCD has no backlight for has no swatch: the problems name it
+    colors = tuple((color, where) for color, where in lcd_colors(values, candidate) if color in LCD_COLORS)
+    lcd = "\n".join(f"The LCD: {color} ({where})" for color, where in colors)
     if candidate.show == EMPTY:
         layout.addWidget(label(candidate.show, "hint"))
-    elif member is not None:
-        name, waiting = member
-        shows = entity_label(f"{candidate.show} · {name}", Entity.CHANNEL, True)
-        shows.setToolTip(f"{candidate.show} hands out {name} here. " + (waiting or "Nobody else waits for a slot."))
-        layout.addWidget(shows)
-    else:
-        layout.addWidget(entity_label(candidate.show, Entity.CHANNEL, True))
-    for color, where in lcd_colors(values, candidate):
-        if color in LCD_COLORS:
+        for color, where in colors:
             layout.addWidget(LcdBadge(color, f"{color}: {where}"))
+    else:
+        text = candidate.show if member is None else f"{candidate.show} · {member[0]}"
+        shows = ShowChip(text, tuple(color for color, _ in colors))
+        tip = ""
+        if member is not None:
+            tip = f"{candidate.show} hands out {member[0]} here. " + (member[1] or "Nobody else waits for a slot.")
+        shows.setToolTip("\n\n".join(part for part in (tip, lcd) if part))
+        layout.addWidget(shows)
     # a color the LCD has no backlight for stays as text, for the problems to name
     rest = {
         name: value

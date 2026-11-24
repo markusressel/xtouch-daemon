@@ -848,6 +848,8 @@ class SlotsPanel(Page):
         stack = self.lists[slot - 1]
         stack.setFocus()
         self.card_scroll.ensureWidgetVisible(self.card_frames[slot - 1])
+        # up and down only: a card wider than the pane would scroll to its right end, cutting off its conditions
+        self.card_scroll.horizontalScrollBar().setValue(0)  # pyright: ignore[reportOptionalMemberAccess]
 
     def pick_slot(self, slot: int) -> None:
         """The card of a slot was clicked beside its candidates: the slot alone, with no candidate."""

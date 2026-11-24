@@ -255,17 +255,17 @@ the rail ends in "nothing to show: the strip is dark".
 **The chips:**
 
 - What the slot shows is a filled teal chip. On the one shown, the chip of a pool names what it hands out
-  (`apps · firefox`, `people · Alice`).
+  (`apps · firefox`, `people · Alice`). A small square at the start of the chip has the backlight color the LCD gets
+  with this candidate, e.g. blue for `browser` (see below).
 - Conditions are outlined chips; the states are violet.
 - `present` is spelled out in an olive chip (green in the light theme), by the type of the channel: `mic if present`
   reads `mic is connected`, `mum if present` reads `mum is in the voice chat`, `present(people)` reads `someone is in
   the voice chat`.
 
-![An LCD with a blue backlight](../images/controls/lcd.png){ .xt-part width="96" }
-
-**A tiny LCD** after a row has the color of the strip: the candidate's own `color`, else the channel's or the pool's,
-else white. A candidate that can show several colors (`auto`: applications and people) has several. Its tooltip says
-where the color comes from.
+**The color square** in the chip of what the slot shows is the backlight of the LCD: the candidate's own `color`,
+else the channel's or the pool's, else white. A candidate that can show several colors (`auto`: applications and
+people) has a square for each. The tooltip of the chip says where each color comes from. A dark strip (`-`) has a
+tiny dark LCD after it instead.
 
 **Editing:** + adds `auto` at the end; the bin (or ++del++) removes the candidate picked; drag a candidate, or move it
 with ++ctrl+up++ and ++ctrl+down++.
