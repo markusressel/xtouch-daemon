@@ -299,6 +299,7 @@ QToolButton[role="menubar_item"]:hover, QToolButton[role="menubar_item"][open="t
 QDockWidget::title {{ background: {c.chrome}; padding: {Space.XS}px {Space.M}px; }}
 QFrame[role="card"] {{ background: {c.raised}; border: 1px solid {c.border}; border-radius: {Radius.LARGE}px; }}
 QFrame[role="card"] QLabel {{ background: transparent; border: none; }}
+QFrame[role="card"][picked="true"] {{ border: 2px solid {c.accent}; }}
 QFrame[role="entry"] {{ background: {c.sunken}; border: 1px solid {c.border}; border-radius: {Radius.MEDIUM}px; }}
 QFrame[role="entry"][open="true"] {{ border-color: {c.accent}; }}
 QLabel[role="entry_title"] {{ font-weight: 600; }}

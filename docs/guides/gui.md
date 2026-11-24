@@ -159,7 +159,7 @@ A bar above the drawing switches what the mouse does on it:
 === "Select"
 
     A click picks a strip, and with it its [slot](../configuration/slots.md) on the page Slots. A click beside the
-    strips, on the panel around them, picks nothing: no strip is selected, and no candidate on the page Slots.
+    strips, on the panel around them, picks nothing: no strip is selected, and no slot on the page Slots.
 
     Dragging a strip moves its slot, with its candidates (`[slots]`) and controls (`[controls]`); ++esc++ puts it back,
     and so does ++ctrl+z++ afterwards. ++ctrl+left++ / ++ctrl+right++ and the context menu do the same.
@@ -219,6 +219,16 @@ When the control surface (`[device] name`) is plugged in while the daemon drives
 ## The slots
 
 The page Slots has the state bar at the top, a card per slot, and the inspector of the slot picked.
+
+You can pick a whole slot or one of its candidates:
+
+- A click on a candidate picks it, and its slot.
+- A click on a card beside its candidates, e.g. on its title, picks the slot alone.
+- A click below the cards picks nothing.
+
+The card of the slot picked has an outline, and the drawing selects its strip. When the window opens, nothing is
+picked. Then an overview takes the place of the inspector: a line for each slot with what it shows now, how many
+candidates it has and its problems. A click on a line picks its slot.
 
 ### State bar
 

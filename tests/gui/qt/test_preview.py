@@ -344,7 +344,7 @@ def test_a_click_beside_the_strips_picks_nothing(qtbot: QtBot, window: MainWindo
     qtbot.mouseClick(preview, Qt.MouseButton.LeftButton, pos=beside)
     assert window.device_view.selected is None
     assert not any(view.selected for view in preview.strips)
-    assert window.slots_page.candidate is None
+    assert (window.slots_page.slot, window.slots_page.candidate) == (None, None)
     assert all(stack.currentRow() == -1 for stack in window.slots_page.lists)
     # in Play the mouse is a hand: a click beside the strips changes nothing either way
     click(qtbot, preview.strips[1])

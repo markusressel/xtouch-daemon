@@ -57,7 +57,7 @@ class DeviceView(QWidget):
     picked = pyqtSignal(int, arguments=["slot"])
     """A strip of the drawing was clicked: the slot (1 for the leftmost one) to show on the page Slots."""
     unpicked = pyqtSignal(arguments=[])
-    """The drawing was clicked beside the strips: no strip, and no candidate on the page Slots, is picked."""
+    """The drawing was clicked beside the strips: no strip, and no slot on the page Slots, is picked."""
     moved = pyqtSignal(int, int, arguments=["source", "target"])
     """A strip was dragged to another place: its slot moves there (slots from 1)."""
     live_clicked = pyqtSignal(arguments=[])
@@ -406,8 +406,14 @@ class DeviceView(QWidget):
         self.show_live(self.snapshot)
         self.picked.emit(index + 1)
 
+    def show_selected(self, index: int | None) -> None:
+        """The strip of the slot picked on the page Slots (0 for the leftmost one), None for none: only drawn."""
+        if index != self.selected:
+            self.selected = index
+            self.show_live(self.snapshot)
+
     def deselect(self) -> None:
-        """Nothing picked: no strip of the drawing, and no candidate on the page Slots."""
+        """Nothing picked: no strip of the drawing, and no slot on the page Slots."""
         self.selected = None
         self.show_live(self.snapshot)
         self.unpicked.emit()

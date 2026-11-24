@@ -417,6 +417,7 @@ class MainWindow(QMainWindow):
         self.device_view.close_virtual_device.connect(self.close_virtual_device)
         self.device_view.picked.connect(self.show_slot)
         self.device_view.unpicked.connect(self.slots_page.unpick)
+        self.slots_page.slot_picked.connect(lambda slot: self.device_view.show_selected(slot - 1 if slot else None))
         self.device_view.moved.connect(self.move_slot)
         self.device_view.try_without_device.connect(self.try_without_device)
         self.device_view.test_toggled.connect(self.toggle_test)

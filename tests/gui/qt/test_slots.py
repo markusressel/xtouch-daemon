@@ -5,9 +5,9 @@ The slots on the page Device: the state bar, a card per slot, the inspector, and
 import dataclasses
 
 import pytest
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtGui import QDropEvent
-from PyQt6.QtWidgets import QComboBox, QFrame, QPushButton, QToolButton
+from PyQt6.QtWidgets import QComboBox, QFrame, QPushButton, QToolButton, QWidget
 from PyQt6.QtWidgets import QLabel as QLabelType
 from pytestqt.qtbot import QtBot
 
@@ -93,6 +93,11 @@ def test_the_cards_show_the_stacks(window: MainWindow):
     assert texts(page.lists[0]) == ["1 always → out"]
     assert texts(page.lists[1]) == ["1 when call → browser", "2 when app or person without a slot → auto"]
     assert texts(page.lists[2]) == ["auto (no entry)"]
+    # at the start no slot is picked: the overview takes the place of the inspector
+    assert page.slot is None
+    assert page.right.part is page.overview_scroll
+    page.pick_slot(1)
+    assert page.right.part is page.inspector_scroll
     assert page.title.text() == "Slot 1"
     assert plain(page.hint.text()).startswith("Pick a candidate to edit it.")
 
@@ -116,6 +121,60 @@ def test_the_cards_show_the_stacks(window: MainWindow):
     page.channel_button.click()
     assert window.current_page == "channels"
     assert window.channels_page.selection == ("pool", "auto")
+
+
+def overview_lines(page: SlotsPanel) -> list[QWidget]:
+    lines = page.overview_lines
+    return [widget for index in range(lines.count()) if (widget := lines.itemAt(index).widget()) is not None]  # pyright: ignore[reportOptionalMemberAccess]
+
+
+def overview(page: SlotsPanel) -> list[str]:
+    """The lines of the overview, as they read."""
+    return [" ".join(plain(child.text()) for child in line.findChildren(QLabelType)) for line in overview_lines(page)]
+
+
+def test_the_overview_has_a_line_for_each_slot(qtbot: QtBot, window: MainWindow):
+    page = panel(window)
+    window.show_page("slots")
+    lines = overview(page)
+    assert len(lines) == 8
+    assert lines[:3] == ["Slot 1 1 candidate", "Slot 2 2 candidates", "Slot 3 No candidate: auto"]
+    # what the daemon tells, and the problems of a slot
+    live = snapshot((0, 1, None))
+    page.snapshot = lambda: live
+    page.show_live(live)
+    assert overview(page)[0] == "Slot 1 Shows 0; 1 candidate"
+    window.document.set(("controls", "1"), {"select": "nonsense"})
+    window.editor.edited()
+    assert overview(page)[0].endswith("; 1 problem")
+    # a click on a line picks its slot, and the drawing its strip
+    click(qtbot, overview_lines(page)[0])
+    assert (page.slot, page.candidate) == (1, None)
+    assert window.device_view.selected == 0
+
+
+def test_a_click_picks_a_slot_a_candidate_or_nothing(qtbot: QtBot, window: MainWindow):
+    page = panel(window)
+    window.show_page("slots")
+    # on a card beside its candidates: the slot alone, outlined
+    qtbot.mouseClick(
+        page.card_frames[2], Qt.MouseButton.LeftButton, pos=page.card_frames[2].rect().topLeft() + QPoint(4, 4)
+    )
+    assert (page.slot, page.candidate) == (3, None)
+    assert page.card_frames[2].property("picked")
+    assert window.device_view.preview.strips[2].selected
+    # a candidate: its slot too, and the strip follows
+    page.lists[1].setCurrentRow(1)
+    assert (page.slot, page.candidate) == (2, 1)
+    assert not page.card_frames[2].property("picked")
+    assert window.device_view.selected == 1
+    # below the cards: nothing
+    area = page.cards_area
+    qtbot.mouseClick(area, Qt.MouseButton.LeftButton, pos=QPoint(area.width() // 2, area.height() - 2))
+    assert (page.slot, page.candidate) == (None, None)
+    assert all(stack.currentRow() == -1 for stack in page.lists)
+    assert window.device_view.selected is None
+    assert page.right.part is page.overview_scroll
 
 
 def test_the_device_shows_which_candidate_and_the_states(window: MainWindow):
@@ -343,6 +402,7 @@ def test_problems_show_on_the_card_and_in_the_inspector(window: MainWindow):
 def test_the_inspector_has_the_controls_of_the_slot(window: MainWindow):
     window.document.set(("controls", "1"), {"select": "toggle:call"})
     window.editor.edited()
+    panel(window).pick_slot(1)
     controls = panel(window).slot_controls
     assert controls.title.text() == "Controls of slot 1"
     assert [list(box.rows) for box in controls.boxes] == [["select", "id"]]
