@@ -111,6 +111,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: a click on the drawing of the control surface beside the strips picks nothing: the strip selected and the
+  candidate picked on the page Slots are no longer selected. Before, nothing could undo a pick.
 - Documentation: the hardware is "the control surface" (the physical one where the virtual one is the other choice),
   and a fact of the model names "the X-Touch Extender". "The X-Touch" meant the Extender, but it is the bigger desk
   with 9 faders, which the daemon doesn't need; a test fails a page that says it alone. Claims that the code

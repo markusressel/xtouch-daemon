@@ -56,6 +56,8 @@ class DeviceView(QWidget):
     """The bar of the hosted virtual device was told to close it."""
     picked = pyqtSignal(int, arguments=["slot"])
     """A strip of the drawing was clicked: the slot (1 for the leftmost one) to show on the page Slots."""
+    unpicked = pyqtSignal(arguments=[])
+    """The drawing was clicked beside the strips: no strip, and no candidate on the page Slots, is picked."""
     moved = pyqtSignal(int, int, arguments=["source", "target"])
     """A strip was dragged to another place: its slot moves there (slots from 1)."""
     live_clicked = pyqtSignal(arguments=[])
@@ -112,6 +114,7 @@ class DeviceView(QWidget):
         layout.addWidget(self._device_bar())
         self.virtual_bar: VirtualDeviceBar | None = None
         self.preview.clicked.connect(self.select)
+        self.preview.cleared.connect(self.deselect)
         self.preview.moved.connect(lambda source, target: self.moved.emit(source + 1, target + 1))
         layout.addWidget(self.preview, 1)
         self.slots.simulated.connect(lambda: self.show_live(self.snapshot))
@@ -402,3 +405,9 @@ class DeviceView(QWidget):
         self.selected = index
         self.show_live(self.snapshot)
         self.picked.emit(index + 1)
+
+    def deselect(self) -> None:
+        """Nothing picked: no strip of the drawing, and no candidate on the page Slots."""
+        self.selected = None
+        self.show_live(self.snapshot)
+        self.unpicked.emit()

@@ -24,6 +24,7 @@ from xtouch_daemon.gui.qt.preview.geometry import (
     ENCODER,
     LCD,
     LCD_CELLS,
+    MARGIN_X,
     PANEL,
     RING_LEDS,
     RING_RADII,
@@ -330,6 +331,26 @@ def test_strips_are_picked_at_any_scale(qtbot: QtBot, window: MainWindow):
     # only the left button picks
     qtbot.mouseClick(preview.strips[3], Qt.MouseButton.RightButton)
     assert window.device_view.selected == 2
+
+
+def test_a_click_beside_the_strips_picks_nothing(qtbot: QtBot, window: MainWindow):
+    preview = window.device_view.preview
+    click(qtbot, preview.strips[2])
+    assert preview.strips[2].selected
+    # the margin of the panel, left of the first strip
+    beside = preview.to_widget(QPointF(MARGIN_X / 2, PANEL.height() / 2))
+    assert preview.childAt(beside) is None
+
+    qtbot.mouseClick(preview, Qt.MouseButton.LeftButton, pos=beside)
+    assert window.device_view.selected is None
+    assert not any(view.selected for view in preview.strips)
+    assert window.slots_page.candidate is None
+    assert all(stack.currentRow() == -1 for stack in window.slots_page.lists)
+    # in Play the mouse is a hand: a click beside the strips changes nothing either way
+    click(qtbot, preview.strips[1])
+    preview.set_playing(True)
+    qtbot.mouseClick(preview, Qt.MouseButton.LeftButton, pos=beside)
+    assert window.device_view.selected == 1
 
 
 def test_strips_are_drawn_again_only_when_they_show_something_else(qtbot: QtBot, window: MainWindow):

@@ -817,6 +817,16 @@ class SlotsPanel(Page):
         stack.setFocus()
         self.card_scroll.ensureWidgetVisible(self.card_frames[slot - 1])
 
+    def unpick(self) -> None:
+        """No candidate picked: none of the cards has a row highlighted, the inspector shows only the slot."""
+        self.candidate = None
+        for stack in self.lists:
+            stack.blockSignals(True)
+            stack.clearSelection()
+            stack.setCurrentRow(-1)
+            stack.blockSignals(False)
+        self._show_inspector()
+
     def _picked(self, slot: int, index: int) -> None:
         if index < 0:
             return

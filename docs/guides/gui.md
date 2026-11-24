@@ -158,7 +158,8 @@ A bar above the drawing switches what the mouse does on it:
 
 === "Select"
 
-    A click picks a strip, and with it its [slot](../configuration/slots.md) on the page Slots.
+    A click picks a strip, and with it its [slot](../configuration/slots.md) on the page Slots. A click beside the
+    strips, on the panel around them, picks nothing: no strip is selected, and no candidate on the page Slots.
 
     Dragging a strip moves its slot, with its candidates (`[slots]`) and controls (`[controls]`); ++esc++ puts it back,
     and so does ++ctrl+z++ afterwards. ++ctrl+left++ / ++ctrl+right++ and the context menu do the same.
