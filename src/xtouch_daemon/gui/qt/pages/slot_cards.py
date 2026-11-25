@@ -253,7 +253,12 @@ class ShowChip(QLabel):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         painter.setPen(QPen(QColor(current_colors().control_border), 1))
-        top = (self.height() - SWATCH) / 2
+        # on the middle of the text as it looks, not of its line: the line has room for descenders below and accents
+        # above, which a name like `browser` doesn't use; between the middle of capitals and of lowercase letters
+        metrics = self.fontMetrics()
+        contents = self.contentsRect()
+        baseline = contents.top() + (contents.height() - metrics.height()) / 2 + metrics.ascent()
+        top = baseline - (metrics.capHeight() + metrics.xHeight()) / 4 - SWATCH / 2
         for index, color in enumerate(self.colors):
             painter.setBrush(QColor(LCD_COLORS[color]))
             left = Space.S + index * (SWATCH + Space.XS)
