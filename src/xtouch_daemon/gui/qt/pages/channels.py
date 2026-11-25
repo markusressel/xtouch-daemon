@@ -18,7 +18,14 @@ from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
 from xtouch_daemon.config.values import ENCODERS, default_encoder
 from xtouch_daemon.gui.domain import docs, sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
-from xtouch_daemon.gui.domain.channels import BUILT_IN_POOLS, CHANNEL_TYPES, channel_options, pool_options, uses
+from xtouch_daemon.gui.domain.channels import (
+    BUILT_IN_POOLS,
+    CHANNEL_TYPES,
+    channel_options,
+    lcd_default,
+    pool_options,
+    uses,
+)
 from xtouch_daemon.gui.domain.clipboard import Tables, parse_tables, tables_text
 from xtouch_daemon.gui.domain.demos import GROUPS, PREVIEWED, Part, Strip, group_of, scene
 from xtouch_daemon.gui.domain.schema import Kind, Option, options
@@ -436,9 +443,7 @@ class ChannelsPage(Page):
                 if strip in ENCODERS
                 else "the value of the fader, by its step"
             ),
-            "lcd": lambda: (
-                "the value of the fader, else of the encoder" if strip == "custom" else "what the type shows"
-            ),
+            "lcd": lambda: lcd_default(strip),
             "min_volume": lambda: "0",
             "max_volume": lambda: f"{self.document.get(('behavior', 'max_volume'), 130)} (behavior)",
             # one entry per part: the program first, then each argument

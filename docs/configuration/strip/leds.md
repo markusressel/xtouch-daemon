@@ -19,7 +19,7 @@ entity that Home Assistant sets, see [Home Assistant](../../guides/home-assistan
 
 ## Buttons
 
-Each of `select`, `rec` and `solo` takes a table. A part you leave out does what the strip type does by default.
+Each of `select`, `rec` and `solo` takes a table. A part you leave out does what the type of the channel does by default.
 
 ```toml
 [channel.main]

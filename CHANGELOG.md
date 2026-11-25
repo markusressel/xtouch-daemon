@@ -111,6 +111,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: an unbound `lcd` says what the second line of the LCD shows for the type of its channel, e.g. "the volume, e.g.
+  46%, or muted; off while the output is not there", instead of "what the type shows". The configuration pages say so
+  too.
 - GUI: the popover of the mode explains modes at its top, and its row of the mode says only how it was picked. The
   states follow under a heading of their own, "States", so they no longer read as more modes.
 - GUI: the header is gone: the pill of the service is at the right end of the menu bar, so the drawing and the

@@ -1165,7 +1165,7 @@
     },
     "ButtonConfig": {
       "additionalProperties": false,
-      "description": "What a button does: a press, a hold, and what its LED shows. Unset, each takes what the strip type does.",
+      "description": "What a button does: a press, a hold, and what its LED shows. Unset, each does what the channel type does.",
       "properties": {
         "press": {
           "anyOf": [

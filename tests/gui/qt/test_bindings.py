@@ -240,7 +240,7 @@ def test_the_lcd_of_an_audio_strip_says_what_it_shows_unbound(qtbot: QtBot, wind
     show_channel(window, "out")
     lcd = binding(row(window, "lcd"))
     assert words(lcd.unbound) == "not bound"
-    assert "DEFAULT what the type shows " in help_of(lcd) + " "
+    assert "DEFAULT the volume, e.g. 46%, or muted; off while the output is not there " in help_of(lcd) + " "
     lcd.actions_[HOME_ASSISTANT].trigger()
     assert window.document.get(("channel", "out", "lcd")) == "homeassistant"
     assert words(lcd.unbound) == ""

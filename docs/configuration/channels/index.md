@@ -57,7 +57,7 @@ These options apply to `output`, `input` and `apps` channels. Strings need their
 | `max_volume` | `behavior.max_volume` (130) | The volume of the fader at the top, 0 to 200 percent. |
 | `encoder` | `"balance"` on `output` and `input` strips, `"media"` on `apps` strips | What the encoder does: a mode, or a value of your own, see [Encoders](../strip/encoders.md). |
 | `fader` | `"volume"` | `"homeassistant"` gives the fader to Home Assistant ([Encoders](../strip/encoders.md#fader-homeassistant)); `{ set, watch, ... }` binds it to programs ([Bindings](../strip/bindings.md)). With either, the encoder sets the volume. |
-| `lcd` | What the type shows | The second line of the LCD: `"homeassistant"`, `{ watch }` or `{ poll }`, see [Bindings](../strip/bindings.md). |
+| `lcd` | The volume (`46%`) or `muted`; while there is nothing to control, `off` on `output` and `input` channels, `idle` on `apps` channels | The second line of the LCD: `"homeassistant"`, `{ watch }` or `{ poll }`, see [Bindings](../strip/bindings.md). |
 
 The `behavior.*` defaults come from the [`[behavior]` section](../behavior.md#behavior).
 
@@ -151,9 +151,9 @@ a peak at full scale also lights the red LED for half a second.
 `"pre_fader"` (the default) takes it before the strip's volume and Mute, so the meter keeps showing the audio while
 the fader is down. `"post_fader"` takes it after them: what you hear, dark while muted.
 
-What each strip type shows:
+What each type of channel shows:
 
-| Strip | `"pre_fader"` | `"post_fader"` |
+| Type | `"pre_fader"` | `"post_fader"` |
 |---|---|---|
 | `output` | PipeWire's monitor of the output, before its volume and Mute. | The monitor level times its volume, nothing while muted. |
 | `apps`, `auto` | The audio of the streams with their volume taken out again, so the fader doesn't move the meter. **While muted the meter stays dark:** PipeWire applies Mute inside the stream, so the audio is gone. | The streams as they play. |
