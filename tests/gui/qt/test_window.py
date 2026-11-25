@@ -15,9 +15,11 @@ from tests.support.gui import Dialogs, MakeWindow, pick, show_channel
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.qt.fields.menu import open_menu
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
-from xtouch_daemon.gui.qt.pages.base import Flip
+from xtouch_daemon.gui.qt.pages.base import EDGE, Flip
 from xtouch_daemon.gui.qt.theme.settings import load_window_state
+from xtouch_daemon.gui.qt.theme.style import current_colors
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
+from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 
 
 def menu_titles(window: MainWindow) -> list[str]:
@@ -146,3 +148,35 @@ def test_a_form_wider_than_its_pane_is_laid_out_once(window: MainWindow, monkeyp
     assert viewport is not None
     # nothing is cut off on the right
     assert content.width() == viewport.width()
+
+
+@pytest.mark.parametrize("page", ["slots", "channels", "states"])
+def test_the_scroll_bar_of_the_right_pane_sits_at_the_edge_of_the_window(make_window: MakeWindow, page: str):
+    window = make_window()
+    window.resize(1280, 900)
+    window.show_page(page)
+    QApplication.processEvents()
+    (splitter,) = window.pages[page].findChildren(PaneSplitter)
+    pane = splitter.widget(1)
+    assert pane is not None
+    right = pane.mapToGlobal(pane.rect().topRight()).x()
+    configuration = window.stack.mapToGlobal(window.stack.rect().topRight()).x()
+    assert right == configuration
+    # the rows above the panes keep their distance from the edge
+    first = window.pages[page].layout_.itemAt(0)
+    assert first is not None
+    widget = first.widget()
+    if widget is not None and widget is not splitter:
+        assert widget.contentsMargins().right() == EDGE
+
+
+def test_the_drawing_of_a_part_has_round_corners(make_window: MakeWindow):
+    window = make_window()
+    show_channel(window, "out")
+    preview = next(iter(window.channels_page.form_previews["output"].values()))
+    corners = preview.drawing.corners
+    assert corners.size() == preview.drawing.size()
+    image = preview.drawing.grab().toImage()
+    # the corner is the card, the middle the strip
+    assert image.pixelColor(0, 0).name() == current_colors().raised
+    assert image.pixelColor(image.width() // 2, image.height() // 2).name() != current_colors().raised

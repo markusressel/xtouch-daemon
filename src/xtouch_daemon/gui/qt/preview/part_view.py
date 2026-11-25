@@ -7,7 +7,7 @@ the options of a form do on the device.
 from math import ceil
 
 from PyQt6.QtCore import QRectF, Qt
-from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtGui import QColor, QKeyEvent, QPainter, QPainterPath, QPaintEvent, QPen
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
 from xtouch_daemon.gui.domain.demos import Frame, Part
@@ -26,7 +26,8 @@ from xtouch_daemon.gui.qt.preview.geometry import (
 )
 from xtouch_daemon.gui.qt.preview.panel import Hand
 from xtouch_daemon.gui.qt.preview.strip_view import StripView
-from xtouch_daemon.gui.qt.theme.tokens import Space
+from xtouch_daemon.gui.qt.theme.style import current_colors
+from xtouch_daemon.gui.qt.theme.tokens import Radius, Space
 
 _RING = RING_RADII[1] + 6
 CROPS: dict[Part, QRectF] = {
@@ -40,6 +41,31 @@ SIZE = (120, 220)
 """The most room the drawing of a part takes, in pixels at 100 %."""
 CAPTION_WIDTH = 160
 """The width of the caption under it: a few words a line."""
+
+
+class Corners(QWidget):
+    """
+    Rounds the corners of the drawing of a part, on the card it sits on: the corners outside a rounded rectangle in
+    the color of the card, and a thin edge, so the cut of the strip doesn't end in hard square corners.
+    """
+
+    def __init__(self, drawing: QWidget):
+        super().__init__()
+        self.setParent(drawing)  # pyright: ignore[reportArgumentType]: PyQt's stub types the parent as Self
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+    def paintEvent(self, a0: QPaintEvent | None) -> None:
+        colors = current_colors()
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        whole = QPainterPath()
+        whole.addRect(QRectF(self.rect()))
+        inside = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        rounded = QPainterPath()
+        rounded.addRoundedRect(inside, Radius.MEDIUM, Radius.MEDIUM)
+        painter.fillPath(whole.subtracted(rounded), QColor(colors.raised))
+        painter.setPen(QPen(QColor(colors.border), 1))
+        painter.drawPath(rounded)
 
 
 class PartDrawing(QWidget):
@@ -58,6 +84,9 @@ class PartDrawing(QWidget):
         self.view.resize(ceil(WIDTH * self.scale), ceil(HEIGHT * self.scale))
         self.view.move(round(-crop.left() * self.scale), round(-crop.top() * self.scale))
         self.setFixedSize(ceil(crop.width() * self.scale), ceil(crop.height() * self.scale))
+        self.corners = Corners(self)
+        self.corners.resize(self.size())
+        self.corners.raise_()
 
     @property
     def resizing(self) -> bool:

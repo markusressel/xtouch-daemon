@@ -46,3 +46,15 @@ when I am in the channels tab, and click on slot 2 (Browser)
 The hardware item control previews here are awesome, but they look a little harsh, can we round their corners or do something else to make them feel more integrated?
 /tmp/screenshots/2026-11-25-10-09-15.png
 
+---
+
+Since we made the "else" entry selectable, we should also have a chip for it here as a last entry:
+/tmp/screenshots/2026-11-25-10-17-05.png
+
+Also, deselecting a chip there should deselect the entry in the list as well, right?
+
+And we still have a lot of other inputs where the default value is written in white text instead of gray.
+We should create standard components, or a helper or something so this doesn't happen again in the future.
+/tmp/screenshots/2026-11-25-10-19-45.png
+
+The "select" button looks (or its text) looks cut off here:

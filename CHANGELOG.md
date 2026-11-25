@@ -126,6 +126,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   of a channel shows its default, 3, instead of "default: not set"; `delay_off` of a state shows the default for its
   kind (3, 10 for a mode, 0 with `when`). A number whose default depends on something else says "not set", and its
   help says what applies.
+- GUI: the forms of the page Channels are built in the background a second after the window opens, so the first
+  click on a channel of another type shows its form at once instead of after a moment.
+- GUI: the pages reach the right edge of the window: the scroll bar of the right pane sits at the edge, without unused
+  room beside it. The drawings of the parts on the page Channels have round corners and a thin edge.
 - Documentation: the hardware is "the control surface" (the physical one where the virtual one is the other choice),
   and a fact of the model names "the X-Touch Extender". "The X-Touch" meant the Extender, but it is the bigger desk
   with 9 faders, which the daemon doesn't need; a test fails a page that says it alone. Claims that the code

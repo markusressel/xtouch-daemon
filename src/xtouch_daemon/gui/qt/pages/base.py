@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QSplitter,
     QVBoxLayout,
     QWidget,
 )
@@ -203,6 +204,24 @@ class Stack(QWidget):
         self.part = part
         self.stack.addWidget(part)
         part.show()
+
+
+EDGE = Space.XL
+"""
+Room on the right of what a page with panes shows above them: the panes reach the right edge of the window, so the
+scroll bar of the right one sits at it (see `MainWindow`).
+"""
+
+
+def edged(page: Page) -> None:
+    """A page with panes: they reach the right edge of the window; the rows above them keep `EDGE` from it."""
+    margins = page.layout_.contentsMargins()
+    page.layout_.setContentsMargins(margins.left(), margins.top(), 0, margins.bottom())
+    for index in range(page.layout_.count()):
+        item = page.layout_.itemAt(index)
+        widget = item.widget() if item is not None else None
+        if widget is not None and not isinstance(widget, QSplitter):
+            widget.setContentsMargins(0, 0, EDGE, 0)
 
 
 class Page(QWidget):

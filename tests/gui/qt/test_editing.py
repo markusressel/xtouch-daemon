@@ -4,6 +4,7 @@ Editing in the window: what it shows of the document, the page Channels, problem
 
 from pathlib import Path
 
+import pytest
 from PyQt6.QtCore import Qt
 from PyQt6.QtWidgets import QListWidgetItem
 from pytestqt.qtbot import QtBot
@@ -25,7 +26,7 @@ from tests.support.instance import RecordingInstance
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config.files import Problem
-from xtouch_daemon.gui.qt.pages.channels import APPS, AUTO, PEOPLE
+from xtouch_daemon.gui.qt.pages.channels import APPS, AUTO, PEOPLE, ChannelsPage
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 
 
@@ -158,6 +159,29 @@ def test_channels_are_added_duplicated_renamed_and_removed(qtbot: QtBot, window:
     assert page.selection == APPS
     window.undo()
     assert "mic" in window.document.get(("channel",))
+
+
+def test_the_forms_are_built_in_the_background(qtbot: QtBot, window: MainWindow):
+    page = window.channels_page
+    assert page.form_widgets == {}
+    page.prebuild()
+    # the types of the file first: `output` (out) and `apps` (browser)
+    assert set(page.prebuilding[:2]) == {"output", "apps"}
+    # one at a time, each when the window has nothing else to do
+    qtbot.waitUntil(lambda: not page.prebuilding)
+    assert set(page.form_widgets) == set(page.form_specs)
+    # the click shows the form built before
+    apps = page.form_widgets["apps"]
+    show_channel(window, "browser")
+    assert page.forms.part is apps
+
+
+def test_the_window_starts_building_the_forms_after_it_shows(
+    qtbot: QtBot, make_window: MakeWindow, monkeypatch: pytest.MonkeyPatch
+):
+    monkeypatch.setattr(ChannelsPage, "PREBUILD_AFTER_MS", 0)
+    page = make_window().channels_page
+    qtbot.waitUntil(lambda: set(page.form_widgets) == set(page.form_specs))
 
 
 def test_a_form_is_built_the_first_time_it_shows(window: MainWindow):

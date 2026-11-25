@@ -215,15 +215,20 @@ class MainWindow(QMainWindow):
 
         root = QWidget()
         body = QVBoxLayout(root)
-        body.setContentsMargins(Space.XL, Space.L, Space.XL, 0)
+        # the pages reach the right edge of the window, so their scroll bars sit at it; the bars above keep a margin
+        body.setContentsMargins(Space.XL, Space.L, 0, 0)
         body.setSpacing(Space.S)
-        body.addLayout(self._preview_status())
+        bars = QVBoxLayout()
+        bars.setContentsMargins(0, 0, Space.XL, 0)
+        bars.setSpacing(Space.S)
+        bars.addLayout(self._preview_status())
         self.preview_message = label("", "error", wrap=True)
         """What the daemon said about the live preview: why it did not take the latest change, or why it ended."""
         self.preview_message.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.preview_message.hide()
-        body.addWidget(self.preview_message)
-        body.addWidget(self._disk_bar())
+        bars.addWidget(self.preview_message)
+        bars.addWidget(self._disk_bar())
+        body.addLayout(bars)
         body.addWidget(self._pages(), 1)
         configuration = QWidget()
         editor = QHBoxLayout(configuration)
@@ -293,6 +298,8 @@ class MainWindow(QMainWindow):
         super().showEvent(event)
         if not self.shown:
             self.shown = True
+            if (after := ChannelsPage.PREBUILD_AFTER_MS) is not None:
+                QTimer.singleShot(after, self.channels_page.prebuild)
             # the keys start on the strips (the arrows pick one), not on the first button of the header
             self.device_view.preview.strips[0].setFocus()
 

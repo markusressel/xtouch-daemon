@@ -8,7 +8,7 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtWidgets import QHBoxLayout, QLineEdit, QListWidget, QListWidgetItem, QMenu, QVBoxLayout, QWidget
 
 from xtouch_daemon.audio.model import Direction
@@ -35,7 +35,7 @@ from xtouch_daemon.gui.qt.fields.meter import meter_row
 from xtouch_daemon.gui.qt.fields.option_row import NARROW_BELOW, OptionRow, add_rows, align_titles
 from xtouch_daemon.gui.qt.fields.rich_items import LINES_ROLE, EntityItemDelegate, Lines
 from xtouch_daemon.gui.qt.fields.used_by import UsedBy
-from xtouch_daemon.gui.qt.pages.base import Audio, Flip, Page, Stack, button, card, row, scrolled, set_text
+from xtouch_daemon.gui.qt.pages.base import Audio, Flip, Page, Stack, button, card, edged, row, scrolled, set_text
 from xtouch_daemon.gui.qt.preview.part_view import PartPreview
 from xtouch_daemon.gui.qt.theme.icons import icon
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -84,6 +84,12 @@ POOL_KINDS = {
 
 
 class ChannelsPage(Page):
+    PREBUILD_AFTER_MS: int | None = 1000
+    """
+    Milliseconds after the window shows before the forms are built in the background (see `prebuild`); None: only
+    when they show (the tests).
+    """
+
     def __init__(
         self,
         editor: Editor,
@@ -195,9 +201,10 @@ class ChannelsPage(Page):
         self.inspector.addStretch()
         inspector = QWidget()
         inspector.setLayout(self.inspector)
-        self.inspector.setContentsMargins(0, 0, Space.S, 0)
+        self.inspector.setContentsMargins(0, 0, Space.L, 0)
         self.splitter = PaneSplitter("channels", row(side), scrolled(inspector))
         self.layout_.addWidget(self.splitter, 1)
+        edged(self)
         self.form_rows: dict[str, list[OptionRow]] = {}
         self.form_widgets: dict[str, QWidget] = {}
         self.form_previews: dict[str, dict[Part, PartPreview]] = {}
@@ -236,11 +243,30 @@ class ChannelsPage(Page):
         return (*self.selection, name)
 
     def _built(self, key: str) -> str:
-        """The key of a form, built first if it was not yet."""
+        """The key of a form, built first if it was not yet (`prebuild` builds them before they are needed)."""
         if key not in self.form_widgets:
             form_options, path, strip = self.form_specs[key]
             self._form(key, form_options(), path, strip)
         return key
+
+    def prebuild(self) -> None:
+        """
+        Builds the forms in the background, one each time the window has nothing else to do: those of the types in
+        the file first. A form takes a moment to build and style; built before, it shows at once on the first click.
+        """
+        used = {str(channel.get("type", "apps")) for channel in self.channels.values() if isinstance(channel, dict)}
+        self.prebuilding: list[str] = sorted(self.form_specs, key=lambda key: key not in used)
+        QTimer.singleShot(0, self._prebuild_next)
+
+    def _prebuild_next(self) -> None:
+        while self.prebuilding and self.prebuilding[0] in self.form_widgets:
+            self.prebuilding.pop(0)
+        if not self.prebuilding:
+            return
+        key = self._built(self.prebuilding.pop(0))
+        # styled now, not on the first click
+        self.form_widgets[key].ensurePolished()
+        QTimer.singleShot(0, self._prebuild_next)
 
     def _form(self, key: str, form_options: tuple[Option, ...], path: Callable[[str], OptionPath], strip: str) -> None:
         """

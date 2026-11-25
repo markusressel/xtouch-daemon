@@ -287,7 +287,8 @@ class SlotsPanel(Page):
         """The controls of the slot (`[controls]`), whatever it shows."""
         inspector.addWidget(self.slot_controls)
         inspector.addStretch()
-        self.inspector_scroll = scrolled(self.inspector)
+        # room between the card and the scroll bar, which sits at the right edge of the window
+        self.inspector_scroll = scrolled(_inset(self.inspector))
         self.overview, overview = card()
         """With no slot picked: a line for each slot, what it shows and its problems; a click picks the slot."""
         overview.addWidget(label("Slots", "section"))
@@ -297,7 +298,7 @@ class SlotsPanel(Page):
         overview.addWidget(row(self.overview_lines))
         overview.addStretch()
         self.shown_overview: tuple[object, ...] | None = None
-        self.overview_scroll = scrolled(self.overview)
+        self.overview_scroll = scrolled(_inset(self.overview))
         self.right = Stack()
         """The inspector while a slot is picked, else the overview."""
         self.right.add(self.inspector_scroll)
@@ -1155,6 +1156,15 @@ class _OverviewLine(QFrame):
         assert a0 is not None
         if a0.button() == Qt.MouseButton.LeftButton:
             self.picked()
+
+
+def _inset(widget: QWidget) -> QWidget:
+    """`widget` with room on its right for the scroll bar of its pane."""
+    holder = QWidget()
+    layout = QVBoxLayout(holder)
+    layout.setContentsMargins(0, 0, Space.L, 0)
+    layout.addWidget(widget)
+    return holder
 
 
 def _help(text: str) -> str:

@@ -40,7 +40,7 @@ from xtouch_daemon.gui.qt.fields.menu import attach_menu, describe, with_icon
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles, divider, text_width
 from xtouch_daemon.gui.qt.fields.rich_items import DOT_ROLE, DotItemDelegate
 from xtouch_daemon.gui.qt.fields.used_by import UsedBy
-from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
+from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, edged, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
@@ -246,9 +246,10 @@ class StatesPage(Page):
         inspector.addStretch()
         pane = QWidget()
         pane.setLayout(inspector)
-        inspector.setContentsMargins(0, 0, Space.S, 0)
+        inspector.setContentsMargins(0, 0, Space.L, 0)
         self.splitter = PaneSplitter("states", row(side), scrolled(pane))
         self.layout_.addWidget(self.splitter, 1)
+        edged(self)
         self._show()
 
     def _build_form(self, layout: QVBoxLayout) -> None:
