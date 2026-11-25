@@ -49,7 +49,7 @@ class Entry:
 
 @dataclass(frozen=True)
 class Group:
-    """A heading between the rows of a popover: the rows after it are of another kind, e.g. the states after the mode."""
+    """A heading between the rows of a popover: the rows after it are of another kind, e.g. states after the mode."""
 
     title: str
     text: str = ""
