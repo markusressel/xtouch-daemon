@@ -119,6 +119,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI: on the cards of the page Slots, the backlight color of the LCD is a small square inside the chip of what a
   candidate shows, instead of a tiny LCD after the row; the rows get narrower. Picking a slot no longer scrolls the
   cards sideways to their right end.
+- GUI: the rows of a card that are no candidate can be picked too: "nothing to show: the strip is dark" at the end of
+  the rail, and `auto (no entry)` of an empty slot. They pick the slot, and the inspector says why the strip is dark
+  or what it shows without candidates. A dark strip of the drawing picks the end of its rail.
 - Documentation: the hardware is "the control surface" (the physical one where the virtual one is the other choice),
   and a fact of the model names "the X-Touch Extender". "The X-Touch" meant the Extender, but it is the bigger desk
   with 9 faders, which the daemon doesn't need; a test fails a page that says it alone. Claims that the code

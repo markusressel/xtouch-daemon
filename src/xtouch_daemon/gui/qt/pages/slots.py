@@ -142,6 +142,8 @@ class SlotsPanel(Page):
         """The slot picked (1 for the leftmost one), None for none: then the overview shows instead of the inspector."""
         self.candidate: int | None = None
         """The candidate of the slot the inspector shows, None for none."""
+        self.end = False
+        """The row of the slot that is no candidate is picked: the dark end of its rail, or `auto` of an empty slot."""
         self.shown_live: object = None
         self.what_if: WhatIf | None = None
         """What Simulate shows, None while the cards show what the daemon tells."""
@@ -394,6 +396,10 @@ class SlotsPanel(Page):
                 stack.fill(candidates, shown_candidate, why, self.document.values, dark, member)
             if slot == self.slot and self.candidate is not None and self.candidate < stack.count():
                 stack.setCurrentRow(self.candidate)
+            elif slot == self.slot and self.end:
+                # gone when the strip shows something again
+                self.end = stack.end_row() >= 0
+                stack.setCurrentRow(stack.end_row())
             elif slot != self.slot:
                 stack.setCurrentRow(-1)
             stack.blockSignals(False)
@@ -417,6 +423,11 @@ class SlotsPanel(Page):
             text = (
                 f"Slot {self.slot} has no candidate: it shows `auto`, the next application that plays or person of "
                 "the voice chat. Add a candidate (+ on its card) to show a channel here, e.g. an output."
+            )
+        elif self.end:
+            text = (
+                "The strip is dark: none of the candidates has anything to show now. + adds a candidate at the end, "
+                "e.g. an output, which is always there."
             )
         elif self.candidate is None:
             text = "Pick a candidate to edit it. The first one whose condition holds is shown; + adds one at the end."
@@ -840,12 +851,16 @@ class SlotsPanel(Page):
     # -- picking --------------------------------------------------------------------------------------------------
 
     def select_slot(self, slot: int) -> None:
-        """A strip of the drawing was clicked: its card, with the candidate the device shows."""
+        """
+        A strip of the drawing was clicked: its card, with the candidate the device shows, or the end of the rail
+        while the strip is dark.
+        """
         view = self._views().get(slot)
         count = len(rows(self.document.values, slot))
         candidate = view.candidate if view is not None and view.candidate is not None else 0 if count else None
-        self._pick(slot, candidate)
         stack = self.lists[slot - 1]
+        end = stack.end_row() >= 0
+        self._pick(slot, None if end else candidate, end)
         stack.setFocus()
         self.card_scroll.ensureWidgetVisible(self.card_frames[slot - 1])
         # up and down only: a card wider than the pane would scroll to its right end, cutting off its conditions
@@ -861,8 +876,8 @@ class SlotsPanel(Page):
         """Nothing picked: no card is outlined, none has a row highlighted, the overview shows."""
         self._pick(None, None)
 
-    def _pick(self, slot: int | None, candidate: int | None) -> None:
-        self.slot, self.candidate = slot, candidate
+    def _pick(self, slot: int | None, candidate: int | None, end: bool = False) -> None:
+        self.slot, self.candidate, self.end = slot, candidate, end
         for each in self.lists:
             each.blockSignals(True)
             each.clearSelection()
@@ -932,7 +947,8 @@ class SlotsPanel(Page):
                 stack.clearSelection()
                 stack.setCurrentRow(-1)
                 stack.blockSignals(False)
-        self.slot, self.candidate = slot, index
+        end = index == self.lists[slot - 1].end_row()
+        self.slot, self.candidate, self.end = slot, None if end else index, end
         self._show_cards()
         self._show_inspector()
         self.slot_picked.emit(slot)
@@ -958,7 +974,7 @@ class SlotsPanel(Page):
 
     def _write(self, slot: int, stack: list[Row], candidate: int | None) -> None:
         self._put(slot, stack)
-        self.slot, self.candidate = slot, candidate
+        self.slot, self.candidate, self.end = slot, candidate, False
         self.editor.edited(Change(Scope.SLOTS, ("slots", str(slot))))
         self.slot_picked.emit(slot)
 

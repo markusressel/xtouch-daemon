@@ -250,7 +250,8 @@ condition holds wins.
 **The rail** on the left joins the candidates, with "else" between two. The node is green on the candidate that the
 control surface shows (or that Simulate would show). Above it, candidates are dimmed with why they did not win (`✗ browser
 doesn't play`, `✗ browser is on slot 3`); below it, they are dimmed more: not reached. When none has anything to show,
-the rail ends in "nothing to show: the strip is dark".
+the rail ends in "nothing to show: the strip is dark". A click on that row picks the slot and says why the strip is
+dark; so does a click on a dark strip of the drawing.
 
 **The chips:**
 

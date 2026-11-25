@@ -377,6 +377,39 @@ def test_a_place_shows_what_it_takes_from_its_channel_or_pool(window: MainWindow
     assert page.place_header.isHidden()
 
 
+def test_the_rows_that_are_no_candidate_can_be_picked(qtbot: QtBot, window: MainWindow):
+    page = panel(window)
+    # slot 2 is dark: its pool has nothing to hand out
+    live = snapshot((0, 1, None))
+    views = list(live.slots.slots)  # pyright: ignore[reportOptionalMemberAccess]
+    views[1] = SlotView(2, 1, None, "auto", None, ("shows nothing: auto has nothing for it",))
+    live = dataclasses.replace(live, slots=dataclasses.replace(live.slots, slots=tuple(views)))  # pyright: ignore[reportArgumentType]
+    page.snapshot = lambda: live
+    page.show_live(live)
+    stack = page.lists[1]
+    end = stack.end_row()
+    assert end == 2
+    stack.setCurrentRow(end)
+    assert (page.slot, page.candidate, page.end) == (2, None, True)
+    assert plain(page.hint.text()).startswith("The strip is dark")
+    assert stack.currentRow() == end
+    # it stays picked while the cards are built again, and can't be moved
+    page.show_live(dataclasses.replace(live))
+    assert stack.currentRow() == end
+    qtbot.keyClick(stack, Qt.Key.Key_Up, Qt.KeyboardModifier.ControlModifier)
+    assert texts(stack)[:2] == ["1 when call → browser", "2 when app or person without a slot → auto"]
+    # a candidate after it: the end is no longer picked
+    stack.setCurrentRow(0)
+    assert (page.candidate, page.end) == (0, False)
+    # the strip of a dark slot picks the end of its rail
+    window.device_view.select(1)
+    assert (page.slot, page.candidate, page.end) == (2, None, True)
+    # `auto` of an empty slot picks the slot
+    page.lists[2].setCurrentRow(0)
+    assert (page.slot, page.candidate, page.end) == (3, None, True)
+    assert plain(page.hint.text()).startswith("Slot 3 has no candidate")
+
+
 def test_the_chip_of_what_a_candidate_shows_has_the_colors_of_its_lcd(window: MainWindow):
     page = panel(window)
     window.document.set(("slots", "1"), [{"show": "out", "color": "red"}])

@@ -86,15 +86,22 @@ class StackList(QListWidget):
         indexes = [self.item(index).data(_INDEX) for index in range(self.count())]  # pyright: ignore[reportOptionalMemberAccess]
         return [index for index in indexes if index is not None]
 
+    def end_row(self) -> int:
+        """The row that is no candidate (the dark end of the rail, or `auto` of an empty slot), -1 for none."""
+        last = self.count() - 1
+        item = self.item(last)
+        return last if item is not None and item.data(_INDEX) is None else -1
+
     def keyPressEvent(self, e: QKeyEvent | None) -> None:
         assert e is not None
         step = {Qt.Key.Key_Up: -1, Qt.Key.Key_Down: 1}.get(Qt.Key(e.key()))
         current = self.currentRow()
-        if step is None or not e.modifiers() & Qt.KeyboardModifier.ControlModifier or current < 0:
+        moves = current >= 0 and current != self.end_row()
+        if step is None or not e.modifiers() & Qt.KeyboardModifier.ControlModifier or not moves:
             super().keyPressEvent(e)
             return
         target = current + step
-        if 0 <= target < self.count():
+        if 0 <= target < len(self.order()):
             order = self.order()
             order.insert(target, order.pop(current))
             self.reordered.emit(order, target)
@@ -137,8 +144,8 @@ class StackList(QListWidget):
             item.setSizeHint(self.itemWidget(item).sizeHint())  # pyright: ignore[reportOptionalMemberAccess]
         if dark and candidates:
             item = QListWidgetItem()
-            # no candidate: it can't be picked, moved or dropped on
-            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            # no candidate: it can be picked (its slot, with why the strip is dark), not moved or dropped on
+            item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
             self.addItem(item)
             end = CandidateRow(len(candidates), count, "shown", "", numbered=False)
             end.rule.addWidget(label("nothing to show: the strip is dark", "hint"))
@@ -149,7 +156,8 @@ class StackList(QListWidget):
             item.setSizeHint(end.sizeHint())
         if self.count() == 0:
             item = QListWidgetItem(f"{AUTO} (no entry)")
-            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            # picks the slot, with what it shows without candidates
+            item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
             self.addItem(item)
         rows_height = sum(self.sizeHintForRow(index) for index in range(self.count()))
         self.grow_to(rows_height)
