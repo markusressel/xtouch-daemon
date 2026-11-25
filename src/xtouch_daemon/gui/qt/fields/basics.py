@@ -14,6 +14,8 @@ from PyQt6.QtWidgets import (
     QAbstractSpinBox,
     QLabel,
     QLayout,
+    QStyle,
+    QStyleOption,
     QToolButton,
     QWidget,
 )
@@ -92,8 +94,13 @@ class ElidedLabel(QLabel):
             super().setToolTip(self.text() if shown != self.text() else "")
         style = self.style()
         assert style is not None
+        painter = QPainter(self)
+        # the background and border of its role (a pill), as the label would draw them
+        option = QStyleOption()
+        option.initFrom(self)
+        style.drawPrimitive(QStyle.PrimitiveElement.PE_Widget, option, painter, self)
         style.drawItemText(
-            QPainter(self), rect, int(self.alignment()), self.palette(), self.isEnabled(), shown, self.foregroundRole()
+            painter, rect, int(self.alignment()), self.palette(), self.isEnabled(), shown, self.foregroundRole()
         )
 
 

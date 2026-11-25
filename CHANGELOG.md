@@ -134,6 +134,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   picked picks the slot alone, on the card too. Ctrl+Up on the dark end of a rail no longer moves the pick.
 - GUI: a drop-down list that shows its default (or the value of the channel) shows it in gray, like the other fields.
   The SELECT printed under the drawing of the buttons is no longer cut off.
+- GUI: the pill of the sound server moved to the footer, and the row above the pages shows only on the page Slots
+  (for Simulate and the states): the other pages start a row higher.
 - Documentation: the hardware is "the control surface" (the physical one where the virtual one is the other choice),
   and a fact of the model names "the X-Touch Extender". "The X-Touch" meant the Extender, but it is the bigger desk
   with 9 faders, which the daemon doesn't need; a test fails a page that says it alone. Claims that the code

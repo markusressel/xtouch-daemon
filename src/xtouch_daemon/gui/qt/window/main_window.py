@@ -377,23 +377,27 @@ class MainWindow(QMainWindow):
         return box
 
     def _preview_status(self) -> QHBoxLayout:
-        """The bar of the page shown (see `_pages`) and the sound server."""
+        """The bar of the page shown (see `_pages`): hidden on a page without one, so the page starts higher."""
         top = QHBoxLayout()
         self.page_bars = QStackedWidget()
         """The bar of each page of the rail (an empty one for a page without), switched with the page."""
         top.addWidget(self.page_bars, 1)
-        self.audio_label = label("Reading the sound server…", "pill")
+        return top
+
+    def _audio_status(self, layout: QHBoxLayout) -> None:
+        """The sound server, in the footer: what the GUI read from it for the suggestions, and Read again."""
+        # cut with … where the footer has no room: it never makes the window wider
+        self.audio_label = ElidedLabel("Reading the sound server…", "pill")
         """What the GUI read from the sound server (for the suggestions); a click: all of it."""
         make_clickable(self.audio_label, self._show_audio)
         self.audio_error: str | None = None
         self.audio_popover: QFrame | None = None
         self.reopen_audio = False
         """Whether the popover asked to read again: it shows the result."""
-        top.addWidget(self.audio_label, 0, Qt.AlignmentFlag.AlignVCenter)
+        layout.addWidget(self.audio_label, 0, Qt.AlignmentFlag.AlignVCenter)
         self.refresh_audio = flat_button("refresh", "Read the devices and applications of the sound server again")
         self.refresh_audio.clicked.connect(self.load_audio)
-        top.addWidget(self.refresh_audio)
-        return top
+        layout.addWidget(self.refresh_audio)
 
     def _pages(self) -> QStackedWidget:
         def audio() -> AudioState:
@@ -466,7 +470,8 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.settings)
         for name in RAIL_PAGES:
             self.page_bars.addWidget(slots.bar if name == "slots" else QWidget())
-        self.stack.currentChanged.connect(self.page_bars.setCurrentIndex)
+        self.stack.currentChanged.connect(self._show_page_bar)
+        self._show_page_bar(0)
         return self.stack
 
     def _disk_bar(self) -> QFrame:
@@ -692,6 +697,7 @@ class MainWindow(QMainWindow):
         self.problems_menu = QMenu(self.problems_button)
         attach_menu(self.problems_button, self.problems_menu)
         layout.addWidget(self.problems_button)
+        self._audio_status(layout)
         self.status = ElidedLabel("", "hint")
         layout.addWidget(self.status, 1)
         self.hover_tip = ElidedLabel("", "hint")
@@ -734,6 +740,11 @@ class MainWindow(QMainWindow):
     def _error_raised(self, text: str) -> None:
         """An error no code caught (see `errors`): the window goes on, the status line says it."""
         self.status.setText(f"Something went wrong: {text}. The window goes on; the terminal has the details.")
+
+    def _show_page_bar(self, index: int) -> None:
+        self.page_bars.setCurrentIndex(index)
+        # only the page Slots has a bar (Simulate and the states); the others start in its place
+        self.page_bars.setVisible(RAIL_PAGES[index] == "slots")
 
     def show_page(self, name: str) -> None:
         """Shows a page of the rail ("slots", "channels", "states", "settings"), or one of the settings."""

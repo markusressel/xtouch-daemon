@@ -76,8 +76,8 @@ option `unity_at` of `[behavior]`). What each slot shows is printed under its LC
 
 ### Header, footer and help
 
-- **Header:** the state of the service (see [The service](#the-service)), and what the sound server has.
-- **Footer:** the problems, whether the control surface runs the file, the [Preview](#preview) control, and the buttons Undo,
+- **Header:** the state of the service (see [The service](#the-service)).
+- **Footer:** the problems, what the sound server has, whether the control surface runs the file, the [Preview](#preview) control, and the buttons Undo,
   Redo, Revert and "Save and apply". The title has • while there are unsaved changes.
 - A *pill* is a small status label (e.g. "running"). One with ▾ opens a popover, a small panel inside the window, on a
   click. It says what the pill means in full, with what you can do about it. A problem is tinted, and its fix is the
@@ -440,8 +440,8 @@ value matches, e.g. "Matches 2: ..." for `bluez_output.*`, or "Matches nothing k
   play. `[aliases]` gets the names of the applications.
 - `person` of a `person` channel: the people in the voice chat now, as the running daemon tells them.
 
-The pill "Sound server: ..." says how much the GUI read. A click lists the outputs, inputs and applications, with
-"Read again", e.g. after you started an application. Without a sound server, or without a daemon for the people of the
+The pill "Sound server: ..." at the left of the footer says how much the GUI read. A click lists the outputs, inputs
+and applications, with "Read again", e.g. after you started an application. Without a sound server, or without a daemon for the people of the
 voice chat, type the names by hand.
 
 ## Undo

@@ -188,3 +188,16 @@ def test_the_drawing_of_the_buttons_has_room_under_select():
     # the name printed under SELECT, and a margin as above REC: the round edge doesn't cover it
     crop = CROPS["buttons"]
     assert crop.bottom() - BUTTONS_BOTTOM == BUTTON_TOP - crop.top()
+
+
+def test_only_a_page_with_a_bar_has_the_row_above_it(make_window: MakeWindow):
+    window = make_window()
+    window.show_page("slots")
+    assert not window.page_bars.isHidden()
+    for page in ("channels", "states", "mqtt"):
+        window.show_page(page)
+        assert window.page_bars.isHidden()
+    # the sound server is in the footer, on every page
+    footer = window.audio_label.parentWidget()
+    assert footer is window.problems_button.parentWidget()
+    assert window.audio_label.minimumSizeHint().width() == 0

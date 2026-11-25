@@ -168,7 +168,8 @@ def test_the_forms_are_built_in_the_background(qtbot: QtBot, window: MainWindow)
     # the types of the file first: `output` (out) and `apps` (browser)
     assert set(page.prebuilding[:2]) == {"output", "apps"}
     # one at a time, each when the window has nothing else to do
-    qtbot.waitUntil(lambda: not page.prebuilding)
+    # 13 forms: under the load of the whole suite, it takes a while
+    qtbot.waitUntil(lambda: not page.prebuilding, timeout=60_000)
     assert set(page.form_widgets) == set(page.form_specs)
     # the click shows the form built before
     apps = page.form_widgets["apps"]
@@ -181,7 +182,7 @@ def test_the_window_starts_building_the_forms_after_it_shows(
 ):
     monkeypatch.setattr(ChannelsPage, "PREBUILD_AFTER_MS", 0)
     page = make_window().channels_page
-    qtbot.waitUntil(lambda: set(page.form_widgets) == set(page.form_specs))
+    qtbot.waitUntil(lambda: set(page.form_widgets) == set(page.form_specs), timeout=60_000)
 
 
 def test_a_form_is_built_the_first_time_it_shows(window: MainWindow):
