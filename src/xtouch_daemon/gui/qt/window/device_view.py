@@ -3,8 +3,8 @@ The device as it is right now (the live view of the daemon), or the preview of t
 Simulate while it is open) on its virtual twin in the daemon: the window Device, docked or on its own, on every page. A
 bar above the drawing switches between Select (a click picks a slot, a drag moves it) and Play (the mouse is a hand on
 the device), and offers to try it without a device while no daemon runs; on its right the mode the device shows,
-whether the drawing is live, and the test of the device. While the GUI hosts the virtual device, a second bar has what
-the mouse can't do on it; while the test runs, one says what each control does.
+whether the drawing is live, and the test of the device. While the GUI hosts the virtual device, a pill there opens
+what the mouse can't do on it; while the test runs, a second bar says what each control does.
 """
 
 from collections.abc import Callable
@@ -30,7 +30,7 @@ from xtouch_daemon.gui.qt.preview.panel import Hand, Preview
 from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
-from xtouch_daemon.gui.qt.virtual_device import HostedDevice, VirtualDeviceBar
+from xtouch_daemon.gui.qt.virtual_device import HostedDevice, VirtualDevicePill
 from xtouch_daemon.live.messages import SetMode, Snapshot, TwinView
 from xtouch_daemon.slots.model import DEFAULT
 
@@ -53,7 +53,9 @@ PLAY_TIP = (
 
 class DeviceView(QWidget):
     close_virtual_device = pyqtSignal(arguments=[])
-    """The bar of the hosted virtual device was told to close it."""
+    """The popover of the hosted virtual device was told to close it."""
+    restart_daemon = pyqtSignal(arguments=[])
+    """The popover of the hosted virtual device was told to restart the daemon that drives it."""
     picked = pyqtSignal(int, arguments=["slot"])
     """A strip of the drawing was clicked: the slot (1 for the leftmost one) to show on the page Slots."""
     unpicked = pyqtSignal(arguments=[])
@@ -80,12 +82,14 @@ class DeviceView(QWidget):
         owned: Callable[[], bool],
         shows_twin: Callable[[], bool] = lambda: False,
         previewing: Callable[[], bool] = lambda: False,
+        restart_reason: Callable[[], str | None] = lambda: None,
     ) -> None:
         """
         `remote`: the hand on the daemon's device; `twin_hand` and `twin`: the hand on the virtual twin of the window
         and its latest view; `owned`: whether the daemon runs as this user; `shows_twin`: whether the drawing shows the
         twin (the preview in the GUI); `previewing`: whether the drawing shows a preview of the window (on the twin or
-        on the device).
+        on the device); `restart_reason`: why the daemon that drives the hosted virtual device can't be restarted
+        from here, None when it can.
         """
         super().__init__()
         self.view_layout = layout = QVBoxLayout(self)
@@ -97,6 +101,7 @@ class DeviceView(QWidget):
         self.shows_twin = shows_twin
         self.previewing = previewing
         self.owned = owned
+        self.restart_reason = restart_reason
         self.daemon_runs = True
         """Whether a daemon runs (see `show_daemon`): without one, it offers to try without a device."""
         self.snapshot: Snapshot | None = None
@@ -112,7 +117,8 @@ class DeviceView(QWidget):
         self.test_bar.hide()
         layout.addWidget(self.test_bar)
         layout.addWidget(self._device_bar())
-        self.virtual_bar: VirtualDeviceBar | None = None
+        self.virtual_pill: VirtualDevicePill | None = None
+        """While the GUI hosts the virtual device: how it is connected, and what can be done with it."""
         self.preview.clicked.connect(self.select)
         self.preview.cleared.connect(self.deselect)
         self.preview.moved.connect(lambda source, target: self.moved.emit(source + 1, target + 1))
@@ -158,6 +164,10 @@ class DeviceView(QWidget):
         self.offered = False
         self.slots_status: Status | None = None
         layout.addWidget(self.live_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.virtual_slot = QHBoxLayout()
+        """Where the pill of the hosted virtual device goes, next to what the drawing shows."""
+        self.virtual_slot.setContentsMargins(Space.XS, 0, 0, 0)
+        layout.addLayout(self.virtual_slot)
         layout.addSpacing(Space.S)
         self.test_button = QPushButton("Test the device")
         set_icon(self.test_button, "test-tube")
@@ -383,18 +393,17 @@ class DeviceView(QWidget):
         self._show_mode()
 
     def host(self, hosted: HostedDevice | None) -> None:
-        """The GUI hosts the virtual device (None: not any more): its bar, and Play on it."""
-        if self.virtual_bar is not None:
-            # off the screen at once, its menu with it (see `discard`)
-            discard(self.view_layout, self.virtual_bar)
-            self.virtual_bar = None
+        """The GUI hosts the virtual device (None: not any more): its pill, and Play on it."""
+        if self.virtual_pill is not None:
+            # off the screen at once, its popover with it (see `discard`)
+            discard(self.virtual_slot, self.virtual_pill)
+            self.virtual_pill = None
         self.hosted = hosted
         if hosted is not None:
-            close = QPushButton("Close")
-            close.setToolTip("Closes the virtual device: for the daemon, it is unplugged.")
-            close.clicked.connect(self.close_virtual_device.emit)
-            self.virtual_bar = VirtualDeviceBar(hosted, close)
-            self.view_layout.insertWidget(1, self.virtual_bar)
+            self.virtual_pill = VirtualDevicePill(
+                hosted, self.close_virtual_device.emit, self.restart_daemon.emit, self.restart_reason
+            )
+            self.virtual_slot.addWidget(self.virtual_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         self._show_mode()
         if hosted is not None:
             # opened to play with it

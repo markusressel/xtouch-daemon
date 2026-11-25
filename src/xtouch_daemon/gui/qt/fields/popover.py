@@ -40,6 +40,11 @@ class Entry:
     """A path to show under the text, in a monospace font (its middle goes where it doesn't fit)."""
     items: tuple[tuple[str, str], ...] = ()
     """A list under the text, a line each: the item and a note on it (muted, "" for none)."""
+    toggles: tuple[tuple[str, bool, Callable[[bool], object]], ...] = ()
+    """
+    Switches in a row under the text: their text, whether they are on, and what a click does with the new value. Unlike
+    the buttons of `actions`, they leave the popover open, so several can be switched at once.
+    """
 
 
 def show_popover(
@@ -84,6 +89,8 @@ def show_popover(
         layout.addWidget(explanation)
     for entry in entries:
         layout.addWidget(_row(popup, entry))
+    # the size of the wrapped texts in the font of the style, which the rows get only when polished
+    popup.ensurePolished()
     popup.adjustSize()
     popup.move(place(anchor, window, popup.size()))
     popup.show()
@@ -226,6 +233,9 @@ def _row(popup: QFrame, entry: Entry) -> QFrame:
         shown.setFixedWidth(TEXT_WIDTH)
         grid.addWidget(shown, line, 0, 1, 3)
         line += 1
+    if entry.toggles:
+        grid.addLayout(_toggles(entry), line, 0, 1, 3, Qt.AlignmentFlag.AlignLeft)
+        line += 1
     if buttons is not None and not titled:
         # nothing above the text: the buttons go under it
         grid.addLayout(buttons, line, 0, 1, 3, Qt.AlignmentFlag.AlignRight)
@@ -247,6 +257,21 @@ def _buttons(popup: QFrame, entry: Entry, tone: Tone) -> QHBoxLayout | None:
         button.clicked.connect(lambda _=False, action=action: (popup.close(), action()))
         buttons.addWidget(button)
     return buttons
+
+
+def _toggles(entry: Entry) -> QHBoxLayout:
+    """The switches of `entry`, checkable segments in a row."""
+    toggles = QHBoxLayout()
+    toggles.setSpacing(0)
+    for text, on, toggled in entry.toggles:
+        button = QPushButton(text)
+        set_role(button, "segment", "variant")
+        button.setCheckable(True)
+        button.setChecked(on)
+        button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        button.toggled.connect(lambda checked, toggled=toggled: toggled(checked))
+        toggles.addWidget(button)
+    return toggles
 
 
 OPEN_KEYS = (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter)

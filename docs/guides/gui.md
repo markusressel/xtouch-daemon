@@ -203,10 +203,19 @@ older version has no log for the window: restart it.
 
 ## The virtual device
 
-While the window hosts the virtual device, Play is on. A bar above the drawing unplugs and plugs it, switches it off
-and on, breaks the touch sensor of faders ("Broken touch", to try
-[`touchless_faders`](../configuration/behavior.md#faders-without-a-touch-sensor)), and closes it ("Close", or closing
-the window: for the daemon it is unplugged).
+While the window hosts the virtual device, Play is on, and a pill next to "Live" says whether the daemon
+drives it. A click on the pill opens what the mouse can't do on the drawing:
+
+- **Connection:** "Unplug" and "Plug in" take it away from the daemon and give it back. "Switch off and on" also makes
+  it forget what it showed, like the control surface after a power cut. "Close" closes it; closing the window does
+  too. For the daemon, it is unplugged.
+- **Daemon:** "Restart" stops the daemon and starts it again, so you see its
+  [startup and shutdown sequences](../configuration/behavior.md#startup-and-shutdown-sequences) on the virtual device.
+  It restarts the service, or the daemon of "Try without a device". A daemon started in a terminal or an IDE is
+  restarted where it runs.
+- **Broken touch:** a switch per fader breaks its touch sensor, to try
+  [`touchless_faders`](../configuration/behavior.md#faders-without-a-touch-sensor). The popover stays open, so you can
+  break several.
 
 When the control surface (`[device] name`) is plugged in while the daemon drives the virtual one, a bar says so. Its button:
 

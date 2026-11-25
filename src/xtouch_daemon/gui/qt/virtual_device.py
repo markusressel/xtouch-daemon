@@ -1,20 +1,22 @@
 """
 The virtual device hosted by the GUI: a `SimulatedDevice` on the socket where the daemon looks for it (like
-`xtouch-daemon virtual-device`), with the mouse on the drawing as a hand on it (`Preview.hand`) and a bar to plug it
-in and out, switch it off and on and break touch sensors. What the drawing shows still comes from the daemon's live
-view, which is what reached the device.
+`xtouch-daemon virtual-device`), with the mouse on the drawing as a hand on it (`Preview.hand`) and a pill whose
+popover plugs it in and out, switches it off and on, restarts the daemon and breaks touch sensors. What the drawing
+shows still comes from the daemon's live view, which is what reached the device.
 """
 
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 from PyQt6.QtCore import QObject, QTimer, pyqtSignal
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
-from PyQt6.QtWidgets import QHBoxLayout, QMenu, QPushButton, QToolButton, QWidget
+from PyQt6.QtWidgets import QFrame, QLabel
 
-from xtouch_daemon.gui.qt.fields.basics import label
-from xtouch_daemon.gui.qt.fields.menu import attach_menu
-from xtouch_daemon.gui.qt.theme.tokens import Space
+from xtouch_daemon.gui.domain.status import Status, Tone
+from xtouch_daemon.gui.qt.fields.basics import show_status
+from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
+from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.simulator.device import SimulatedDevice
@@ -134,48 +136,82 @@ class HostedDevice(QObject):
         self.send(self.device.push(strip, pressed))
 
 
-class VirtualDeviceBar(QWidget):
-    """Above the drawing while the GUI hosts the virtual device: what the hand can't do with the mouse."""
+class VirtualDevicePill(QLabel):
+    """
+    Above the drawing while the GUI hosts the virtual device: how it is connected. A click opens what the mouse can't
+    do on it: unplug it, switch it off and on, restart the daemon to see its sequences, break touch sensors, close it.
+    """
 
-    def __init__(self, hosted: HostedDevice, close: QPushButton):
+    def __init__(
+        self,
+        hosted: HostedDevice,
+        close: Callable[[], object],
+        restart: Callable[[], object],
+        restart_reason: Callable[[], str | None],
+    ):
+        """
+        `close` closes it, `restart` restarts the daemon that drives it, and `restart_reason` says why it can't be
+        restarted (None: it can).
+        """
         super().__init__()
+        set_role(self, "pill")
         self.hosted = hosted
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(Space.S, 0, Space.S, 0)
-        self.state = label("", "hint")
-        layout.addWidget(self.state)
-        layout.addStretch(1)
-        self.plug = QPushButton()
-        self.plug.clicked.connect(lambda: hosted.unplug() if hosted.plugged else hosted.plug())
-        layout.addWidget(self.plug)
-        power = QPushButton("Switch off and on")
-        power.setToolTip("The daemon loses it; it starts again with its faders going down, like the real device.")
-        power.clicked.connect(hosted.power_cycle)
-        layout.addWidget(power)
-        self.broken = QToolButton()
-        self.broken.setText("Broken touch")
-        self.broken.setToolTip("Faders whose touch sensor failed: they never report a touch.")
-        self.broken_menu = QMenu(self.broken)
-        """The faders whose touch is broken, checked."""
-        menu = self.broken_menu
-        for strip in range(protocol.STRIPS):
-            action = menu.addAction(f"Fader {strip + 1}")
-            assert action is not None
-            action.setCheckable(True)
-            action.toggled.connect(lambda broken, strip=strip: hosted.set_broken_touch(strip, broken))
-        attach_menu(self.broken, menu)
-        layout.addWidget(self.broken)
-        layout.addWidget(close)
+        self.close_device = close
+        self.restart = restart
+        self.restart_reason = restart_reason
+        make_clickable(self, lambda: self.show_details() and None)
         hosted.changed.connect(self.refresh)
         self.refresh()
 
-    def refresh(self) -> None:
+    def status(self) -> Status:
         hosted = self.hosted
         if not hosted.plugged:
-            state = "Virtual device: unplugged"
-        elif hosted.host is None:
-            state = "Virtual device: waiting for the daemon"
-        else:
-            state = "Virtual device: the mouse is a hand on it (Alt-drag moves a fader without a touch)"
-        self.state.setText(state)
-        self.plug.setText("Unplug" if hosted.plugged else "Plug in")
+            return Status("unplugged", Tone.WARN, "The daemon can't find it until it is plugged in again.")
+        if hosted.host is None:
+            return Status("waiting for the daemon", Tone.NEUTRAL, "Plugged in: the daemon finds it within seconds.")
+        return Status(
+            "connected",
+            Tone.GOOD,
+            "The daemon drives it, and the mouse is a hand on it in Play (Alt-drag moves a fader without a touch).",
+        )
+
+    def refresh(self) -> None:
+        status = self.status()
+        show_status(self, Status(f"Virtual device · {status.text}", status.tone, status.tip), more=True)
+
+    def details(self) -> list[Entry]:
+        """What the pill opens: the connection, the daemon and the touch sensors."""
+        hosted = self.hosted
+        plug = ("Unplug", hosted.unplug) if hosted.plugged else ("Plug in", hosted.plug)
+        status = self.status()
+        connection = Entry(
+            "Connection",
+            # the pill says how it is: only its color
+            Status("", status.tone),
+            f"{status.tip} Switch off and on: it also forgets what it showed and starts again with its faders down. "
+            "Close: unplugged, and gone from the window.",
+            (plug, ("Switch off and on", hosted.power_cycle), ("Close", self.close_device)),
+        )
+        sequences = "The daemon stops and starts again: its shutdown and startup sequences show here."
+        reason = self.restart_reason()
+        daemon = Entry(
+            "Daemon",
+            text=sequences if reason is None else f"{sequences} {reason}",
+            actions=(("Restart", self.restart),) if reason is None else (),
+        )
+        broken = Entry(
+            "Broken touch",
+            text="Faders whose touch sensor failed never report a touch, e.g. to try `touchless_faders`.",
+            toggles=tuple(
+                (
+                    str(strip + 1),
+                    strip in hosted.device.broken_touch,
+                    lambda on, strip=strip: hosted.set_broken_touch(strip, on),
+                )
+                for strip in range(protocol.STRIPS)
+            ),
+        )
+        return [connection, daemon, broken]
+
+    def show_details(self) -> QFrame:
+        return show_popover(self, "Virtual device", self.details())

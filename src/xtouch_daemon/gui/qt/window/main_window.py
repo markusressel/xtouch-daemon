@@ -208,6 +208,8 @@ class MainWindow(QMainWindow):
         """Whether the window was shown: the first time the keys go to the strips."""
         self.trying: QProcess | None = None
         """The daemon started by "Try without a device", with the virtual device; it ends with the window."""
+        self.restarting_trial = False
+        """Whether the daemon of `trying` stops to start again (see `restart_daemon`)."""
         if session is not None and session.trying is not None:
             self._keep_trying(session.trying)
         self.resume_place = Place(session.preview) if session is not None else None
@@ -424,8 +426,10 @@ class MainWindow(QMainWindow):
             # the device while it is tested, also with a preview in the GUI
             lambda: self.live_preview.in_gui and not self.device_test.running,
             self._previewing,
+            self._restart_reason,
         )
         self.device_view.close_virtual_device.connect(self.close_virtual_device)
+        self.device_view.restart_daemon.connect(self.restart_daemon)
         self.device_view.picked.connect(self.show_slot)
         self.device_view.unpicked.connect(self.slots_page.unpick)
         self.slots_page.slot_picked.connect(lambda slot: self.device_view.show_selected(slot - 1 if slot else None))
@@ -1277,13 +1281,16 @@ class MainWindow(QMainWindow):
             return
         if not self.document.exists and not self.save():
             return
+        self._start_trial()
+        self.status.setText("Starting a daemon with the virtual device…")
+
+    def _start_trial(self) -> None:
         process = QProcess()
         process.setProcessChannelMode(QProcess.ProcessChannelMode.ForwardedChannels)
         process.start(
             sys.executable, ["-m", "xtouch_daemon", "run", "--virtual-device", "--config", str(self.document.path)]
         )
         self._keep_trying(process)
-        self.status.setText("Starting a daemon with the virtual device…")
 
     def _keep_trying(self, process: QProcess) -> None:
         """The daemon to try without a device is this window's: it ends with it."""
@@ -1297,8 +1304,35 @@ class MainWindow(QMainWindow):
             return
         self.trying = None
         process.deleteLater()
+        if self.restarting_trial:
+            self.restarting_trial = False
+            self._start_trial()
+            self.status.setText("Starting the daemon for trying without a device again…")
+            return
         self.status.setText(f"The daemon for trying without a device ended (exit code {code}).")
         self.refresh_service()
+
+    def restart_daemon(self) -> None:
+        """
+        The daemon that drives the hosted virtual device stops and starts again, so its shutdown and startup sequences
+        show on it: the daemon of "Try without a device", or the service.
+        """
+        if self.trying is not None:
+            self.restarting_trial = True
+            self.trying.terminate()
+            self.status.setText("Stopping the daemon for trying without a device, to start it again…")
+            return
+        self._restart()
+
+    def _restart_reason(self) -> str | None:
+        """Why `restart_daemon` can't restart the daemon, None when it can."""
+        if self.trying is not None:
+            return None
+        if self.daemon is None:
+            return "No daemon runs now."
+        if not self.daemon.systemd:
+            return f"This daemon runs outside the service (process {self.daemon.pid}): restart it where it runs."
+        return None
 
     def toggle_test(self, on: bool) -> None:
         """ "Test the device": the daemon tests it for this window (on), or the device shows the slots again."""

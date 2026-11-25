@@ -111,6 +111,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: the bar of the virtual device the window hosts is now the pill "Virtual device", next to "Live", with how it
+  is connected. Its popover unplugs and plugs it in, switches it off and on, closes it, and breaks the touch sensor of
+  faders, a switch per fader that leaves the popover open. "Restart" there restarts the daemon that drives it (the
+  service or the one of "Try without a device"), so its shutdown and startup sequences show on it.
 - GUI: the page Slots picks a slot or a candidate, or nothing. A click on a card beside its candidates picks the slot
   alone, a click below the cards or on the drawing of the control surface beside the strips picks nothing. Before,
   nothing could undo a pick. The card of the slot picked has an outline, and the drawing selects its strip, also when
@@ -194,6 +198,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- GUI: a popover cut the last line of a longer text, measured before the font of its style applied.
 - Documentation: a changed `[device] name` or `virtual` is reloaded (the daemon switches to the other X-Touch), the
   pages said it needs a restart; only `fader = "homeassistant"` needs `[mqtt]`, not every binding; the pages quoted a
   message the GUI doesn't show ("The device does not run the saved file yet"; its pill says "Not on the device
