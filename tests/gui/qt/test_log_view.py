@@ -262,3 +262,17 @@ def test_the_text_keeps_the_latest_records(monkeypatch: pytest.MonkeyPatch, wind
     assert len(view.placed) == 4
     assert view.match_count == 4
     assert [mark.cursor.selectedText() for mark in view.marks] == ["record"] * 4
+
+
+def test_the_window_log_can_be_a_narrow_band(make_window: MakeWindow):
+    window = make_window()
+    window.show()
+    window.log_dock.show()
+    QApplication.processEvents()
+    view = window.log_view
+    # a line of the log, not the few lines a scroll area asks for by default
+    line = view.text.fontMetrics().lineSpacing()
+    assert view.text.minimumSizeHint().height() > view.text.minimumHeight() >= line
+    view.message.hide()
+    # the bar and a line
+    assert view.minimumSizeHint().height() < 3 * view.level.minimumSizeHint().height() + line

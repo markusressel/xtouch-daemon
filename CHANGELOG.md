@@ -217,6 +217,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- GUI: the window Log can be made as low as its bar and a line of the log; it kept a few lines of height before.
 - `apps` and `auto` kept an `apps` channel without a slot for the `hold` of the pool after the channel was gone by
   its own `absent_after`: a slot like `["browser if present", "apps"]` showed the browser through `apps` for two
   more seconds (in the look of that candidate) before it went dark. The pool takes such a channel only while it is
