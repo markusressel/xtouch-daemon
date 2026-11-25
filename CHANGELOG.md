@@ -214,6 +214,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- `apps` and `auto` kept an `apps` channel without a slot for the `hold` of the pool after the channel was gone by
+  its own `absent_after`: a slot like `["browser if present", "apps"]` showed the browser through `apps` for two
+  more seconds (in the look of that candidate) before it went dark. The pool takes such a channel only while it is
+  present now.
 - GUI: the dot of a candidate in the path over the inspector sits on the middle of its text, not low.
 - GUI: a popover cut the last line of a longer text, measured before the font of its style applied.
 - Documentation: a changed `[device] name` or `virtual` is reloaded (the daemon switches to the other X-Touch), the

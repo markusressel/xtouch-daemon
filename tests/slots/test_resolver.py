@@ -181,6 +181,15 @@ def test_what_auto_takes():
     assert shows(result, [1, 2, 3, 4]) == ["spotify", "auto:browser", "auto:mpv", "auto"]
 
 
+def test_auto_keeps_a_channel_only_while_it_is_present():
+    # firefox stopped: the pool still holds it (`hold`), but the browser is gone after its own `absent_after`
+    held = Observation(playing=("firefox",))
+    gone = run('[slots]\n1 = "spotify"', present=ALL - {"browser"}, observation=held)
+    assert shows(gone, [2]) == ["auto"]
+    # an application without a channel stays for the hold
+    assert shows(run("", present=ALL - {"browser"}, observation=Observation(playing=("mpv",))), [1]) == ["auto:mpv"]
+
+
 def test_a_pin_beats_the_order_and_stays_after_its_application_stopped():
     result = run("", observation=Observation(playing=("a", "b")), pins={2: App("c")})
     assert shows(result, [1, 2, 3]) == ["auto:a", "auto:c", "auto:b"]

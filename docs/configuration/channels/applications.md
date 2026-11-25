@@ -98,7 +98,8 @@ How `apps` and `auto` get their applications:
 
 - An application qualifies while at least one of its streams plays (is not paused).
 - Applications of an `apps` channel that has a slot never go to `apps` or `auto`. Neither do those of `exclude`.
-- An `apps` channel without a slot goes in as a whole, on one strip. `in_pool = false` keeps it out.
+- An `apps` channel without a slot goes in as a whole, on one strip. `in_pool = false` keeps it out. After its
+  applications stopped, it stays for its own `absent_after`, not for `hold`.
 - Free slots take new applications from the side of `from`, in the order the applications started.
 - When the pool has no application for a slot, the slot shows its next candidate.
 - An application keeps its slot while it plays and for `hold` seconds after it stopped, so a music player does not

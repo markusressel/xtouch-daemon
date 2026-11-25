@@ -108,7 +108,10 @@ def test_which_channel_has_an_application_and_what_auto_never_takes():
 def test_pools_are_present_before_slots_are_assigned():
     read = scene(SCENE)
     assert not pool_present(read, "auto", Observation(playing=("discord", "speech-dispatcher")), frozenset())
-    assert pool_present(read, "auto", Observation(playing=("discord", "firefox")), frozenset())
+    browser = Observation(playing=("discord", "firefox"))
+    assert pool_present(read, "auto", browser, frozenset({"browser"}))
+    # the browser stopped long enough to be absent: the hold of the pool doesn't keep it
+    assert not pool_present(read, "auto", browser, frozenset())
     # people share the slots of auto: anyone in the voice chat (before the slots are assigned)
     assert pool_present(read, "auto", Observation(people=attendees("Alice")), frozenset())
     # not someone whose person channel never goes into auto
