@@ -84,7 +84,7 @@ def test_channels_are_present_while_they_have_something_to_control():
 
 def test_presence_keeps_a_channel_for_absent_after():
     read = scene(SCENE)
-    presence = Presence(read, absent_after=3)
+    presence = Presence(read)
     assert "browser" in presence.update(Observation(playing=("firefox",), devices=frozenset({"bluez_output.1"})), 0)
     present = presence.update(Observation(), 1)
     assert {"browser", "buds"} <= present
@@ -136,7 +136,7 @@ channels = ["#screens"]
     assert present_now("screen", read.channels["screen"], Observation())
     assert not present_now("screen", read.channels["screen"], away)
     assert present_now("lamp", read.channels["lamp"], away)
-    presence = Presence(read, absent_after=3)
+    presence = Presence(read)
     assert presence.update(Observation(), 0) == {"screen", "lamp"}
     # it stays `absent_after`, as any channel
     assert presence.update(away, 1) == {"screen", "lamp"}

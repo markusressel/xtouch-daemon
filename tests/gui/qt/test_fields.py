@@ -3,7 +3,7 @@ The fields of the forms.
 """
 
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QDoubleSpinBox
+from PyQt6.QtWidgets import QApplication, QDoubleSpinBox
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import MakeWindow, click, row, show_channel, type_into
@@ -28,15 +28,13 @@ def test_numbers_switches_and_choices(qtbot: QtBot, window: MainWindow):
     assert isinstance(hold, QDoubleSpinBox)
     hold.setValue(2.5)
     assert window.document.get(("pool", "apps", "hold")) == 2.5
-    # a number without a default: a step below the minimum is "not set"
+    # a number with a default shows it
     show_channel(window, "out")
     absent = row(window, "absent_after").spin
     assert isinstance(absent, QDoubleSpinBox)
-    assert absent.specialValueText() == "default: not set"
+    assert absent.value() == 3
     absent.setValue(1.5)
     assert window.document.get(("channel", "out", "absent_after")) == 1.5
-    absent.setValue(absent.minimum())
-    assert window.document.get(("channel", "out", "absent_after")) is None
 
     meters = row(window, "meters", "behavior")
     click(qtbot, meters.switch)
@@ -258,3 +256,21 @@ def test_in_a_wide_row_the_reset_button_stays_beside_the_field(qtbot: QtBot):
     qtbot.wait(1)
     assert option_row.reset.geometry().right() <= option_row.width()
     assert option_row.width() < 2000
+
+
+def test_a_number_without_a_default_is_not_set_in_gray(qapp: QApplication):
+    values: dict[str, object] = {}
+    option = Option("every", Kind.NUMBER, "", None, False)
+    option_row = OptionRow(option, lambda: values.get("every"), lambda value: values.__setitem__("every", value))
+    option_row.load()
+    spin = option_row.spin
+    assert isinstance(spin, QDoubleSpinBox)
+    # a step below the minimum is "not set": what applies depends on something else, its help says what
+    assert spin.specialValueText() == "not set"
+    assert spin.property("unset") is True
+    spin.setValue(1.5)
+    assert values["every"] == 1.5
+    assert spin.property("unset") is False
+    spin.setValue(spin.minimum())
+    assert values["every"] is None
+    assert spin.property("unset") is True

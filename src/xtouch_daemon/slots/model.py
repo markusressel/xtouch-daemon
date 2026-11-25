@@ -140,8 +140,8 @@ class ChannelConfig(_Open):
     device: str | tuple[str, ...] | None = None
     choices: tuple[dict[str, Any], ...] = ()
     person: str | tuple[str, ...] | None = None
-    absent_after: float | None = None
-    """Seconds the channel stays present after it had nothing to control any more; by default 3."""
+    absent_after: float = ABSENT_AFTER
+    """Seconds the channel stays present after it had nothing to control any more."""
 
     @model_validator(mode="before")
     @classmethod

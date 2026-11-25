@@ -29,7 +29,12 @@ def test_states_are_shown_edited_added_and_removed(qtbot: QtBot, window: MainWin
     assert not any(segment.isVisible() for segment in page.override_buttons.values())
     assert row(window, "voice_chat", "states").switch.isChecked()
 
-    row(window, "delay_off", "states").spin.setValue(4)
+    delay_off = row(window, "delay_off", "states").spin
+    # by default as the kind of the state, in gray
+    assert delay_off.specialValueText() == "default: 3"
+    assert delay_off.property("unset") is True
+    delay_off.setValue(4)
+    assert delay_off.property("unset") is False
     assert window.document.get(("state", "call", "delay_off")) == 4
 
     panel = open_menu_of(qtbot, page.add_button)

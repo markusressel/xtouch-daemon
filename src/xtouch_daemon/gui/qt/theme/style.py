@@ -222,6 +222,7 @@ QLineEdit[problem="true"], QSpinBox[problem="true"], QDoubleSpinBox[problem="tru
 QWidget[role="chips"][problem="true"] {{ border-color: {c.error}; }}
 QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled {{ color: {c.placeholder};
     border-color: {c.border}; }}
+QSpinBox[unset="true"], QDoubleSpinBox[unset="true"] {{ color: {c.placeholder}; }}
 QSpinBox, QDoubleSpinBox {{ min-width: {Space.XXL * 3}px; padding-right: {Space.XL}px; }}
 QAbstractSpinBox QLineEdit {{ border: none; padding: 0; background: transparent; }}
 QSpinBox::up-button, QDoubleSpinBox::up-button, QSpinBox::down-button, QDoubleSpinBox::down-button {{

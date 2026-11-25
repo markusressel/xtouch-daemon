@@ -315,12 +315,9 @@ def pool_present(scene: Scene, pool: str, observation: Observation, present: fro
 class Presence:
     """The channels that are present, each kept `absent_after` seconds after it had nothing to control any more."""
 
-    def __init__(self, scene: Scene, absent_after: float):
+    def __init__(self, scene: Scene):
         self.scene = scene
-        self._delayed = {
-            name: Delayed(0.0, channel.absent_after if channel.absent_after is not None else absent_after)
-            for name, channel in scene.channels.items()
-        }
+        self._delayed = {name: Delayed(0.0, channel.absent_after) for name, channel in scene.channels.items()}
 
     def carry(self, before: Presence) -> None:
         """Goes on from where `before` was (a reload): the channels with the same id."""

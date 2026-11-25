@@ -47,6 +47,7 @@ from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, Snapshot
 from xtouch_daemon.slots.model import DEFAULT, StateConfig
+from xtouch_daemon.slots.states import delay_off_for
 
 _ID = re.compile(r"[a-z0-9_]+")
 """What a state can be called."""
@@ -335,7 +336,16 @@ class StatesPage(Page):
         self.delays_button.setAutoRaise(True)
         self.delays_button.toggled.connect(self._show_delays)
         layout.addWidget(self.delays_button)
-        self.delay_rows = [option_row("delay_on"), option_row("delay_off"), option_row("persist")]
+
+        def delay_off() -> str:
+            # by default as the kind of the state: a mode, a state with sources, or one with a condition
+            state = self.document.get(("state", self.selection or "")) or {}
+            return f"{delay_off_for(bool(state.get('mode')), state.get('when') is not None):g}"
+
+        delay_off_row = self._row(
+            found["delay_off"], lambda name: ("state", self.selection or "", name), None, delay_off
+        )
+        self.delay_rows = [option_row("delay_on"), delay_off_row, option_row("persist")]
         for widget in self.delay_rows:
             layout.addWidget(widget)
         self._align()

@@ -25,3 +25,24 @@ device, check:
 - the meter going down: each level is sent, but the device lets meters fall by itself too.
 - a disconnect: pull only the USB cable while the device stays on. Do its faders, LCDs and LEDs stay as they were, or
   does it reset them? (`docs/reference/hardware.md`, "Disconnect", says it is not known yet.)
+
+
+## Bugs
+
+Unused space to the right of the scrollbar on the "Channels" configuration view:
+/tmp/screenshots/2026-11-25-10-07-59.png
+
+
+when I am in the channels tab, and click on slot 2 (Browser)
+  for the first time (after app launch), it takes a moment to
+  load. A second click loads instantly. When I click on slot
+  8 then (Mic), the same thing happens.
+
+  Can we either make that loading faster, or add a loading
+  indicator in the meantime? I assume it takes a while because
+  it lays out the layout for the first time, which is
+  understandable, but still a bad experience.
+
+The hardware item control previews here are awesome, but they look a little harsh, can we round their corners or do something else to make them feel more integrated?
+/tmp/screenshots/2026-11-25-10-09-15.png
+
