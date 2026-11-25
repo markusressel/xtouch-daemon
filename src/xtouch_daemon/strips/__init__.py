@@ -44,7 +44,7 @@ def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
             # a bound color is white in the look; the custom strip shows the color of its line itself
             return Look(config.label, color_name(config.color), meter=False)
         case VoipStripConfig():
-            return Look(config.label, config.color, config.meter, meter_point)
+            return Look(config.label, config.color, config.meter, meter_point, mute_led=config.mute_led)
         case DeviceStripConfig() | AppsStripConfig() | AutoStripConfig():
             # a bound color is white until it is known; a bound meter shows no audio
             return Look(
@@ -55,6 +55,7 @@ def look_of(config: StripConfig, meter_point: MeterPoint = "pre_fader") -> Look:
                 {button: config.button(name) for button, name in BUTTONS.items()},
                 config.lit_when_idle,
                 parts_of(config),
+                config.mute_led,
             )
         case _ as unreachable:
             assert_never(unreachable)

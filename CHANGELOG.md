@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- `mute_led = "flash"` makes the LED of Mute flash while the strip is muted, instead of lighting it: on a channel
+  (e.g. your microphone), a `person` channel, `[pool.people]` and the other pools, or a place of a slot. The GUI has it
+  under Buttons, and its preview of the buttons shows Mute flashing.
 - GUI: a channel with sound has a small animation after its name on the page Channels and after its chip on the cards
   of the slots: three bars for an output and applications, a spreading ring for an input, a breathing dot for a
   person who talks. Playing something shows which channels take it, also those that no slot shows yet. The daemon

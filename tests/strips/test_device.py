@@ -39,6 +39,14 @@ async def test_a_muted_device_says_so(surface: RecordingSurface, env: StripEnv) 
     assert surface.strips[0].leds[Button.MUTE] == Led.ON
 
 
+async def test_mute_can_flash_while_muted(surface: RecordingSurface, env: StripEnv) -> None:
+    strip = make(surface, env, mute_led="flash")
+    strip.update(AudioState(outputs=(output("speaker", 50, muted=True),)))
+    assert surface.strips[0].leds[Button.MUTE] == Led.FLASH
+    strip.update(AudioState(outputs=(output("speaker", 50),)))
+    assert surface.strips[0].leds[Button.MUTE] == Led.OFF
+
+
 async def test_the_label_defaults_to_the_start_of_the_description(surface: RecordingSurface, env: StripEnv) -> None:
     strip = make(surface, env)
     assert strip.label == "Output"

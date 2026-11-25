@@ -11,10 +11,12 @@ from xtouch_daemon.config.strip import STRIP_TYPE_MEANINGS
 from xtouch_daemon.config.values import (
     COLORS,
     METER_POINTS,
+    MUTE_LEDS,
     VOLUME_LIMIT,
     ColorName,
     Label,
     MeterPoint,
+    MuteLed,
 )
 
 
@@ -58,6 +60,8 @@ class VoipStripConfig(Model):
     Where the meter takes the voice: before the fader and Mute, or after them. Before, a muted participant who talks
     lights it without a level. By default `behavior.meter_point`.
     """
+    mute_led: Annotated[MuteLed, MUTE_LEDS] = "on"
+    """The LED of Mute while the participant is muted for you: lit, or flashing."""
     max_volume: Annotated[int, Field(ge=1, le=VOLUME_LIMIT)] | None = None
     """
     The volume of the participant, in percent, with the fader at the top; by default `behavior.max_volume`. Above

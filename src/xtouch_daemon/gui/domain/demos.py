@@ -58,7 +58,7 @@ GROUPS: tuple[tuple[Group, str], ...] = (
 PARTS: dict[Group, frozenset[str]] = {
     "encoder": frozenset({"encoder"}),
     "display": frozenset({"label", "lcd", "color", "talking_color", "lit_when_idle"}),
-    "buttons": frozenset({"rec", "solo", "mute", "select"}),
+    "buttons": frozenset({"rec", "solo", "mute", "mute_led", "select"}),
     "fader": frozenset({"fader", "min_volume", "max_volume", "meter", "meter_point"}),
     "slots": frozenset({"absent_after", "in_pool", "tags"}),
 }
@@ -494,6 +494,10 @@ def _buttons(strip: Strip) -> tuple[Frame, ...]:
     situations: list[tuple[str, set[str]]] = []
     if strip.strip_type == CUSTOM:
         situations.append(("Nothing pressed", set()))
+    elif strip.strip_type == "voip":
+        # a person: only Mute, muted for you
+        situations.append(("There", {"playing"}))
+        situations.append(("Muted by you", {"playing", "muted"}))
     else:
         situations.append(("Audio plays", {"playing"}))
         situations.append(("An application records", {"playing", "recording"}))
@@ -524,10 +528,17 @@ def _buttons(strip: Strip) -> tuple[Frame, ...]:
             if _lit(name, setup, flags):
                 leds[name] = "on"
         if "muted" in flags and strip.strip_type != CUSTOM:
-            leds["mute"] = "on"
-        lit = [name.capitalize() for name, led in leds.items() if led == "on"]
+            leds["mute"] = _muted_led(strip)
+        lit = [
+            name.capitalize() + (" flashing" if led == "flash" else "") for name, led in leds.items() if led != "off"
+        ]
         frames.append(Frame(f"{caption}: {', '.join(lit) if lit else 'all dark'}", replace(base, leds=leds)))
     return tuple(frames)
+
+
+def _muted_led(strip: Strip) -> str:
+    """The LED of Mute while the strip is muted (`mute_led`)."""
+    return "flash" if strip.value("mute_led") == "flash" else "on"
 
 
 def _does(action: Action) -> str:
@@ -619,7 +630,7 @@ def _fader(strip: Strip) -> tuple[Frame, ...]:
         frames.append(at(UNITY, "0 dB mark: 100 %"))
     frames.append(at(top, f"Top: {top} %"))
     muted_level = LEVEL if ((pre and strip.strip_type == "output") or bound_meter) and meter_on else 0
-    muted = replace(base, meter=muted_level, leds={**DARK.leds, "mute": "on"})
+    muted = replace(base, meter=muted_level, leds={**DARK.leds, "mute": _muted_led(strip)})
     shows = "still the level" if muted_level else "dark"
     frames.append(Frame(f"Muted; meter: {shows}", muted))
     return tuple(frames)

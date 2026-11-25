@@ -406,6 +406,7 @@ STRIP_OPTION_ORDER = (
     "meter_point",
     "rec",
     "solo",
+    "mute_led",
     "mute",
     "select",
     "launch",

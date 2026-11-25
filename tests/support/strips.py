@@ -68,6 +68,7 @@ def make(
         "cyan",
         kwargs.pop("meter", True),  # type: ignore[arg-type]
         buttons=buttons,
+        mute_led=kwargs.pop("mute_led", "on"),  # type: ignore[arg-type]
     )
     return DeviceStrip(surface.strips[0], env, ID, direction, devices, look, **kwargs)  # type: ignore[arg-type]
 

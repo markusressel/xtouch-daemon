@@ -31,7 +31,26 @@ def test_the_options_of_a_part_have_a_preview(window: MainWindow):
     assert display.drawing.view.toolTip() == ""
     # people have no encoder; the groups without a part have no preview
     window.channels_page.select(("pool", "people"))
-    assert list(previews(window)) == ["display", "fader"]
+    assert list(previews(window)) == ["display", "buttons", "fader"]
+    assert [frame.caption for frame in previews(window)["buttons"].frames] == [
+        "There: all dark",
+        "Muted by you: Mute",
+    ]
+
+
+def test_mute_can_flash_while_muted(window: MainWindow):
+    window.document.set(("pool", "people", "mute_led"), "flash")
+    window.document.set(("channel", "out", "mute_led"), "flash")
+    window.editor.edited()
+    show_channel(window, "out")
+    window.channels_page.select(("pool", "people"))
+    (_, muted) = previews(window)["buttons"].frames
+    assert muted.caption == "Muted by you: Mute flashing"
+    assert muted.state.leds["mute"] == "flash"
+    show_channel(window, "out")
+    frames = previews(window)["buttons"].frames
+    assert "Muted: Mute flashing" in [frame.caption for frame in frames]
+    assert previews(window)["fader"].frames[-1].state.leds["mute"] == "flash"
 
 
 def test_a_preview_follows_the_values_in_the_form(window: MainWindow):

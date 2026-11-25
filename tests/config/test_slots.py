@@ -165,3 +165,39 @@ def test_the_meter_point_of_a_channel_is_its_own_or_the_one_of_behavior():
     )
     assert config.meter_point(config.slots.channels["out"]) == "post_fader"
     assert config.meter_point(config.slots.channels["mic"]) == "pre_fader"
+
+
+def test_mute_can_flash_on_a_channel_on_the_people_and_in_a_place():
+    slots = parse_config(
+        """
+[voip]
+provider = "demo"
+
+[channel.mic]
+type = "input"
+label = "Mic"
+mute_led = "flash"
+
+[channel.ann]
+type = "person"
+person = "Ann"
+mute_led = "flash"
+
+[pool.people]
+mute_led = "flash"
+
+[slots]
+1 = "mic"
+2 = ["people", { show = "mic", mute_led = "on" }]
+""",
+        "test",
+    ).slots
+    assert {name: getattr(strip, "mute_led", None) for name, strip in slots.channels.items()} == {
+        "mic": "flash",
+        "ann": "flash",
+    }
+    # someone without a channel has the look of the people
+    assert getattr(slots.person("Zed"), "mute_led", None) == "flash"
+    # the option of a place beats that of its channel
+    assert slots.strips[(1, 0, "mic")].mute_led == "flash"  # pyright: ignore[reportAttributeAccessIssue]
+    assert slots.strips[(2, 1, "mic")].mute_led == "on"  # pyright: ignore[reportAttributeAccessIssue]

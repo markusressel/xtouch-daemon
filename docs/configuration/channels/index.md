@@ -52,6 +52,7 @@ These options apply to `output`, `input` and `apps` channels. Strings need their
 | `meter_point` | `behavior.meter_point` | Where the meter takes the level: `"pre_fader"` before the volume and Mute of the strip, `"post_fader"` after them. See [Meters](#meters). |
 | `rec` | `"recording"` | What the Rec button does and what its LED shows. A word (`"recording"`, `"playing"`, `"default"`, `"muted"` or `"off"`) sets only the LED; a table such as `rec = { press = "default" }` sets what a press does. See [Buttons and LEDs](../strip/leds.md). |
 | `solo` | `"off"` | The same for the Solo button. |
+| `mute_led` | `"on"` | The LED of Mute while the strip is muted: `"on"` lit, `"flash"` flashing, which is harder to miss, e.g. on a microphone. |
 | `select` | What the type does | The same for the Select button, see [Elements of a strip](#elements-of-a-strip) and [Buttons](../strip/leds.md#buttons). |
 | `min_volume` | `0` | The volume of the fader at the bottom, 0 to 200 percent. |
 | `max_volume` | `behavior.max_volume` (130) | The volume of the fader at the top, 0 to 200 percent. |
@@ -63,7 +64,7 @@ The `behavior.*` defaults come from the [`[behavior]` section](../behavior.md#be
 
 ### Where else the options work
 
-- **Pools and places.** The look options (`color`, `lit_when_idle`, `meter`, `meter_point`, `rec`, `solo`) also
+- **Pools and places.** The look options (`color`, `lit_when_idle`, `meter`, `meter_point`, `rec`, `solo`, `mute_led`) also
   work in the built-in pools (`[pool.apps]`, `[pool.auto]`, `[pool.devices]`) for every strip they fill, and in a
   place of a slot for that slot only: `{ show = "mic", color = "blue" }` (see [Places](../slots.md#places)). A place
   of `apps`, `auto` or `devices` also takes `encoder`, `min_volume` and `max_volume`. `label`, `select`, `fader` and

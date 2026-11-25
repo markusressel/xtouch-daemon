@@ -139,6 +139,9 @@
           "meter_point": {
             "$ref": "#/$defs/strip.meter_point"
           },
+          "mute_led": {
+            "$ref": "#/$defs/strip.mute_led"
+          },
           "select": {
             "$ref": "#/$defs/strip.select"
           },
@@ -232,6 +235,9 @@
             "meter_point": {
               "$ref": "#/$defs/strip.meter_point"
             },
+            "mute_led": {
+              "$ref": "#/$defs/strip.mute_led"
+            },
             "select": {
               "$ref": "#/$defs/strip.select"
             },
@@ -310,6 +316,9 @@
             },
             "meter_point": {
               "$ref": "#/$defs/strip.meter_point"
+            },
+            "mute_led": {
+              "$ref": "#/$defs/strip.mute_led"
             },
             "select": {
               "$ref": "#/$defs/strip.select"
@@ -417,6 +426,9 @@
             "meter_point": {
               "$ref": "#/$defs/strip.meter_point"
             },
+            "mute_led": {
+              "$ref": "#/$defs/strip.mute_led"
+            },
             "select": {
               "$ref": "#/$defs/strip.select"
             },
@@ -514,6 +526,9 @@
             },
             "meter_point": {
               "$ref": "#/$defs/strip.meter_point"
+            },
+            "mute_led": {
+              "$ref": "#/$defs/strip.mute_led"
             },
             "select": {
               "$ref": "#/$defs/strip.select"
@@ -629,6 +644,9 @@
               "meter_point": {
                 "$ref": "#/$defs/strip.meter_point"
               },
+              "mute_led": {
+                "$ref": "#/$defs/strip.mute_led"
+              },
               "select": {
                 "$ref": "#/$defs/strip.select"
               },
@@ -726,6 +744,9 @@
               },
               "meter_point": {
                 "$ref": "#/$defs/strip.meter_point"
+              },
+              "mute_led": {
+                "$ref": "#/$defs/strip.mute_led"
               },
               "select": {
                 "$ref": "#/$defs/strip.select"
@@ -848,6 +869,9 @@
               },
               "meter_point": {
                 "$ref": "#/$defs/strip.meter_point"
+              },
+              "mute_led": {
+                "$ref": "#/$defs/strip.mute_led"
               },
               "select": {
                 "$ref": "#/$defs/strip.select"
@@ -1002,6 +1026,9 @@
                     },
                     "meter_point": {
                       "$ref": "#/$defs/strip.meter_point"
+                    },
+                    "mute_led": {
+                      "$ref": "#/$defs/strip.mute_led"
                     },
                     "select": {
                       "$ref": "#/$defs/strip.select"
@@ -3087,6 +3114,15 @@
         "led": null
       },
       "description": "What Mute does (`press`, `hold`) and what its LED shows (`led`). By default nothing."
+    },
+    "strip.mute_led": {
+      "default": "on",
+      "description": "The LED of Mute while the strip is muted: lit, or flashing.",
+      "enum": [
+        "on",
+        "flash"
+      ],
+      "type": "string"
     },
     "strip.person": {
       "anyOf": [

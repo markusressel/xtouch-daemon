@@ -93,11 +93,13 @@ def test_the_options_of_a_strip_take_their_kinds_bounds_and_columns_from_the_mod
         meter_point,
         rec,
         _,
+        mute_led,
         _,
         fader,
         min_volume,
         _,
     ) = strip_options("input")
+    assert (mute_led.kind, mute_led.default, mute_led.choices) == (Kind.CHOICE, "on", ("on", "flash"))
     assert (meter_point.kind, meter_point.default, meter_point.choices) == (
         Kind.CHOICE,
         None,

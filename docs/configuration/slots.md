@@ -80,10 +80,10 @@ A candidate in the table form takes options of the look at this place. The built
 
 | Candidate | Options |
 |---|---|
-| a channel | `color`, `lit_when_idle` (keep the LCD lit while the strip has nothing to control), `rec`, `solo` (what the LEDs of these buttons show), `meter`, `meter_point`, `label` |
-| `apps`, `auto` | `color`, `lit_when_idle`, `rec`, `solo`, `meter`, `meter_point` (no `label`: the strip shows the application's name), and `encoder`, `min_volume`, `max_volume` |
+| a channel | `color`, `lit_when_idle` (keep the LCD lit while the strip has nothing to control), `rec`, `solo` (what the LEDs of these buttons show), `mute_led` (Mute lit or flashing while muted), `meter`, `meter_point`, `label` |
+| `apps`, `auto` | `color`, `lit_when_idle`, `rec`, `solo`, `mute_led`, `meter`, `meter_point` (no `label`: the strip shows the application's name), and `encoder`, `min_volume`, `max_volume` |
 | `devices` | those of `apps`, and `select = false` (Select does not make the output the default) |
-| `people` | `color`, `meter`, `meter_point` |
+| `people` | `color`, `meter`, `meter_point`, `mute_led` |
 | a pool of channels | none: each channel brings its own look |
 
 `rec` and `solo` at a place set what the LED shows; what a press does stays the channel's. `encoder` of `apps` and `auto` is `pick` by default: the encoder picks which application the strip shows (see [Encoders](strip/encoders.md#pick)).
