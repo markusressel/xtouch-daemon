@@ -71,6 +71,7 @@ from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, 
 from xtouch_daemon.gui.qt.fields.entities import EntitySource
 from xtouch_daemon.gui.qt.fields.menu import MenuBar, TextMenus, attach_menu
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
+from xtouch_daemon.gui.qt.fields.sound import sounding
 from xtouch_daemon.gui.qt.file_watch import FileWatch
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
@@ -806,6 +807,7 @@ class MainWindow(QMainWindow):
         self.homeassistant_page.show_live(snapshot)
         self.entity_source.show_live(snapshot)
         self.voip_page.show_live(snapshot)
+        sounding().show(snapshot.sounding if snapshot is not None else ())
         changes = changes_status(
             self.daemon,
             snapshot,

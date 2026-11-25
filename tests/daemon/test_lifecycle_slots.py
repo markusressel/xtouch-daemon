@@ -578,3 +578,22 @@ def test_how_the_live_view_names_members() -> None:
     assert _member_text(Person("1", "Ann", "ann")) == "ann"
     assert _member_text(Channel("web")) == "web"
     assert _member_text(None) is None
+
+
+async def test_the_snapshot_tells_the_channels_with_sound(
+    tmp_path: Path, surface: RecordingSurface, notifications: Notifications
+) -> None:
+    path = tmp_path / "slots.toml"
+    path.write_text(SLOTS)
+    # the speaker plays, the game is paused, nothing records from the microphone
+    playing = AudioState(
+        outputs=(output("speaker", 50, running=True),),
+        inputs=(source("mic"),),
+        streams=(stream(1, "MyGame", "mygame", corked=True),),
+        default_output="speaker",
+    )
+    daemon = make(path, surface, Processes(), (playing,))
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: daemon.snapshot().sounding == ("out",))
+    daemon.stop()
+    await task

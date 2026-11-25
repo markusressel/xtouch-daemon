@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- GUI: a channel with sound has a small animation after its name on the page Channels and after its chip on the cards
+  of the slots: three bars for an output and applications, a spreading ring for an input, a breathing dot for a
+  person who talks. Playing something shows which channels take it, also those that no slot shows yet. The daemon
+  tells the channels with sound in the live view (`sounding`).
 - A state can follow a program of your own: `command = { watch = "..." }` or `{ poll = "...", every = 5 }` in
   `[state.<id>]`. The state is on while the newest line the program printed is `on`, `1`, `true` or `yes`; any
   other line, and a run of `poll` that fails, turns it off. The GUI has it in the menu Add source of the page

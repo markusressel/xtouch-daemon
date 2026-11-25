@@ -40,7 +40,8 @@ from xtouch_daemon.gui.qt.fields.devices import device_row
 from xtouch_daemon.gui.qt.fields.menu import attach_menu, describe, with_icon
 from xtouch_daemon.gui.qt.fields.meter import meter_row
 from xtouch_daemon.gui.qt.fields.option_row import NARROW_BELOW, OptionRow, add_rows, align_titles
-from xtouch_daemon.gui.qt.fields.rich_items import LINES_ROLE, EntityItemDelegate, Lines
+from xtouch_daemon.gui.qt.fields.rich_items import LINES_ROLE, SOUND_ROLE, ChannelSound, EntityItemDelegate, Lines
+from xtouch_daemon.gui.qt.fields.sound import sound_of, sounding
 from xtouch_daemon.gui.qt.fields.used_by import UsedBy
 from xtouch_daemon.gui.qt.pages.base import Audio, Flip, Page, Stack, button, card, edged, row, scrolled, set_text
 from xtouch_daemon.gui.qt.preview.part_view import PartPreview
@@ -146,6 +147,10 @@ class ChannelsPage(Page):
         self.listed: list[tuple[OptionPath, str, str, str]] = []
         """The lines of the list: (path, text, icon, tip)."""
         self.list.currentItemChanged.connect(self._picked)
+        # the channels with sound move (see `fields.sound`); methods, not lambdas: they go with the page
+        clock = sounding()
+        clock.changed.connect(self._sound_changed)
+        clock.tick.connect(self._sound_tick)
         side.addWidget(self.list, 1)
         buttons = QHBoxLayout()
         self.add_button = button("plus", "Add")
@@ -632,11 +637,29 @@ class ChannelsPage(Page):
                     item.setData(LINES_ROLE, Lines(name, Entity.CHANNEL, below))
                     item.setData(Qt.ItemDataRole.UserRole, path)
                     item.setToolTip(tip)
+                    if (
+                        path[0] == "channel"
+                        and (sound := sound_of(self.channels[str(path[1])].get("type"))) is not None
+                    ):
+                        item.setData(SOUND_ROLE, ChannelSound(str(path[1]), sound))
                 self.list.addItem(item)
         for index, (path, *_) in enumerate(entries):
             if path == self.selection:
                 self.list.setCurrentRow(index)
         self.list.blockSignals(False)
+
+    def _sound_tick(self) -> None:
+        """The next frame of the channels with sound, while one of them is in the list."""
+        clock = sounding()
+        if any(path[0] == "channel" and clock.sounds(str(path[1])) for path, *_ in self.listed):
+            self._sound_changed()
+
+    def _sound_changed(self) -> None:
+        """Paints the list again while it is shown: which channels have sound changed (one that stopped is still)."""
+        if self.list.isVisible():
+            viewport = self.list.viewport()
+            assert viewport is not None
+            viewport.update()
 
     def _picked(self, item: QListWidgetItem | None) -> None:
         # the list is filled with its signals blocked: an item is picked

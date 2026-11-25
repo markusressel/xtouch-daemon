@@ -108,6 +108,7 @@ def decode_message(line: bytes) -> Snapshot | Reply | TwinView | KnownDevices | 
         bool(data.get("test", False)),
         bool(data.get("device_plugged", False)),
         HomeAssistantState(**homeassistant) if (homeassistant := data.get("homeassistant")) is not None else None,
+        tuple(data.get("sounding", ())),
     )
 
 

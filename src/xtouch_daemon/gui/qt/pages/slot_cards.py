@@ -35,6 +35,7 @@ from xtouch_daemon.gui.domain.slot_stacks import (
 )
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, entity_label, label
 from xtouch_daemon.gui.qt.fields.controls import LcdBadge
+from xtouch_daemon.gui.qt.fields.sound import SoundBadge, sound_of
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS, Entity, Motion, Space
 from xtouch_daemon.slots.model import AUTO
@@ -351,6 +352,11 @@ def candidate_rule(
             tip = f"{candidate.show} hands out {member[0]} here. " + (member[1] or "Nobody else waits for a slot.")
         shows.setToolTip("\n\n".join(part for part in (tip, lcd) if part))
         layout.addWidget(shows)
+        channel = values.get("channel", {}).get(candidate.show)
+        sound = sound_of(channel.get("type")) if isinstance(channel, Mapping) else None
+        if sound is not None:
+            # moves while the channel has sound (see `fields.sound`)
+            layout.addWidget(SoundBadge(candidate.show, sound))
     # a color the LCD has no backlight for stays as text, for the problems to name
     rest = {
         name: value

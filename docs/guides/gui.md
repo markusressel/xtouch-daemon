@@ -35,6 +35,17 @@ names, « hides them again.
     Add (by type, or a pool of channels of your own), Duplicate and Remove. Renaming an id updates the slots, conditions,
     pools and controls that name it. Each channel says where it is used (`slot 2`, `pool games`, `state call`).
 
+    While the daemon runs, a channel with sound has a small animation after its name. Play something, and the
+    channels that take it move, also those that no slot shows yet:
+
+    - An output and applications have three bars: something plays to the output, or the application plays and is not
+      paused.
+    - An input has a ring that spreads from a dot: an application records from it.
+    - A person has a dot that breathes while they talk.
+
+    Home Assistant and custom channels have no sound, so they never move. The animation tells that sound flows, not
+    how loud it is: the meters of the drawing show that.
+
 === "States"
 
     The modes first, then the other states. The form asks in order:
@@ -276,6 +287,9 @@ dark; so does a click on a dark strip of the drawing.
 else the channel's or the pool's, else white. A candidate that can show several colors (`auto`: applications and
 people) has a square for each. The tooltip of the chip says where each color comes from. A dark strip (`-`) has a
 tiny dark LCD after it instead.
+
+**The sound:** a channel with sound has the animation of the page Channels after its chip (see
+[The window](#the-window)).
 
 **Editing:** + adds `auto` at the end; the bin (or ++del++) removes the candidate picked; drag a candidate, or move it
 with ++ctrl+up++ and ++ctrl+down++.
