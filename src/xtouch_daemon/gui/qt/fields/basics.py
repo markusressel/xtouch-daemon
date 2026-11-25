@@ -225,7 +225,8 @@ def help_tail(default: str | None = None, link: str | None = None) -> str:
         )
     if link:
         parts.append(f'<a href="{html.escape(link)}">{LEARN_MORE.replace(" ", "&nbsp;")}&nbsp;↗</a>')
-    return "&emsp;".join(parts)
+    # Qt draws an em space narrow: plain spaces that don't break keep the two apart
+    return ("&nbsp;" * 5).join(parts)
 
 
 def help_html(text: str, link: str | None = None, default: str | None = None) -> str:
@@ -233,7 +234,11 @@ def help_html(text: str, link: str | None = None, default: str | None = None) ->
     Help from a docstring, then on a line of its own what an unset option takes and a link to the documentation (see
     `help_tail`): in the same place under every field, not wherever the text happens to end.
     """
-    return "<br>".join(part for part in (help_text(text), help_tail(default, link)) if part)
+    tail = help_tail(default, link)
+    if not text:
+        return tail
+    # a little apart from the text, so the two don't run together
+    return help_text(text) + (f'<div style="margin-top: {Space.XS}px">{tail}</div>' if tail else "")
 
 
 def help_label(text: str, role: str, link: str | None = None, default: str | None = None) -> QLabel:

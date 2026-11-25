@@ -17,7 +17,7 @@ from PyQt6.QtWidgets import QComboBox, QHBoxLayout, QMenu, QToolButton, QVBoxLay
 from xtouch_daemon.config.bindings import HOME_ASSISTANT
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.gui.domain.schema import Kind, Option, describe
-from xtouch_daemon.gui.qt.fields.basics import help_label, help_text, label, set_help
+from xtouch_daemon.gui.qt.fields.basics import help_label, help_text, label
 from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, Switch
 from xtouch_daemon.gui.qt.fields.entity_table import EntityTable
@@ -172,7 +172,6 @@ class BindingField(QWidget):
             case _:
                 # nothing to pick: unbound, the part does what its default says
                 self.unbound = label("", "hint")
-                self.unbound.setTextFormat(Qt.TextFormat.RichText)
                 return self.unbound
 
     def _add_rows(self, layout: QVBoxLayout) -> None:
@@ -283,8 +282,8 @@ class BindingField(QWidget):
             case Kind.COLOR:
                 self.colors.show_value(str(shown))
             case _:
-                # as under every field: DEFAULT and the value as a chip
-                set_help(self.unbound, "", default=self._default_text() if value is None else None)
+                # what it does then is the default under the help (see `OptionRow.load`)
+                self.unbound.setText("not bound" if value is None else "")
 
     def word(self) -> object:
         """The word shown (or what it is by default), None while the part is bound to a program or a channel."""

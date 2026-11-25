@@ -99,7 +99,7 @@ class BaseStripConfig(Model):
     lcd: LcdPart | None = None
     """
     The second line of the LCD, instead of the volume. A `watch` or a `poll` shows each line it prints, an entity its
-    state. By default what the strip type shows.
+    state.
     """
 
     @property

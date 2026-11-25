@@ -2942,7 +2942,7 @@
         }
       ],
       "default": null,
-      "description": "The second line of the LCD, instead of the volume. A `watch` or a `poll` shows each line it prints, an entity its\nstate. By default what the strip type shows."
+      "description": "The second line of the LCD, instead of the volume. A `watch` or a `poll` shows each line it prints, an entity its\nstate."
     },
     "strip.lit_when_idle": {
       "default": false,

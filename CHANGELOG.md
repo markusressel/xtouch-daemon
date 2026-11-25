@@ -117,8 +117,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   configuration get its room.
 - GUI: the pill of the mode is over the middle of the drawing; it moves aside only where the bar has no room for it.
 - GUI: the default of an option and its "Learn more" link are on a line of their own under its help, in the same place
-  under every field. A part without a field (e.g. the LCD of a channel left unbound) shows its default the same way,
-  "DEFAULT" and the value, not "default: …".
+  under every field, a little apart from the text. A part left unbound (e.g. the LCD of a channel) says "not bound"
+  and has its default there too, instead of "default: …" in the place of a field.
 - GUI: the drawing of a part on the page Channels is flush with the title of its card, in a narrower column.
 - GUI: the bar of the virtual device the window hosts is now the pill "Virtual device", next to "Live", with how it
   is connected. Its popover unplugs and plugs it in, switches it off and on, closes it, and breaks the touch sensor of

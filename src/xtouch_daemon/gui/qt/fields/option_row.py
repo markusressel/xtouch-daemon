@@ -168,6 +168,8 @@ class OptionRow(QWidget):
         self._get = get
         self._put = put
         self._placeholder = placeholder
+        self.link = link
+        """The page of the documentation that "Learn more" opens; None for none."""
         self._loading = False
         self.inherited: str | None = None
         """
@@ -515,6 +517,10 @@ class OptionRow(QWidget):
                 case Kind.BINDING:
                     self.binding.show_value(value)
                     self._show_meaning()
+                    if not self.option.default_text and self._placeholder is not None:
+                        # what the part does unbound, under the help as every default (it may change with others)
+                        set_help(self.help, self.option.help, self.link, self._placeholder())
+                        self.help.show()
                 case _ as unreachable:
                     assert_never(unreachable)
         finally:
