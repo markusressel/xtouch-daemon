@@ -580,6 +580,8 @@ class MenuBar(QWidget):
         self.row.setContentsMargins(Space.XS + 2, 0, Space.XS + 2, 1)
         self.row.setSpacing(0)
         self.row.addStretch()
+        self.leading = 0
+        """How many widgets come before the titles (see `add_leading`)."""
         self.titles: list[QToolButton] = []
         self.menus: list[QMenu] = []
         self.panel: MenuPanel | None = None
@@ -600,10 +602,19 @@ class MenuBar(QWidget):
         button.pressed.connect(lambda index=index: self.toggle(index))
         button.installEventFilter(self)  # pyright: ignore[reportArgumentType]
         menu.aboutToHide.connect(lambda button=button: set_role(button, "false", "open"))
-        self.row.insertWidget(index, button)
+        self.row.insertWidget(self.leading + index, button)
         self.titles.append(button)
         self.menus.append(menu)
         return menu
+
+    def add_leading(self, widget: QWidget) -> None:
+        """`widget` before the titles, e.g. the icon of the program."""
+        self.row.insertWidget(self.leading, widget, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.leading += 1
+
+    def add_trailing(self, widget: QWidget) -> None:
+        """`widget` at the right end of the bar, e.g. a status."""
+        self.row.addWidget(widget, 0, Qt.AlignmentFlag.AlignVCenter)
 
     @property
     def opened(self) -> int | None:

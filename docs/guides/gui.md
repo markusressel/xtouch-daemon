@@ -74,9 +74,9 @@ Each strip is drawn as on the control surface: the [encoder](../configuration/st
 next to Rec, Solo, Mute and Select, and the fader with its dB scale (-∞ at the bottom, 0 dB at 77 % of the travel, the
 option `unity_at` of `[behavior]`). What each slot shows is printed under its LCD.
 
-### Header, footer and help
+### Menu bar, footer and help
 
-- **Header:** the state of the service (see [The service](#the-service)).
+- **Menu bar:** the menus, and on its right the state of the service (see [The service](#the-service)).
 - **Footer:** the problems, what the sound server has, whether the control surface runs the file, the [Preview](#preview) control, and the buttons Undo,
   Redo, Revert and "Save and apply". The title has • while there are unsaved changes.
 - A *pill* is a small status label (e.g. "running"). One with ▾ opens a popover, a small panel inside the window, on a
@@ -98,7 +98,7 @@ theme and the [zoom](#zoom); Help has this documentation and the keyboard shortc
 
 ## The service
 
-The pill of the service in the header tells its state: "running", "stopped", "not installed", or the worst problem of
+The pill of the service, on the right of the menu bar, tells its state: "running", "stopped", "not installed", or the worst problem of
 a connection of the daemon. A click opens the service with Install and start, Start, Restart or Stop, the unit systemd uses, and the connections of
 the daemon (see [Live view](#live-view)). The button that the service needs also sits next to the pill. Installing and
 starting ask first.
@@ -143,7 +143,7 @@ window Device says what it shows:
 | Live · virtual device | The daemon drives the [virtual device](../getting-started/without-a-device.md). |
 | virtual device not running · Open it | The daemon waits for the virtual device: a click opens it in the window (see [below](#the-virtual-device)). |
 
-Next to it, a pill shows the [mode](../configuration/slots.md#states-and-modes): "Mode: gaming", "No mode" while no
+Over the middle of the drawing, a pill shows the [mode](../configuration/slots.md#states-and-modes): "Mode: gaming", "No mode" while no
 mode is on, "· by hand" when it was picked by hand. A click lists the states, with what turned each on, and picks a
 mode by hand ("Pick gaming", "Pick no mode", "Back to the rules").
 
@@ -380,7 +380,8 @@ do in a few steps (‹ and › go through them), and follows the values in the f
 | A part that can be [bound](../configuration/strip/bindings.md) | A bind button (below). |
 | An entity, an attribute | Suggestions from Home Assistant (below). |
 
-Each field has the help of the option under it, with its default and a "Learn more" link; a button that sets the option
+Each field has the help of the option under it, and on a line of its own under the help its default (DEFAULT and the
+value) and a "Learn more" link; a button that sets the option
 back to its default; and its errors next to it, with the messages of `xtouch-daemon check-config`. The problems button
 in the footer lists them all. The mouse wheel never changes a value.
 

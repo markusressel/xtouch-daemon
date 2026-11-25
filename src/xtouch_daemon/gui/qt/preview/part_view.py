@@ -39,8 +39,8 @@ CROPS: dict[Part, QRectF] = {
 """What of the strip each part shows, in logical units."""
 SIZE = (120, 220)
 """The most room the drawing of a part takes, in pixels at 100 %."""
-CAPTION_WIDTH = 160
-"""The width of the caption under it: a few words a line."""
+CAPTION_WIDTH = SIZE[0]
+"""The least width of the caption under it (the drawing's where it is wider): a few words a line."""
 
 
 class Corners(QWidget):
@@ -119,7 +119,8 @@ class PartPreview(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(Space.XS)
         self.drawing = PartDrawing(part)
-        layout.addWidget(self.drawing, 0, Qt.AlignmentFlag.AlignHCenter)
+        # flush with the title of the card, as the fields of a card without a preview: no room lost on the left
+        layout.addWidget(self.drawing, 0, Qt.AlignmentFlag.AlignLeft)
         steps = QHBoxLayout()
         steps.setSpacing(Space.XS)
         self.back = flat_button("chevron-left", "The step before")
@@ -127,14 +128,13 @@ class PartPreview(QWidget):
         self.counter = label("", "hint")
         self.next = flat_button("chevron-right", "The next step")
         self.next.clicked.connect(lambda: self.step(1))
-        steps.addStretch()
         for widget in (self.back, self.counter, self.next):
             steps.addWidget(widget)
         steps.addStretch()
         layout.addLayout(steps)
         self.caption = label("", "hint", wrap=True)
-        self.caption.setFixedWidth(CAPTION_WIDTH)
-        self.caption.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        self.caption.setFixedWidth(max(CAPTION_WIDTH, self.drawing.width()))
+        self.caption.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         layout.addWidget(self.caption)
         layout.addStretch()
         self.frames: tuple[Frame, ...] = ()

@@ -111,6 +111,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: the header is gone: the pill of the service is at the right end of the menu bar, so the drawing and the
+  configuration get its room.
+- GUI: the pill of the mode is over the middle of the drawing; it moves aside only where the bar has no room for it.
+- GUI: the default of an option and its "Learn more" link are on a line of their own under its help, in the same place
+  under every field. A part without a field (e.g. the LCD of a channel left unbound) shows its default the same way,
+  "DEFAULT" and the value, not "default: …".
+- GUI: the drawing of a part on the page Channels is flush with the title of its card, in a narrower column.
 - GUI: the bar of the virtual device the window hosts is now the pill "Virtual device", next to "Live", with how it
   is connected. Its popover unplugs and plugs it in, switches it off and on, closes it, and breaks the touch sensor of
   faders, a switch per fader that leaves the popover open. "Restart" there restarts the daemon that drives it (the

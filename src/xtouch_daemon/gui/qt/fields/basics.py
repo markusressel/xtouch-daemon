@@ -212,7 +212,7 @@ def _chip_color() -> str:
 
 def help_tail(default: str | None = None, link: str | None = None) -> str:
     """
-    The end of a help, set apart from its text on the same line: what an unset option takes (a muted DEFAULT and the
+    The end of a help, on a line of its own under the text: what an unset option takes (a muted DEFAULT and the
     value as a chip) and the link to the documentation, each kept whole where the text wraps.
     """
     colors = current_colors()
@@ -229,8 +229,11 @@ def help_tail(default: str | None = None, link: str | None = None) -> str:
 
 
 def help_html(text: str, link: str | None = None, default: str | None = None) -> str:
-    """Help from a docstring, then what an unset option takes and a link to the documentation (see `help_tail`)."""
-    return "&emsp;".join(part for part in (help_text(text), help_tail(default, link)) if part)
+    """
+    Help from a docstring, then on a line of its own what an unset option takes and a link to the documentation (see
+    `help_tail`): in the same place under every field, not wherever the text happens to end.
+    """
+    return "<br>".join(part for part in (help_text(text), help_tail(default, link)) if part)
 
 
 def help_label(text: str, role: str, link: str | None = None, default: str | None = None) -> QLabel:

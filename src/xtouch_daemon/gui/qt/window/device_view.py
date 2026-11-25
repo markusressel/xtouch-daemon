@@ -9,9 +9,9 @@ what the mouse can't do on it; while the test runs, a second bar says what each 
 
 from collections.abc import Callable
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QKeySequence, QShortcut
-from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtCore import QEvent, QObject, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QKeySequence, QResizeEvent, QShortcut
+from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from xtouch_daemon.gui.domain.looks import device_faces, twin_faces
 from xtouch_daemon.gui.domain.slots import MODES
@@ -130,9 +130,9 @@ class DeviceView(QWidget):
         """The strip picked (0 for the leftmost one), None for none."""
 
     def _mode_bar(self) -> QWidget:
-        bar = QWidget()
-        layout = QHBoxLayout(bar)
-        layout.setContentsMargins(0, 0, 0, Space.XS)
+        left = QWidget()
+        layout = QHBoxLayout(left)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         self.modes = QButtonGroup(self)
         self.select_button = self._segment("Select", "cursor-default-outline", SELECT_TIP)
@@ -152,11 +152,13 @@ class DeviceView(QWidget):
         layout.addWidget(self.hand_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         layout.addStretch(1)
         self.slots_pill = label("", "pill")
-        """The mode the device shows; a click: the modes to pick and the states."""
+        """The mode the device shows, over the middle of the drawing; a click: the modes to pick and the states."""
         self.slots_pill.hide()
         make_clickable(self.slots_pill, self._show_modes)
-        layout.addWidget(self.slots_pill, 0, Qt.AlignmentFlag.AlignVCenter)
-        layout.addSpacing(Space.XS)
+        right = QWidget()
+        layout = QHBoxLayout(right)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         self.live_pill = label("", "pill")
         """Live or the file; a click: what that means (and the virtual device to open, while the daemon waits)."""
         make_clickable(self.live_pill, self._show_live)
@@ -194,6 +196,11 @@ class DeviceView(QWidget):
         self.virtual_button.clicked.connect(self.use_virtual_device.emit)
         self.virtual_button.hide()
         layout.addWidget(self.virtual_button)
+        self.mode_row = CenteredRow(left, self.slots_pill, right)
+        bar = QWidget()
+        outer = QVBoxLayout(bar)
+        outer.setContentsMargins(0, 0, 0, Space.XS)
+        outer.addWidget(self.mode_row)
         return bar
 
     def _segment(self, text: str, icon_name: str, tip: str) -> QPushButton:
@@ -426,3 +433,64 @@ class DeviceView(QWidget):
         self.selected = None
         self.show_live(self.snapshot)
         self.unpicked.emit()
+
+
+class CenteredRow(QWidget):
+    """
+    A row of three: `left` and `right` at its ends, `middle` (while it shows) in the middle of the row, e.g. over the
+    middle of the drawing under it. Where the ends need its place, it moves aside as little as it can; the room left
+    for `left` cuts its texts (see `ElidedLabel`), rather than move it.
+    """
+
+    def __init__(self, left: QWidget, middle: QWidget, right: QWidget, gap: int = Space.S):
+        super().__init__()
+        self.left, self.middle, self.right, self.gap = left, middle, right, gap
+        for part in (left, middle, right):
+            part.setParent(self)  # pyright: ignore[reportArgumentType]: PyQt's stub types the parent as Self
+        # shown or hidden, it takes its place or gives it back
+        middle.installEventFilter(self)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def _middle_width(self) -> int:
+        return 0 if self.middle.isHidden() else self.middle.sizeHint().width() + 2 * self.gap
+
+    def sizeHint(self) -> QSize:
+        parts = (self.left, self.right) if self.middle.isHidden() else (self.left, self.middle, self.right)
+        width = self.left.sizeHint().width() + self._middle_width() + self.right.sizeHint().width()
+        return QSize(width, max(part.sizeHint().height() for part in parts))
+
+    def minimumSizeHint(self) -> QSize:
+        width = self.left.minimumSizeHint().width() + self._middle_width() + self.right.sizeHint().width()
+        return QSize(width, self.sizeHint().height())
+
+    def event(self, event: QEvent | None) -> bool:
+        if event is not None and event.type() == QEvent.Type.LayoutRequest:
+            # a part changed its size (a longer text, a button shown)
+            self.updateGeometry()
+            self.place()
+        return super().event(event)
+
+    def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
+        if event is not None and event.type() in (QEvent.Type.Show, QEvent.Type.Hide):
+            self.updateGeometry()
+            self.place()
+        return False
+
+    def resizeEvent(self, event: QResizeEvent | None) -> None:
+        super().resizeEvent(event)
+        self.place()
+
+    def place(self) -> None:
+        width, height = self.width(), self.height()
+        right_width = min(self.right.sizeHint().width(), width)
+        right_x = width - right_width
+        self.right.setGeometry(right_x, 0, right_width, height)
+        left_end = right_x
+        if not self.middle.isHidden():
+            size = self.middle.sizeHint()
+            centered = (width - size.width()) // 2
+            # centered, also over a hint it cuts; moved right for the least the left end needs, never into the right end
+            x = min(max(centered, self.left.minimumSizeHint().width() + self.gap), right_x - self.gap - size.width())
+            self.middle.setGeometry(x, (height - size.height()) // 2, size.width(), size.height())
+            left_end = x - self.gap
+        self.left.setGeometry(0, 0, max(0, left_end), height)

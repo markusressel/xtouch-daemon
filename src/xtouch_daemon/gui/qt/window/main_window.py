@@ -141,8 +141,8 @@ PLACE_TIPS = {
 """What each position of the control "Preview" does."""
 APPLY_GRACE_MS = 2000
 """How long a reload may take before the window says that the daemon did not take the file."""
-LOGO_SIZE = 44
-"""The size of the icon of the project in the header, next to the title."""
+LOGO_SIZE = 20
+"""The size of the icon of the project in the menu bar, before the menus."""
 WINDOW_SIZE = (1280, 1000)
 """The size of the window when it opens, where the screen has room for it."""
 DEVICE_HEIGHT = 380
@@ -248,8 +248,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(placeholder)
         # hidden, it leaves no handle between it and the docks either
         placeholder.hide()
-        # the header and the footer reach across the window, the docks are between them
-        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._bar("header", self._header()))
+        # the footer reaches across the window under the docks; the menu bar above them has the service (see `_menus`)
+        self._service()
         self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self._bar("footer", self._footer()))
         errors.listen(self._error_raised)
         self.device_dock = self._device_dock()
@@ -328,27 +328,13 @@ class MainWindow(QMainWindow):
 
     # -- building -------------------------------------------------------------------------------------------------
 
-    def _header(self) -> QWidget:
-        header = QWidget()
-        set_role(header, "bar")
-        header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(Space.XL, Space.M, Space.L, Space.M)
-        logo = QLabel()
-        logo.setPixmap(app_icon().pixmap(QSize(LOGO_SIZE, LOGO_SIZE)))
-        layout.addWidget(logo)
-        layout.addSpacing(Space.S)
-        # the file is in the title of the window and the tip of the pill next to Save
-        layout.addWidget(label("X-Touch Extender", "title"))
-        layout.addStretch(1)
-        layout.addSpacing(Space.L)
+    def _service(self) -> None:
+        """The controls of the service, at the right end of the menu bar: no bar of their own above the docks."""
         self.service_controls = ServiceControls(self.service)
         self.service_controls.changed.connect(self.refresh_service)
         # the status line comes later, with the footer
         self.service_controls.told.connect(lambda text: self.status.setText(text))
         self.service_controls.settings_asked.connect(self.show_page)
-        layout.addWidget(self.service_controls)
-        return header
 
     def _preview_control(self) -> QWidget:
         """
@@ -552,6 +538,11 @@ class MainWindow(QMainWindow):
         bar = MenuBar(self)
         self.setMenuWidget(bar)
         self.menu_bar = bar
+        logo = QLabel()
+        logo.setPixmap(app_icon().pixmap(QSize(LOGO_SIZE, LOGO_SIZE)))
+        logo.setContentsMargins(Space.XS, 0, Space.S, 0)
+        bar.add_leading(logo)
+        bar.add_trailing(self.service_controls)
 
         def action(
             menu: QMenu, text: str, slot: Callable[[], object], *keys: QKeySequence.StandardKey | str

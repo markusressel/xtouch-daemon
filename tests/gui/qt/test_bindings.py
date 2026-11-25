@@ -6,7 +6,7 @@ bindings, a button that binds, the options of the program below, and what that w
 import tomllib
 
 import pytest
-from PyQt6.QtWidgets import QDoubleSpinBox, QWidget
+from PyQt6.QtWidgets import QDoubleSpinBox, QLabel, QWidget
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import plain, row, show_channel, shows
@@ -47,13 +47,18 @@ def visible(widget: QWidget, window: MainWindow) -> bool:
     return shows(widget, window)
 
 
+def words(shown: QLabel) -> str:
+    """The text of a label as it reads, its spaces as one."""
+    return " ".join(plain(shown.text()).split())
+
+
 def test_a_fader_bound_to_a_program_writes_its_table(qtbot: QtBot, window: MainWindow):
     add_custom(window)
     fader = row(window, "fader")
     field = binding(fader)
     # not bound: what the strip does without it, and a button to bind it
     assert not visible(field.program, window)
-    assert field.unbound.text() == "default: none: the fader stays down"
+    assert words(field.unbound) == "DEFAULT none: the fader stays down"
     assert field.bind.text() == ""
     assert [action.text() for action in field.menu.actions() if action.isVisible()] == [
         "Home Assistant",
@@ -206,9 +211,9 @@ def test_the_meter_of_an_audio_strip_is_a_choice_or_bound(qtbot: QtBot, window: 
 def test_a_custom_meter_lcd_and_presence_are_bound_or_not_set(qtbot: QtBot, window: MainWindow):
     add_custom(window)
     meter = binding(row(window, "meter"))
-    assert meter.unbound.text() == "default: none: the meter stays dark"
+    assert words(meter.unbound) == "DEFAULT none: the meter stays dark"
     lcd = binding(row(window, "lcd"))
-    assert lcd.unbound.text() == "default: the value of the fader, else of the encoder"
+    assert words(lcd.unbound) == "DEFAULT the value of the fader, else of the encoder"
     present = binding(row(window, "present"))
     # a program only: no Home Assistant
     assert HOME_ASSISTANT not in present.actions_
@@ -222,10 +227,10 @@ def test_a_custom_meter_lcd_and_presence_are_bound_or_not_set(qtbot: QtBot, wind
 def test_the_lcd_of_an_audio_strip_says_what_it_shows_unbound(qtbot: QtBot, window: MainWindow):
     show_channel(window, "out")
     lcd = binding(row(window, "lcd"))
-    assert lcd.unbound.text() == "default: what the type shows"
+    assert words(lcd.unbound) == "DEFAULT what the type shows"
     lcd.actions_[HOME_ASSISTANT].trigger()
     assert window.document.get(("channel", "out", "lcd")) == "homeassistant"
-    assert lcd.unbound.text() == ""
+    assert words(lcd.unbound) == ""
 
 
 def test_targets_are_a_table_of_names_and_values(qtbot: QtBot, window: MainWindow):
