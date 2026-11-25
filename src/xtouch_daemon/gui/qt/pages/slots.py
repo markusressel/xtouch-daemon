@@ -9,8 +9,8 @@ import dataclasses
 from collections.abc import Callable
 from typing import Any
 
-from PyQt6.QtCore import QEvent, QObject, Qt, pyqtSignal
-from PyQt6.QtGui import QIcon, QKeySequence, QMouseEvent, QShortcut, QStandardItemModel
+from PyQt6.QtCore import QEvent, QObject, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QIcon, QKeySequence, QMouseEvent, QPainter, QPen, QPixmap, QShortcut, QStandardItemModel
 from PyQt6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -572,7 +572,9 @@ class SlotsPanel(Page):
         dark = view is not None and view.pool is not None and view.member is None
         # the end of the rail, while the strip is dark (see `StackList.fill`)
         end = stack and self.lists[self._slot - 1].end_row() >= 0
+        # the theme too: the dot is painted in its color
         key = (self.slot, tuple((row.show, row.when) for row in stack), self.candidate, shown, dark, end, self.end)
+        key += (current_mode(),)
         if key == self.shown_crumbs:
             return
         self.shown_crumbs = key
@@ -581,8 +583,8 @@ class SlotsPanel(Page):
             self.crumbs.addWidget(label("›", "hint"))
             crumb = QToolButton()
             set_role(crumb, Entity.CHANNEL.value, "entity")
-            mark = ("○ " if dark else "● ") if index == shown else ""
-            crumb.setText(f"{mark}{index + 1}  {candidate.show}")
+            _mark(crumb, ("○" if dark else "●") if index == shown else "")
+            crumb.setText(f"{index + 1}  {candidate.show}")
             crumb.setCheckable(True)
             crumb.setChecked(index == self.candidate)
             crumb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -600,7 +602,8 @@ class SlotsPanel(Page):
             crumb = QToolButton()
             # what the slot shows, like a candidate: nothing
             set_role(crumb, Entity.CHANNEL.value, "entity")
-            crumb.setText("● dark")
+            _mark(crumb, "●")
+            crumb.setText("dark")
             crumb.setCheckable(True)
             crumb.setChecked(self.end)
             crumb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -1194,3 +1197,35 @@ def _inset(widget: QWidget) -> QWidget:
 def _help(text: str) -> str:
     """`text` as the help shows it (see `help_text`), its lines as lines."""
     return "<br>".join(help_text(line) for line in text.split("\n"))
+
+
+def _mark(crumb: QToolButton, mark: str) -> None:
+    """
+    The dot of a crumb: ● what the slot shows, ○ where it came to and has nothing; "" for none. A painted icon, not a
+    character: the button centers an icon on its text, a font puts a ● wherever its glyph sits.
+    """
+    crumb.setProperty("mark", mark)
+    if not mark:
+        return
+    metrics = crumb.fontMetrics()
+    size = metrics.height()
+    diameter = round(size * 0.45)
+    ratio = crumb.devicePixelRatioF()
+    pixmap = QPixmap(round(size * ratio), round(size * ratio))
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    color = QColor(current_colors().text)
+    circle = QRectF((size - diameter) / 2, (size - diameter) / 2, diameter, diameter)
+    if mark == "●":
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(color)
+    else:
+        painter.setPen(QPen(color, 1.2))
+        circle.adjust(0.6, 0.6, -0.6, -0.6)
+    painter.drawEllipse(circle)
+    painter.end()
+    crumb.setIcon(QIcon(pixmap))
+    crumb.setIconSize(QSize(size, size))
+    crumb.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)

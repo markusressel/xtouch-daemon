@@ -210,6 +210,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- GUI: the dot of a candidate in the path over the inspector sits on the middle of its text, not low.
 - GUI: a popover cut the last line of a longer text, measured before the font of its style applied.
 - Documentation: a changed `[device] name` or `virtual` is reloaded (the daemon switches to the other X-Touch), the
   pages said it needs a restart; only `fader = "homeassistant"` needs `[mqtt]`, not every binding; the pages quoted a

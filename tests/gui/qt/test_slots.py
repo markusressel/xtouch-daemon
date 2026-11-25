@@ -381,7 +381,13 @@ def crumb(page: SlotsPanel, text: str) -> QToolButton:
     """The crumb of the path in the inspector with `text`."""
     layout = page.crumbs
     widgets = [layout.itemAt(index).widget() for index in range(layout.count())]  # pyright: ignore[reportOptionalMemberAccess]
-    return next(each for each in widgets if isinstance(each, QToolButton) and each.text() == text)
+    return next(each for each in widgets if isinstance(each, QToolButton) and shown(each) == text)
+
+
+def shown(button: QToolButton) -> str:
+    """The text of a crumb as it reads, after its dot (an icon): ● what the slot shows, ○ where it has nothing."""
+    mark = button.property("mark")
+    return f"{mark} {button.text()}" if mark else button.text()
 
 
 def test_the_rows_that_are_no_candidate_can_be_picked(qtbot: QtBot, window: MainWindow):
