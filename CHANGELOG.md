@@ -111,6 +111,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: the popover of the mode explains modes at its top, and its row of the mode says only how it was picked. The
+  states follow under a heading of their own, "States", so they no longer read as more modes.
 - GUI: the header is gone: the pill of the service is at the right end of the menu bar, so the drawing and the
   configuration get its room.
 - GUI: the pill of the mode is over the middle of the drawing; it moves aside only where the bar has no room for it.

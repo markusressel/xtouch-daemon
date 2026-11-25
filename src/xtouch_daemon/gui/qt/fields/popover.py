@@ -47,10 +47,19 @@ class Entry:
     """
 
 
+@dataclass(frozen=True)
+class Group:
+    """A heading between the rows of a popover: the rows after it are of another kind, e.g. the states after the mode."""
+
+    title: str
+    text: str = ""
+    """What the rows of the group have in common, under the title; "" for nothing."""
+
+
 def show_popover(
     anchor: QWidget,
     heading: str,
-    entries: Sequence[Entry],
+    entries: Sequence[Entry | Group],
     intro: str = "",
     actions: tuple[tuple[str, Callable[[], object]], ...] = (),
 ) -> QFrame:
@@ -88,7 +97,10 @@ def show_popover(
         explanation.setFixedWidth(TEXT_WIDTH + Space.M + 3)
         layout.addWidget(explanation)
     for entry in entries:
-        layout.addWidget(_row(popup, entry))
+        if isinstance(entry, Group):
+            _group(layout, entry)
+        else:
+            layout.addWidget(_row(popup, entry))
     # the size of the wrapped texts in the font of the style, which the rows get only when polished
     popup.ensurePolished()
     popup.adjustSize()
@@ -181,6 +193,18 @@ def _app() -> QCoreApplication:
 def _under(widget: QWidget, where: QPoint) -> bool:
     """Whether the point `where` of the screen is on `widget`."""
     return widget.rect().contains(widget.mapFromGlobal(where))
+
+
+def _group(layout: QVBoxLayout, group: Group) -> None:
+    """The heading of a group of rows, set apart from the rows above it."""
+    layout.addSpacing(Space.S)
+    layout.addWidget(label(group.title.upper(), "group"))
+    if group.text:
+        text = label("", "hint", wrap=True)
+        text.setTextFormat(Qt.TextFormat.RichText)
+        text.setText(help_text(group.text))
+        text.setFixedWidth(TEXT_WIDTH + Space.M + 3)
+        layout.addWidget(text)
 
 
 def _row(popup: QFrame, entry: Entry) -> QFrame:

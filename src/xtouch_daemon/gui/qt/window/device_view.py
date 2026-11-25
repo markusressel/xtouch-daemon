@@ -24,7 +24,7 @@ from xtouch_daemon.gui.domain.status import (
     test_unavailable,
 )
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, discard, label, show_status
-from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
+from xtouch_daemon.gui.qt.fields.popover import Entry, Group, make_clickable, show_popover
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.preview.panel import Hand, Preview
 from xtouch_daemon.gui.qt.theme.icons import set_icon
@@ -154,7 +154,7 @@ class DeviceView(QWidget):
         self.slots_pill = label("", "pill")
         """The mode the device shows, over the middle of the drawing; a click: the modes to pick and the states."""
         self.slots_pill.hide()
-        make_clickable(self.slots_pill, self._show_modes)
+        make_clickable(self.slots_pill, lambda: self._show_modes() and None)
         right = QWidget()
         layout = QHBoxLayout(right)
         layout.setContentsMargins(0, 0, 0, 0)
@@ -250,11 +250,11 @@ class DeviceView(QWidget):
         entry = Entry("", Status("", status.tone), status.tip, actions)
         show_popover(self.live_pill, "Drawing", [entry])
 
-    def _show_modes(self) -> None:
+    def _show_modes(self) -> QFrame | None:
         """The mode, the modes to pick (or back to the rules) and the states, with what turned them on."""
         slots = self.snapshot.slots if self.snapshot is not None else None
         if slots is None or self.slots_status is None:
-            return
+            return None
         request = self.slots.request
         modes = [DEFAULT, *(state.name for state in slots.states if state.mode)]
         picks = tuple(
@@ -264,17 +264,19 @@ class DeviceView(QWidget):
         )
         if slots.mode_pick is not None:
             picks += (("Back to the rules", lambda: request(SetMode("auto"))),)
-        how = "It was picked by hand, until the rules want another one." if slots.mode_pick else "The rules pick it."
-        entries = [Entry("Mode", self.slots_status, f"{MODES} {how}", picks, Entity.STATE)]
-        for state in slots.states:
-            if state.mode:
-                continue
+        how = "Picked by hand, until the rules want another one." if slots.mode_pick else "The rules pick it."
+        # what a mode is goes above, as the intro: the row says only what holds now
+        entries: list[Entry | Group] = [Entry("Mode", self.slots_status, how, picks, Entity.STATE)]
+        states = [state for state in slots.states if not state.mode]
+        if states:
+            entries.append(Group("States", "Not modes: each is on or off by itself, also several at once."))
+        for state in states:
             value = Status("on", Tone.GOOD) if state.value else Status("off", Tone.NEUTRAL)
             why = state.source or "none of its sources is on"
             why = why[:1].upper() + why[1:]
             override = "" if state.override == "auto" else f" Overridden: {state.override}."
             entries.append(Entry(state.name, value, f"{why}.{override}", entity=Entity.STATE))
-        show_popover(self.slots_pill, "Mode and states", entries)
+        return show_popover(self.slots_pill, "Mode and states", entries, intro=MODES)
 
     def show_daemon(self, runs: bool) -> None:
         """Whether a daemon runs: without one (and nothing hosted), "Try without a device"."""
