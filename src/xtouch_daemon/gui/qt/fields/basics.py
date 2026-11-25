@@ -194,6 +194,8 @@ def help_text(text: str) -> str:
 
 
 LEARN_MORE = "Learn more"
+WHOLE_DEFAULT = 24
+"""The longest default kept on one line: a longer one wraps like the text."""
 
 
 CHIP_SHARE = 0.14
@@ -218,7 +220,10 @@ def help_tail(default: str | None = None, link: str | None = None) -> str:
     colors = current_colors()
     parts: list[str] = []
     if default:
-        value = html.escape(default).replace(" ", "&nbsp;")
+        value = html.escape(default)
+        if len(default) <= WHOLE_DEFAULT:
+            # kept whole where the text wraps; a longer one wraps rather than run out of the window
+            value = value.replace(" ", "&nbsp;")
         parts.append(
             f'<span style="color: {colors.text_muted}; font-size: small; font-weight: 700">DEFAULT</span>&nbsp;'
             f'<code style="background-color: {_chip_color()}; color: {colors.text}">&nbsp;{value}&nbsp;</code>'

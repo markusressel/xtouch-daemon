@@ -481,3 +481,13 @@ def test_the_popover_of_the_mode_sets_the_states_apart(
     assert texts.index("Mode") < texts.index("STATES") < texts.index("in_call")
     assert "gaming" not in texts
     popover.close()
+
+
+def test_a_long_default_wraps_rather_than_run_out_of_the_window(qtbot: QtBot):
+    from xtouch_daemon.gui.qt.fields.basics import help_tail
+
+    # a short one is kept whole, a long one breaks between its words
+    assert "the&nbsp;value&nbsp;of&nbsp;it" in help_tail("the value of it")
+    assert "off while the output is not there" in help_tail(
+        "the volume, e.g. 46%, or muted; off while the output is not there"
+    )
