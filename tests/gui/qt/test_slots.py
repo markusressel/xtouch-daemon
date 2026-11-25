@@ -377,6 +377,13 @@ def test_a_place_shows_what_it_takes_from_its_channel_or_pool(window: MainWindow
     assert page.place_header.isHidden()
 
 
+def crumb(page: SlotsPanel, text: str) -> QToolButton:
+    """The crumb of the path in the inspector with `text`."""
+    layout = page.crumbs
+    widgets = [layout.itemAt(index).widget() for index in range(layout.count())]  # pyright: ignore[reportOptionalMemberAccess]
+    return next(each for each in widgets if isinstance(each, QToolButton) and each.text() == text)
+
+
 def test_the_rows_that_are_no_candidate_can_be_picked(qtbot: QtBot, window: MainWindow):
     page = panel(window)
     # slot 2 is dark: its pool has nothing to hand out
@@ -398,9 +405,24 @@ def test_the_rows_that_are_no_candidate_can_be_picked(qtbot: QtBot, window: Main
     assert stack.currentRow() == end
     qtbot.keyClick(stack, Qt.Key.Key_Up, Qt.KeyboardModifier.ControlModifier)
     assert texts(stack)[:2] == ["1 when call → browser", "2 when app or person without a slot → auto"]
+    # the path in the inspector ends in the dark strip, picked
+    dark = crumb(page, "● dark")
+    assert dark.isChecked()
+    # clicked again: the slot alone
+    dark.click()
+    assert (page.slot, page.candidate, page.end) == (2, None, False)
+    assert stack.currentRow() == -1
+    page.show_live(live)
+    dark = crumb(page, "● dark")
+    dark.click()
+    assert page.end
     # a candidate after it: the end is no longer picked
     stack.setCurrentRow(0)
     assert (page.candidate, page.end) == (0, False)
+    first = crumb(page, "1  browser")
+    assert first.isChecked()
+    first.click()
+    assert (page.slot, page.candidate) == (2, None)
     # the strip of a dark slot picks the end of its rail
     window.device_view.select(1)
     assert (page.slot, page.candidate, page.end) == (2, None, True)

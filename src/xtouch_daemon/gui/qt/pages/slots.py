@@ -570,7 +570,9 @@ class SlotsPanel(Page):
         shown = view.candidate if view is not None else None
         # the candidate it came to, which has nothing for it: the strip is dark
         dark = view is not None and view.pool is not None and view.member is None
-        key = (self.slot, tuple((row.show, row.when) for row in stack), self.candidate, shown, dark)
+        # the end of the rail, while the strip is dark (see `StackList.fill`)
+        end = stack and self.lists[self._slot - 1].end_row() >= 0
+        key = (self.slot, tuple((row.show, row.when) for row in stack), self.candidate, shown, dark, end, self.end)
         if key == self.shown_crumbs:
             return
         self.shown_crumbs = key
@@ -591,8 +593,27 @@ class SlotsPanel(Page):
                 else ""
             )
             crumb.setToolTip(f"Candidate {index + 1} of {len(stack)}: {when} → {candidate.show}{more}")
-            crumb.clicked.connect(lambda _=False, index=index: self.lists[self._slot - 1].setCurrentRow(index))
+            crumb.clicked.connect(lambda checked, index=index: self._crumb_clicked(index, checked))
             self.crumbs.addWidget(crumb)
+        if end:
+            self.crumbs.addWidget(label("›", "hint"))
+            crumb = QToolButton()
+            # what the slot shows, like a candidate: nothing
+            set_role(crumb, Entity.CHANNEL.value, "entity")
+            crumb.setText("● dark")
+            crumb.setCheckable(True)
+            crumb.setChecked(self.end)
+            crumb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            crumb.setToolTip("None of the candidates has anything to show now, so the strip is dark")
+            crumb.clicked.connect(lambda checked: self._crumb_clicked(self.lists[self._slot - 1].end_row(), checked))
+            self.crumbs.addWidget(crumb)
+
+    def _crumb_clicked(self, row: int, checked: bool) -> None:
+        """A crumb picks its row of the card; the one picked, clicked again, picks the slot alone."""
+        if checked:
+            self.lists[self._slot - 1].setCurrentRow(row)
+        else:
+            self.pick_slot(self._slot)
 
     def _place_form(self, strip: str, allowed: frozenset[str], pick: bool = True) -> tuple[QWidget, list[OptionRow]]:
         """The form of the options of a place of `strip`, for the candidate picked; `pick`: the encoder may pick."""
@@ -788,6 +809,9 @@ class SlotsPanel(Page):
         self._show_why()
         if self.slot is None:
             self._show_overview()
+        else:
+            # the dot on the candidate shown, and the end of the rail while the strip is dark
+            self._show_crumbs(rows(self.document.values, self.slot))
 
     def _views(self) -> dict[int, SlotView]:
         slots = self.shown_slots()

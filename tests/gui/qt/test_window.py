@@ -16,6 +16,8 @@ from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.qt.fields.menu import open_menu
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.pages.base import EDGE, Flip
+from xtouch_daemon.gui.qt.preview.geometry import BUTTON_TOP, BUTTONS_BOTTOM
+from xtouch_daemon.gui.qt.preview.part_view import CROPS
 from xtouch_daemon.gui.qt.theme.settings import load_window_state
 from xtouch_daemon.gui.qt.theme.style import current_colors
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
@@ -180,3 +182,9 @@ def test_the_drawing_of_a_part_has_round_corners(make_window: MakeWindow):
     # the corner is the card, the middle the strip
     assert image.pixelColor(0, 0).name() == current_colors().raised
     assert image.pixelColor(image.width() // 2, image.height() // 2).name() != current_colors().raised
+
+
+def test_the_drawing_of_the_buttons_has_room_under_select():
+    # the name printed under SELECT, and a margin as above REC: the round edge doesn't cover it
+    crop = CROPS["buttons"]
+    assert crop.bottom() - BUTTONS_BOTTOM == BUTTON_TOP - crop.top()

@@ -110,3 +110,16 @@ def test_esc_closes_the_list_and_the_focus_goes_back_to_the_choice(qtbot: QtBot)
 
     assert not choice.is_open
     assert choice.hasFocus()
+
+
+def test_the_placeholder_is_gray_while_nothing_is_chosen(qtbot: QtBot) -> None:
+    _, choice = a_choice(qtbot, ["off", "on"])
+    choice.setPlaceholderText("As on the channel: off")
+    choice.setCurrentIndex(-1)
+    assert choice.property("unset") is True
+    choice.setCurrentIndex(1)
+    assert choice.property("unset") is False
+    # an editable one shows its placeholder in its text field, gray by itself
+    choice.setCurrentIndex(-1)
+    choice.setEditable(True)
+    assert choice.property("unset") is False

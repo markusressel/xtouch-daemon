@@ -49,7 +49,7 @@ from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, NumberToggles, Switch
 from xtouch_daemon.gui.qt.fields.names import NameCompleter
 from xtouch_daemon.gui.qt.fields.tables import Tables
-from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.style import set_role, show_unset
 from xtouch_daemon.gui.qt.theme.tokens import Space
 
 MATCHED = frozenset({"device", "card", "profile"})
@@ -559,7 +559,7 @@ class OptionRow(QWidget):
 
     def _gray_unset(self, value: float) -> None:
         """Unset, the field shows its text in gray, like the placeholder of a text field."""
-        set_role(self.spin, self.option.default is None and value == self._unset, "unset")
+        show_unset(self.spin, self.option.default is None and value == self._unset)
 
     def _edit_number(self, value: float) -> None:
         self._edit(None if self.option.default is None and value == self._unset else value)

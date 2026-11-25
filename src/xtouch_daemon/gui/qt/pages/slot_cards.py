@@ -96,9 +96,11 @@ class StackList(QListWidget):
         assert e is not None
         step = {Qt.Key.Key_Up: -1, Qt.Key.Key_Down: 1}.get(Qt.Key(e.key()))
         current = self.currentRow()
-        moves = current >= 0 and current != self.end_row()
-        if step is None or not e.modifiers() & Qt.KeyboardModifier.ControlModifier or not moves:
+        if step is None or not e.modifiers() & Qt.KeyboardModifier.ControlModifier or current < 0:
             super().keyPressEvent(e)
+            return
+        if current == self.end_row():
+            # the end of the rail stays where it is, and stays picked
             return
         target = current + step
         if 0 <= target < len(self.order()):

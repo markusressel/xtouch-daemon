@@ -33,7 +33,7 @@ _RING = RING_RADII[1] + 6
 CROPS: dict[Part, QRectF] = {
     "encoder": QRectF(ENCODER.x() - _RING, ENCODER.y() - _RING, 2 * _RING, 2 * _RING),
     "display": LCD.adjusted(-4, -4, 4, 4),
-    "buttons": QRectF(BUTTON_X - 26, BUTTON_TOP - 6, 52, BUTTONS_BOTTOM - BUTTON_TOP + 6),
+    "buttons": QRectF(BUTTON_X - 26, BUTTON_TOP - 6, 52, BUTTONS_BOTTOM - BUTTON_TOP + 12),
     "fader": QRectF(METER.left() - 8, METER.top() - 6, WIDTH - METER.left() + 8, HEIGHT - METER.top() + 2),
 }
 """What of the strip each part shows, in logical units."""

@@ -275,7 +275,8 @@ with ++ctrl+up++ and ++ctrl+down++.
 
 The inspector starts with the path of the slot's candidates, e.g. `Slot 3 › 1 games › 2 apps`: the slot tried
 candidate 1 and then went on to candidate 2. ● marks the candidate that the slot shows, ○ one the slot came to but that
-had nothing left to show. A click picks a candidate.
+had nothing left to show. While the strip is dark, the path ends in `● dark`. A click picks a candidate; a click on
+the one picked picks the slot alone.
 
 Below it, a box says why the slot shows what it shows, the same as
 [`xtouch-daemon why 3`](../reference/commands.md#why), and what a pool hands out. Then it edits the candidate picked:

@@ -117,6 +117,15 @@ def set_role(widget: QWidget, value: str | bool, name: str = "role") -> None:
     style.polish(widget)
 
 
+def show_unset(widget: QWidget, unset: bool) -> None:
+    """
+    A field that shows the value it takes while it is not set (its default, or as where it comes from) shows it in
+    gray, like the placeholder of a text field. A text field does that itself; `Choice` calls this itself; a spin box
+    calls it where its special value is shown (see `OptionRow`).
+    """
+    set_role(widget, unset, "unset")
+
+
 def _entities(c: ThemeColors) -> str:
     """
     The colors of the states, channels and slots (see `Entity`): a label in one (`entity`) has its color, a chip of
@@ -222,7 +231,7 @@ QLineEdit[problem="true"], QSpinBox[problem="true"], QDoubleSpinBox[problem="tru
 QWidget[role="chips"][problem="true"] {{ border-color: {c.error}; }}
 QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled {{ color: {c.placeholder};
     border-color: {c.border}; }}
-QSpinBox[unset="true"], QDoubleSpinBox[unset="true"] {{ color: {c.placeholder}; }}
+QSpinBox[unset="true"], QDoubleSpinBox[unset="true"], QComboBox[unset="true"] {{ color: {c.placeholder}; }}
 QSpinBox, QDoubleSpinBox {{ min-width: {Space.XXL * 3}px; padding-right: {Space.XL}px; }}
 QAbstractSpinBox QLineEdit {{ border: none; padding: 0; background: transparent; }}
 QSpinBox::up-button, QDoubleSpinBox::up-button, QSpinBox::down-button, QDoubleSpinBox::down-button {{
