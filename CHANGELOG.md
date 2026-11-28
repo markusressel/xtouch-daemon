@@ -129,6 +129,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: the pages sit closer to the rail of the window Configuration (12 pixels instead of 24).
 - GUI, Simulate: it starts from reality, as the daemon tells it in its live view: the mode, the states that are on,
   the channels that are absent (e.g. the voice chat while Mumble doesn't run), the pools with members and the number
   of people, applications and devices. A what-if that differs from reality has a frame in the accent color instead of

@@ -222,7 +222,7 @@ class MainWindow(QMainWindow):
         root = QWidget()
         body = QVBoxLayout(root)
         # the pages reach the right edge of the window, so their scroll bars sit at it; the bars above keep a margin
-        body.setContentsMargins(Space.XL, Space.L, 0, 0)
+        body.setContentsMargins(Space.M, Space.L, 0, 0)
         body.setSpacing(Space.S)
         bars = QVBoxLayout()
         bars.setContentsMargins(0, 0, Space.XL, 0)
