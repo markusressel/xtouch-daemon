@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import math
 from typing import TYPE_CHECKING
 
 from xtouch_daemon.audio.backend import AudioCommandError
@@ -35,6 +36,18 @@ def balance_text(balance: float) -> str:
         return "center"
     side, percent = "L" if balance < 0 else "R", round(abs(balance) * 100)
     return f"{side} {percent}%" if percent else f"{side} <1%"
+
+
+def balance_ring(balance: float) -> tuple[int, bool]:
+    """
+    The position of the ring for a balance (`RingMode.BOOST_CUT`, from the center), and whether the two LEDs at the
+    ends light too. Each side has 5 positions: the first 4 split the way to the side, the last one is the side itself
+    (-1 or 1), with the two end LEDs lit: a ring that ends there is all the way over, not almost.
+    """
+    side = RING_CENTER - 1
+    # up to a quarter the first step, ..., up to almost all the way the fourth one; only the exact center is none
+    steps = side if abs(balance) >= 1 else math.ceil(abs(balance) * (side - 1) - 1e-9) if balance else 0
+    return RING_CENTER + (steps if balance > 0 else -steps), abs(balance) >= 1
 
 
 def clock(seconds: float) -> str:
@@ -67,6 +80,10 @@ class Knob:
     def ring(self) -> tuple[int, RingMode]:
         """What the ring shows: a position (0: off) and a mode."""
         raise NotImplementedError
+
+    def ends(self) -> bool:
+        """Whether the two LEDs at the ends of the ring light too (the bit `center` of Mackie Control)."""
+        return False
 
     def keeps_active(self) -> bool:
         """Whether the strip stays active without anything to control (see `MediaKnob`)."""
@@ -121,14 +138,15 @@ class BalanceKnob(Knob):
     def ring(self) -> tuple[int, RingMode]:
         if (current := self.current) is None:
             return 0, RingMode.DOT
-        # from the center, rounding halves away from it, so both sides look alike; only the exact center is the center
-        offset = current * (RING_CENTER - 1)
-        steps = int(abs(offset) + 0.5) or (1 if current else 0)
-        return RING_CENTER + (steps if offset > 0 else -steps), RingMode.BOOST_CUT
+        return balance_ring(current)[0], RingMode.BOOST_CUT
+
+    def ends(self) -> bool:
+        """All the way to one side: the LEDs at the ends light too."""
+        return (current := self.current) is not None and balance_ring(current)[1]
 
     def _set(self, balance: float) -> None:
         self.wanted = balance
-        self.owner.strip.set_ring(*self.ring())
+        self.owner.strip.set_ring(*self.ring(), self.ends())
         self.owner.notify(balance_text(balance))
         if not self._setting:
             self._setting = True

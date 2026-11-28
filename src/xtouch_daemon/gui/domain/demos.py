@@ -41,7 +41,7 @@ from xtouch_daemon.hardware import protocol
 from xtouch_daemon.homeassistant.domains import domain_value
 from xtouch_daemon.live.messages import StripState
 from xtouch_daemon.strips.base import UNITY, fader_position
-from xtouch_daemon.strips.knobs import RING_CENTER, balance_text, ring_position
+from xtouch_daemon.strips.knobs import RING_CENTER, balance_ring, balance_text, ring_position
 
 type Part = Literal["encoder", "display", "buttons", "fader"]
 type Group = Literal["controls", "encoder", "display", "buttons", "fader", "slots"]
@@ -339,12 +339,17 @@ def _encoder(strip: Strip) -> tuple[Frame, ...]:
             frames = [
                 Frame("Centered", replace(base, ring=RING_CENTER, ring_mode="boost_cut", text=(strip.label, "center")))
             ]
-            for balance in (0.2, 0.4, 0.6):
-                offset = round(balance * (RING_CENTER - 1))
+            for balance in (0.2, 0.4, 0.6, 1.0):
+                position, end = balance_ring(balance)
                 state = replace(
-                    base, ring=RING_CENTER + offset, ring_mode="boost_cut", text=(strip.label, balance_text(balance))
+                    base,
+                    ring=position,
+                    ring_mode="boost_cut",
+                    ring_center=end,
+                    text=(strip.label, balance_text(balance)),
                 )
-                frames.append(Frame(f"Turned right: {balance_text(balance)}", state))
+                caption = "all the way, the LEDs at the ends lit" if end else balance_text(balance)
+                frames.append(Frame(f"Turned right: {caption}", state))
             centered = replace(base, ring=RING_CENTER, ring_mode="boost_cut", text=(strip.label, "center"))
             frames.append(Frame("Pushed: centered", centered))
             return tuple(frames)

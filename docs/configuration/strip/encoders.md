@@ -65,8 +65,9 @@ the [volume range](../channels/index.md#volume-range) of the channel.
 ## `balance`
 
 The balance between the left and the right channel. One step moves it 5 %, so 20 steps go from the center to one side.
-A push centers it. The ring lights from its center towards the side the balance leans to. The LCD shows the exact
-balance, e.g. `L 15%` (15 % of the way to the full left) or `center`. On a mono output or stream the encoder does
+A push centers it. The ring lights from its center towards the side the balance leans to: four LEDs split the way to
+the side, and the fifth lights only all the way over, together with the two LEDs at the ends of the ring. So a ring
+that reaches the end is at 100 %, not at 95 %. The LCD shows the exact balance, e.g. `L 15%` (15 % of the way to the full left) or `center`. On a mono output or stream the encoder does
 nothing.
 
 ## `pick`

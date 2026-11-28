@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- GUI, Play: what the mouse can take glows under it (the knob, an LED of the ring, a button, the fader), with a tooltip
+  of what a click, a drag and a hold do. While a drag turns the encoder, ticks around the knob show its steps and a
+  pointer passes one per step.
 - `mute_led = "flash"` makes the LED of Mute flash while the strip is muted, instead of lighting it: on a channel
   (e.g. your microphone), a `person` channel, `[pool.people]` and the other pools, or a place of a slot. The GUI has it
   under Buttons, and its preview of the buttons shows Mute flashing.
@@ -217,6 +220,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The ring of the balance showed its end from 90 % on, so turning towards the end LED in the GUI stopped short of
+  100 %. Now four LEDs split the way to the side and the fifth lights only at 100 %, with the two LEDs at the ends of
+  the ring.
+- GUI, Play: a press on an LED of the ring turned the encoder at once, so a drag or a hold near the knob turned it
+  towards the LED instead. Now a click on an LED turns until the ring lights it, a hold turns on after a moment, and
+  a drag that starts on the ring turns it like the knob. The LEDs at the ends could not be aimed at: they now mean
+  "all the way".
 - GUI: the window Log can be made as low as its bar and a line of the log; it kept a few lines of height before.
 - `apps` and `auto` kept an `apps` channel without a slot for the `hold` of the pool after the channel was gone by
   its own `absent_after`: a slot like `["browser if present", "apps"]` showed the browser through `apps` for two

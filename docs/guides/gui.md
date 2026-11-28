@@ -183,7 +183,11 @@ A bar above the drawing switches what the mouse does on it:
     |---|---|
     | ![Fader](../images/controls/fader.png){ .xt-icon } Fader | Press to touch it, drag to move it, release to let go. Alt-drag moves it without a touch, as the motor does. |
     | ![Select](../images/controls/select.png){ .xt-icon } Button | Held while the mouse button is down. |
-    | ![Encoder](../images/controls/encoder.png){ .xt-icon } Encoder | The wheel turns it, and so does a drag on the knob (up or right is clockwise). A click pushes it; holding the knob still holds it down. |
+    | ![Encoder](../images/controls/encoder.png){ .xt-icon } Encoder | The wheel turns it, and so does a drag on the knob or the ring (up or right is clockwise). A click on the knob pushes it; holding the knob still holds it down. |
+    | ![Encoder](../images/controls/encoder.png){ .xt-icon } LED of the ring | A click turns the encoder step by step until the ring lights that LED. The LEDs at the two ends mean "all the way": it turns until they light, e.g. the balance at 100 %, or as far as it goes. Holding an LED still turns the encoder with the mouse; a drag that starts on an LED turns it like a drag on the knob. |
+
+    What the mouse can take glows under it, and its tooltip says what a click, a drag and a hold do. While a drag
+    turns the encoder, ticks around the knob show its steps, and a pointer on the knob passes one tick per step.
 
 Play works on the [virtual device](#the-virtual-device) the window hosts, and on the control surface of a running daemon, which
 takes the mouse as if the control surface sent it. If the drawing shows a [preview in the GUI](#preview), the mouse acts on the

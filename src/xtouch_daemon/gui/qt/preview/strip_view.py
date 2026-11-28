@@ -10,6 +10,7 @@ from math import cos, radians, sin
 from typing import TYPE_CHECKING, Protocol
 
 from PyQt6.QtCore import (
+    QEvent,
     QPoint,
     QPointF,
     QRectF,
@@ -18,6 +19,7 @@ from PyQt6.QtCore import (
 from PyQt6.QtGui import (
     QColor,
     QContextMenuEvent,
+    QEnterEvent,
     QFocusEvent,
     QFont,
     QFontDatabase,
@@ -64,6 +66,7 @@ from xtouch_daemon.gui.qt.preview.geometry import (
     meter_led,
     part_at,
     ring_led,
+    ring_led_at,
     travel_y,
 )
 from xtouch_daemon.gui.qt.preview.painting import (
@@ -150,6 +153,56 @@ class StripHost(Protocol):
     def key(self, index: int, event: QKeyEvent) -> bool: ...
 
 
+TURN_TICKS = 24
+"""The ticks around the knob while a drag turns it: one per step of the encoder, as the detents of a real one."""
+
+
+@dataclasses.dataclass(frozen=True)
+class Hover:
+    """What the mouse is over in Play: the knob (push, drag, wheel), an LED of the ring, a button (its row), the
+    fader."""
+
+    part: str
+    index: int = 0
+
+
+HOVER_TIPS = {
+    "knob": "Encoder: drag or turn the wheel to turn it, click to push it, hold to hold it down",
+    "led": "Click: the encoder turns until the ring lights this LED. Hold: it turns on with the mouse",
+    "ends": "Click: the encoder turns all the way, until the LEDs at both ends light (or as far as it goes)",
+    "button": "Click to press, hold to hold it down",
+    "fader": "Drag the fader; with Alt it moves without a touch, as the device moves it by itself",
+}
+"""What the mouse does with the part under it in Play."""
+
+
+def hover_tip(hovered: Hover) -> str:
+    if hovered.part == "led" and hovered.index in (0, RING_LEDS - 1):
+        return HOVER_TIPS["ends"]
+    return HOVER_TIPS[hovered.part]
+
+
+def paint_hover(painter: QPainter, hovered: Hover, accent: QColor) -> None:
+    """A soft glow around what the mouse is over: the knob, the LED (both at the ends), the button, the fader's slot."""
+    glow = QColor(accent)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    for width, alpha in ((5, 50), (2, 150)):
+        glow.setAlpha(alpha)
+        painter.setPen(QPen(glow, width, cap=Qt.PenCapStyle.RoundCap))
+        match hovered.part:
+            case "knob":
+                painter.drawEllipse(ENCODER, KNOB_RADIUS + 1, KNOB_RADIUS + 1)
+            case "led":
+                ends = (0, RING_LEDS - 1)
+                for led in ends if hovered.index in ends else (hovered.index,):
+                    painter.drawLine(*ring_led(led))
+            case "button":
+                painter.drawRoundedRect(button_rect(hovered.index).adjusted(-1, -1, 1, 1), 3, 3)
+            case _:
+                track = QRectF(CENTER_X - CAP_SIZE.width() / 2, SLOT.top(), CAP_SIZE.width(), SLOT.height())
+                painter.drawRoundedRect(track, 3, 3)
+
+
 class StripView(QWidget):
     """One strip of the device."""
 
@@ -162,6 +215,11 @@ class StripView(QWidget):
         self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover)
+        # what the mouse is over, for its glow in Play
+        self.setMouseTracking(True)
+        self.face_tip = ""
+        self.hovered: Hover | None = None
+        """What the mouse is over in Play (see `_hover_at`), None for nothing it can take."""
         self.lcd_font = QFontDatabase.systemFont(QFontDatabase.SystemFont.FixedFont)
         self.lcd_font.setPixelSize(14)
         self.lcd_font.setWeight(QFont.Weight.DemiBold)
@@ -177,6 +235,7 @@ class StripView(QWidget):
             turn=lambda steps: self._hand_does(lambda hand: hand.turn(self.index, steps)),
             push=lambda pressed: self._hand_does(lambda hand: hand.push(self.index, pressed)),
             position=lambda: self.face.state.ring,
+            ends=lambda: self.face.state.ring_center,
         )
         """The mouse on the encoder, while the window is a hand on the device."""
         """The part the mouse holds on a device it is a hand on, and whether a hand does it (no Alt), None for none."""
@@ -201,7 +260,9 @@ class StripView(QWidget):
         lines.append(look.detail)
         if face.live:
             lines.append("Live: what the device shows right now.")
-        self.setToolTip("\n".join(lines))
+        self.face_tip = "\n".join(lines)
+        """The tooltip of the strip; in Play the part under the mouse has its own (see `HOVER_TIPS`)."""
+        self.setToolTip(self.face_tip if self.hovered is None else hover_tip(self.hovered))
         self.setAccessibleName(f"Strip {self.index + 1}")
         self.setAccessibleDescription(" ".join(lines[1:]))
         self.update()
@@ -303,6 +364,35 @@ class StripView(QWidget):
             painter.setOpacity(LIFTED_OPACITY)
         painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
         picture.paint(painter)
+        if self.preview.hand is not None:
+            painter.setOpacity(1.0)
+            self._paint_hand(painter)
+
+    def _paint_hand(self, painter: QPainter) -> None:
+        """
+        In Play, what the mouse can take: a glow around the part under it (the knob, an LED of the ring, a button, the
+        fader), and while it drags the knob, a pointer on it with a tick for each step of the encoder.
+        """
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        glow = QColor(current_colors().accent)
+        if self.encoder.dragging:
+            self._paint_turn_guide(painter, glow)
+        elif self.hovered is not None and not self.encoder.busy:
+            paint_hover(painter, self.hovered, glow)
+
+    def _paint_turn_guide(self, painter: QPainter, accent: QColor) -> None:
+        """The knob turned with the drag: a tick for each step around it, and a pointer that passes one per step."""
+        tick = QColor(accent)
+        tick.setAlpha(110)
+        painter.setPen(QPen(tick, 1))
+        for step in range(TURN_TICKS):
+            angle = radians(90 - step * 360 / TURN_TICKS)
+            direction = QPointF(cos(angle), -sin(angle))
+            painter.drawLine(ENCODER + direction * (KNOB_RADIUS + 1), ENCODER + direction * (KNOB_RADIUS + 3.5))
+        angle = radians(90 - self.encoder.turned * 360 / TURN_TICKS)
+        direction = QPointF(cos(angle), -sin(angle))
+        painter.setPen(QPen(accent, 2, cap=Qt.PenCapStyle.RoundCap))
+        painter.drawLine(ENCODER + direction * 4, ENCODER + direction * (KNOB_RADIUS + 3.5))
 
     def _paint_picture(self, painter: QPainter, scale: float, ratio: float) -> None:
         """
@@ -684,8 +774,38 @@ class StripView(QWidget):
             case row:
                 hand.press(self.index, list(Button)[row], True)
 
+    def _hover_at(self, point: QPointF) -> Hover | None:
+        """What the mouse can take at `point` of the strip in Play."""
+        match part_at(point):
+            case None:
+                return None
+            case "encoder":
+                led = ring_led_at(point)
+                return Hover("knob") if led is None else Hover("led", led)
+            case "fader":
+                return Hover("fader")
+            case row:
+                return Hover("button", row)
+
+    def _hover(self, point: QPointF | None) -> None:
+        hovered = self._hover_at(point) if point is not None and self.preview.hand is not None else None
+        if hovered != self.hovered:
+            self.hovered = hovered
+            self.setToolTip(self.face_tip if hovered is None else hover_tip(hovered))
+            self.update()
+
+    def enterEvent(self, event: QEnterEvent | None) -> None:
+        super().enterEvent(event)
+        if event is not None:
+            self._hover(event.position() / self.preview.scale)
+
+    def leaveEvent(self, a0: QEvent | None) -> None:
+        super().leaveEvent(a0)
+        self._hover(None)
+
     def mouseMoveEvent(self, event: QMouseEvent | None) -> None:
         assert event is not None
+        self._hover(event.position() / self.preview.scale)
         mover = self.preview.mover
         if mover is not None:
             point = event.position().toPoint()
@@ -703,6 +823,8 @@ class StripView(QWidget):
             self.update()
         elif self.held[0] == "encoder":
             self.encoder.move(event.position() / self.preview.scale, DRAG_DISTANCE() / self.preview.scale)
+            if self.encoder.dragging:
+                self.update()
 
     def mouseReleaseEvent(self, event: QMouseEvent | None) -> None:
         self._press = None
@@ -720,6 +842,7 @@ class StripView(QWidget):
                 self.update()
             case "encoder":
                 self.encoder.release()
+                self.update()
             case row:
                 hand.press(self.index, list(Button)[row], False)
 

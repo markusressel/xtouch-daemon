@@ -7,9 +7,10 @@ import dataclasses
 import html
 import re
 from collections.abc import Callable
+from math import cos, radians, sin
 from pathlib import Path
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
 from PyQt6.QtWidgets import (
     QAbstractButton,
@@ -28,6 +29,7 @@ from xtouch_daemon.gui.domain.voip import CLIENTS, NO_PLUGIN
 from xtouch_daemon.gui.qt.fields.menu import MenuPanel, open_menu
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
 from xtouch_daemon.gui.qt.pages.sections import PluginInstaller
+from xtouch_daemon.gui.qt.preview.geometry import ENCODER, RING_RADII, ring_angle
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.homeassistant.client import Fetched, HomeAssistantError
 from xtouch_daemon.live.codec import decode_request, encode, encode_log, encode_twin
@@ -270,3 +272,9 @@ def snapshot(window: MainWindow, first: StripState, device: bool = True) -> Snap
     assert saved is not None
     strips = (first, *(strip_state() for _ in range(7)))
     return Snapshot(fingerprint(saved), device, sound_server=True, mqtt=None, strips=strips)
+
+
+def led_point(led: int) -> QPointF:
+    """The middle of the LED `led` of the ring (0..12) of a strip, in its logical units."""
+    angle = radians(ring_angle(led))
+    return ENCODER + QPointF(cos(angle), -sin(angle)) * sum(RING_RADII) / 2

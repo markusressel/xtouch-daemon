@@ -633,7 +633,7 @@ class VolumeStrip(StripController):
             return
         if self.fader_sets_volume:
             self.strip.set_fader(self._fraction(level.volume))
-        self.strip.set_ring(*self.knob.ring())
+        self.strip.set_ring(*self.knob.ring(), self.knob.ends())
         self.strip.set_led(Button.MUTE, self.look.muted_led if level.muted else Led.OFF)
         if self.notice is not None:
             self.strip.set_text(1, self.notice)

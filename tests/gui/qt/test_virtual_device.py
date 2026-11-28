@@ -13,12 +13,13 @@ from PyQt6.QtNetwork import QLocalSocket
 from PyQt6.QtWidgets import QMessageBox, QPushButton, QWidget
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import Dialogs, FakeLiveDaemon, MakeWindow, pill, snapshot, strip_state
+from tests.support.gui import Dialogs, FakeLiveDaemon, MakeWindow, led_point, pill, snapshot, strip_state
 from tests.support.instance import RecordingInstance
 from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.gui.qt.fields.popover import Entry
 from xtouch_daemon.gui.qt.preview.geometry import ENCODER, SLOT, button_rect, fraction_at, part_at, travel_y
 from xtouch_daemon.gui.qt.preview.panel import Preview
+from xtouch_daemon.gui.qt.preview.strip_view import HOVER_TIPS
 from xtouch_daemon.gui.qt.virtual_device import HostedDevice, VirtualDevicePill
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
@@ -262,6 +263,55 @@ def test_the_mouse_is_a_hand_on_the_hosted_device(qtbot: QtBot, preview: Preview
         ("push", 1, True),
         ("push", 1, False),
     ]
+
+
+def test_in_play_what_the_mouse_can_take_glows(qtbot: QtBot, preview: Preview) -> None:
+    view = preview.strips[2]
+    plain = view.grab().toImage()
+    # not in the editor: there the mouse picks and moves strips
+    qtbot.mouseMove(view, at(preview, ENCODER))
+    assert view.hovered is None
+    play(preview, Hand())
+    qtbot.mouseMove(view, QPoint(0, 0))
+    looks = {}
+    for name, point in (
+        ("knob", ENCODER),
+        ("led", ENCODER + QPointF(0, -23)),
+        ("button", button_rect(1).center()),
+        ("fader", QPointF(SLOT.center().x(), travel_y(0.5))),
+    ):
+        qtbot.mouseMove(view, at(preview, point))
+        assert view.hovered is not None
+        assert view.hovered.part == name
+        looks[name] = view.grab().toImage()
+        assert looks[name] != plain
+        # and says what the mouse does with it
+        assert view.toolTip() == HOVER_TIPS[name]
+    # each glows where it is
+    images = list(looks.values())
+    assert all(a != b for index, a in enumerate(images) for b in images[index + 1 :])
+    qtbot.mouseMove(view, QPoint(0, 0))
+    assert view.hovered is None
+    assert view.toolTip() == view.face_tip
+    # the LEDs at the ends: all the way
+    qtbot.mouseMove(view, at(preview, led_point(0)))
+    assert view.toolTip() == HOVER_TIPS["ends"]
+
+
+def test_a_drag_on_the_knob_shows_the_steps(qtbot: QtBot, preview: Preview) -> None:
+    view = preview.strips[2]
+    hand = Hand()
+    play(preview, hand)
+    qtbot.mouseMove(view, at(preview, ENCODER))
+    qtbot.mousePress(view, Qt.MouseButton.LeftButton, pos=at(preview, ENCODER))
+    hovered = view.grab().toImage()
+    qtbot.mouseMove(view, at(preview, ENCODER + QPointF(20, 0)))
+    assert view.encoder.dragging
+    # the pointer and the ticks of the steps, instead of the glow
+    assert view.grab().toImage() != hovered
+    qtbot.mouseRelease(view, Qt.MouseButton.LeftButton, pos=at(preview, ENCODER + QPointF(20, 0)))
+    assert not view.encoder.dragging
+    assert sum(int(str(done[2])) for done in hand.done if done[0] == "turn") == 5
 
 
 def test_without_a_hand_the_mouse_only_selects(qtbot: QtBot, preview: Preview) -> None:
