@@ -21,10 +21,24 @@ class WhatIf(Situation):
     """
 
     @classmethod
-    def of_live(cls, slots: SlotsState) -> WhatIf:
-        """The mode and the states that are on as the daemon tells them, the rest as `Simulate` starts it."""
-        on = frozenset(state.name for state in slots.states if state.value and not state.mode)
-        return cls(mode=slots.mode, on=on)
+    def of_live(cls, slots: SlotsState | None) -> WhatIf:
+        """
+        Reality as the daemon tells it (`SlotsState.now`): where Simulate starts. From a daemon that doesn't tell it,
+        the mode and the states that are on, everything present and the pools empty; without a daemon, all of it.
+        """
+        if slots is None:
+            return cls()
+        now = slots.now
+        if now is None:
+            on = frozenset(state.name for state in slots.states if state.value and not state.mode)
+            return cls(mode=slots.mode, on=on)
+        return cls(now.mode, now.on, now.flipped, now.people, now.apps, now.devices)
+
+    def differs(self, start: WhatIf, name: str, flip: bool) -> bool:
+        """Whether the state `name` (or, with `flip`, the presence of the channel or pool) differs from `start`."""
+        if flip:
+            return (name in self.flipped) != (name in start.flipped)
+        return (name in self.on) != (name in start.on)
 
     def counted(self, people: int | None = None, apps: int | None = None, devices: int | None = None) -> WhatIf:
         """With so many people in the call, applications that play, or devices without a channel."""

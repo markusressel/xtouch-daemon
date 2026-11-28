@@ -347,9 +347,10 @@ many people and applications (the strips show their names). It includes the unsa
 - **Pools**: the number of people in the voice chat, of applications that play and of outputs without a channel, and
   a button for `auto` and for each pool of your own.
 
-A dot before each name says what it is now, like the dots of the candidates on the cards: green and filled for
-on or present, a ring for off, absent or empty. A highlighted button
-differs from how Simulate starts. The drawing, the cards and the box of the inspector show it, and Play can operate
+Simulate starts from reality: the mode, the states, the channels, the pools and the numbers are as the daemon has
+them right now. For example, while Mumble doesn't run, a channel of the voice chat starts absent. A dot before each
+name says what it is in the what-if, like the dots of the candidates on the cards: green and filled for on or
+present, a ring for off, absent or empty. A button with a frame in the accent color differs from reality. The drawing, the cards and the box of the inspector show it, and Play can operate
 it. ++esc++, or Simulate again, ends it. It needs a running daemon of your user. For the command line, see
 [`simulate`](../reference/commands.md#simulate) and [`check-config`](../reference/commands.md#check-config), which
 prints what each slot shows in each situation.

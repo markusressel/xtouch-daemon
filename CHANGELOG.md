@@ -129,6 +129,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI, Simulate: it starts from reality, as the daemon tells it in its live view: the mode, the states that are on,
+  the channels that are absent (e.g. the voice chat while Mumble doesn't run), the pools with members and the number
+  of people, applications and devices. A what-if that differs from reality has a frame in the accent color instead of
+  a blue background.
 - GUI: the pill next to Save and apply says "Saved, running" instead of "Saved, on the device": the daemon runs the
   file, the control surface keeps nothing.
 - GUI: the pill of the sound server and its popover follow the sound server: an application that starts or ends, or

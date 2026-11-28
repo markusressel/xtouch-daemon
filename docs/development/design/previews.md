@@ -79,11 +79,12 @@ It has three positions:
 
 ### The situation of a twin
 
-- **Simulate open:** the situation of Simulate.
+- **Simulate open:** the situation of Simulate. It starts as the situation of now, which the daemon tells in its
+  live view (`SlotsState.now`, see `situation_now`): the GUI opens Simulate with it.
 - **Simulate closed** (only edits): the situation of now. The daemon takes it from its real slots at every step: the
   mode, the states that are on, the channels present, and how many people, applications and devices. So the twin shows
   what the device would show with the edits right now, and follows when reality changes. A state or channel that only
-  the edits have starts as Simulate would start it (off, present).
+  the edits have starts off or present.
 
 Either way its sound server is made up: the twin touches nothing real (see [The twin](#the-twin)).
 

@@ -38,6 +38,7 @@ from xtouch_daemon.live.messages import (
     VoipState,
 )
 from xtouch_daemon.slots.inputs import App
+from xtouch_daemon.slots.outcomes import Situation
 from xtouch_daemon.slots.states import Override
 from xtouch_daemon.strips.apps import AutoStrip
 
@@ -554,6 +555,8 @@ async def test_the_live_view_shows_the_slots_and_sets_modes_and_overrides(
     assert first[1] is False
     assert abs(first[0] - datetime.fromisoformat(call.since).timestamp()) <= 1
     assert next(state for state in view.states if state.name == "gaming").mode
+    # reality as a situation, where Simulate starts: Spotify plays on auto
+    assert view.now == Situation("default", apps=1)
 
     assert daemon.on_request(gui, SetMode("gaming")) == Reply("mode", True, "gaming")
     view = daemon.snapshot().slots

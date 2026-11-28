@@ -207,8 +207,7 @@ QPushButton[variant="segment"] {{ margin-right: {Space.XS}px; padding: 0 {Space.
 QPushButton[variant="segment"]:checked {{ background: {c.accent}; color: {c.on_accent}; border-color: {c.accent};
     font-weight: 600; }}
 QPushButton[variant="what-if"] {{ padding: 0 {Space.M}px; }}
-QPushButton[variant="what-if"]:checked {{ background: {c.accent}; color: {c.on_accent}; border-color: {c.accent};
-    font-weight: 600; }}
+QPushButton[variant="what-if"]:checked {{ color: {c.accent}; border-color: {c.accent}; }}
 QPushButton[variant="nav"] {{ text-align: left; padding: 0 {Space.M}px; min-width: {Space.XXL * 3}px;
     border: none; border-left: 3px solid transparent; border-radius: {Radius.MEDIUM}px; background: transparent; }}
 QPushButton[variant="nav"]:hover {{ background: {tint(c.text, 18)}; }}

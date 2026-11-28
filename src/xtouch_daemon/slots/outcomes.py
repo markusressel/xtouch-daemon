@@ -4,6 +4,7 @@ that changes what the slots show, as `check-config`, `simulate --table` and the 
 """
 
 import itertools
+from collections import Counter
 from collections.abc import Iterable
 from dataclasses import dataclass, field, replace
 
@@ -21,7 +22,7 @@ from xtouch_daemon.slots.model import (
     Scene,
 )
 from xtouch_daemon.slots.resolver import SLOTS, Inputs, Result, resolve
-from xtouch_daemon.slots.states import Override, composed_order
+from xtouch_daemon.slots.states import Override, States, composed_order
 
 
 @dataclass(frozen=True)
@@ -303,6 +304,30 @@ def _with_pools(scene: Scene, observation: Observation) -> Observation:
             for name in scene.apps_pools
         },
     )
+
+
+def situation_now(scene: Scene, states: States, present: frozenset[str], result: Result) -> Situation:
+    """
+    Reality as a situation, for Simulate to start from: the mode and the states that are on, the channels (and pools
+    of channels) the stacks ask about flipped while absent, `auto` and the pools of your own flipped while they have
+    members, and as many people, applications and devices as `people`, `apps` and `devices` have.
+    """
+    members = Counter(shown.pool for shown in result.slots.values() if shown.pool and shown.member is not None)
+    members.update({pool: len(waiting) for pool, waiting in result.waiting.items()})
+    _, presence = dimensions(scene)
+    flipped: set[str] = set()
+    for name in presence:
+        if name in (APPS, PEOPLE, DEVICES):
+            continue
+        if name == AUTO or _fills(scene, name):
+            if members[name]:
+                flipped.add(name)
+        elif not any(channel in present for channel in _channels_of(scene, name)):
+            flipped.add(name)
+    on = frozenset(name for name, state in scene.states.items() if not state.mode and states.values.get(name))
+    # the applications of `auto` play too (its people and devices are members of `people` and `devices`)
+    apps = members[APPS] + members[AUTO]
+    return Situation(states.mode, on, frozenset(flipped), members[PEOPLE], apps, members[DEVICES])
 
 
 def _fills(scene: Scene, name: str) -> bool:

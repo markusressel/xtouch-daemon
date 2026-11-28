@@ -2,9 +2,12 @@
 Simulate: the what-if, the inputs a configuration offers it and the words of its buttons.
 """
 
+import dataclasses
+
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, is_present, presence_tip, state_tip
 from xtouch_daemon.live.messages import SlotsState, StateView
+from xtouch_daemon.slots.outcomes import Situation
 
 CONFIG = """
 [channel.out]
@@ -49,7 +52,20 @@ def test_simulate_starts_with_what_the_daemon_tells():
         ),
         waiting={},
     )
+    # from a daemon that doesn't tell reality as a situation: the mode and the states
     assert WhatIf.of_live(slots) == WhatIf("gaming", frozenset({"call"}))
+    # one that does: all of it; without a daemon: as Simulate is without anything
+    now = Situation("gaming", frozenset({"call"}), frozenset({"voip", "auto"}), people=2, apps=1)
+    assert WhatIf.of_live(dataclasses.replace(slots, now=now)) == WhatIf(
+        "gaming", frozenset({"call"}), frozenset({"voip", "auto"}), people=2, apps=1
+    )
+    assert WhatIf.of_live(None) == WhatIf()
+    # what differs from where it started
+    start = WhatIf.of_live(dataclasses.replace(slots, now=now))
+    assert not start.differs(start, "voip", True)
+    assert start.toggled("voip", True).differs(start, "voip", True)
+    assert not start.toggled("voip", True).differs(start, "call", False)
+    assert start.toggled("call", False).differs(start, "call", False)
     # a channel is present until flipped, the built-in pools empty until flipped
     assert (is_present("voip", False), is_present("voip", True)) == (True, False)
     assert (is_present("apps", False), is_present("auto", True)) == (False, True)

@@ -226,6 +226,8 @@ class SlotsState:
     states: tuple[StateView, ...]
     waiting: dict[str, tuple[str, ...]]
     """Per pool, the members that got no slot."""
+    now: Situation | None = None
+    """Reality as a situation, where Simulate starts (see `situation_now`); None before the first step."""
 
 
 @dataclass(frozen=True)

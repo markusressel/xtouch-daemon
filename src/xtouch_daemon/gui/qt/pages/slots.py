@@ -158,6 +158,8 @@ class SlotsPanel(Page):
         self.shown_live: object = None
         self.what_if: WhatIf | None = None
         """What Simulate shows, None while the cards show what the daemon tells."""
+        self.what_if_start: WhatIf | None = None
+        """Where Simulate started: reality, as the daemon told it then (see `WhatIf.of_live`)."""
         self.device_note = label("", "hint")
         self.layout_.setContentsMargins(0, Space.S, 0, 0)
         end = QShortcut(QKeySequence(Qt.Key.Key_Escape), self, context=Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -176,7 +178,7 @@ class SlotsPanel(Page):
         set_role(self.simulate_button, "segment", "variant")
         self.simulate_button.setCheckable(True)
         self.simulate_button.setToolTip(SIMULATE_TIP)
-        self.simulate_button.clicked.connect(lambda checked: self.simulate(WhatIf() if checked else None))
+        self.simulate_button.clicked.connect(lambda checked: self.simulate(self._now() if checked else None))
         # first: it stays where it is while the what-ifs take the place of the states
         top.insertWidget(0, self.simulate_button)
         top.insertSpacing(1, Space.S)
@@ -842,11 +844,19 @@ class SlotsPanel(Page):
 
     # -- simulate ------------------------------------------------------------------------------------------------
 
+    def _now(self) -> WhatIf:
+        """Reality as a what-if, as the daemon tells it: where Simulate starts."""
+        snapshot = self.snapshot()
+        return WhatIf.of_live(snapshot.slots if snapshot is not None else None)
+
     def simulate(self, what_if: WhatIf | None) -> None:
         """Shows what the slots would show in `what_if`; None goes back to what the daemon tells."""
         config = self.editor.validation.config
         if config is None or (what_if is not None and self.simulate_unavailable() is not None):
             what_if = None
+        if what_if is None or self.what_if is None:
+            # where it starts: reality, as the daemon tells it when it opens
+            self.what_if_start = self._now() if what_if is not None else None
         self.what_if = what_if
         self.simulate_button.setChecked(what_if is not None)
         # nothing drawn until all is in its place: else the rows would show for a moment at their old heights, and the
@@ -934,20 +944,21 @@ class SlotsPanel(Page):
         return pool
 
     def _toggle(self, what_if: WhatIf, name: str, flip: bool) -> QPushButton:
-        """A state (on or off), or with `flip` the presence of a channel or pool; a dot says which it is now."""
-        checked = name in (what_if.flipped if flip else what_if.on)
-        # ● on or present, ○ off or absent, as the dots of the states
-        lit = is_present(name, checked) if flip else checked
+        """
+        A state (on or off), or with `flip` the presence of a channel or pool: a dot says which it is in the what-if,
+        a frame in the accent color that it differs from reality (checked).
+        """
+        flipped = name in (what_if.flipped if flip else what_if.on)
+        lit = is_present(name, flipped) if flip else flipped
         toggle = QPushButton(name)
         set_role(toggle, "what-if", "variant")
         toggle.setCheckable(True)
-        toggle.setChecked(checked)
+        toggle.setChecked(what_if.differs(self.what_if_start or WhatIf(), name, flip))
         # the node of the candidates on the cards: green and filled while on, a ring while off
-        colors = current_colors()
-        toggle.setIcon(node_icon(lit, colors.on_accent if checked else colors.text_muted, toggle.devicePixelRatioF()))
+        toggle.setIcon(node_icon(lit, current_colors().text_muted, toggle.devicePixelRatioF()))
         toggle.setIconSize(NODE_ICON)
         toggle.setProperty("lit", lit)
-        toggle.setToolTip(presence_tip(name, checked) if flip else state_tip(name, checked))
+        toggle.setToolTip(presence_tip(name, flipped) if flip else state_tip(name, flipped))
         toggle.clicked.connect(lambda _=False: self.simulate(what_if.toggled(name, flip)))
         return toggle
 

@@ -42,8 +42,15 @@ from xtouch_daemon.live.messages import (
 from xtouch_daemon.slots.outcomes import Situation
 
 
+def _sets(value: object) -> list[Any]:
+    """A set as JSON: a list in order (the names of a `Situation`)."""
+    if isinstance(value, frozenset | set):
+        return sorted(value)  # pyright: ignore[reportUnknownArgumentType, reportUnknownVariableType]
+    raise TypeError(f"{type(value).__name__} is not JSON")
+
+
 def encode(snapshot: Snapshot) -> bytes:
-    return json.dumps({"version": VERSION, **asdict(snapshot)}, separators=(",", ":")).encode() + b"\n"
+    return json.dumps({"version": VERSION, **asdict(snapshot)}, separators=(",", ":"), default=_sets).encode() + b"\n"
 
 
 def decode(line: bytes) -> Snapshot | None:
@@ -133,7 +140,7 @@ def _strips(values: list[dict[str, Any]]) -> tuple[StripState, ...]:
 
 def encode_twin(view: TwinView) -> bytes:
     """The view of a twin, one line for its client."""
-    return json.dumps({"twin": asdict(view)}, separators=(",", ":")).encode() + b"\n"
+    return json.dumps({"twin": asdict(view)}, separators=(",", ":"), default=_sets).encode() + b"\n"
 
 
 def _slots(value: dict[str, Any] | None) -> SlotsState | None:
@@ -148,6 +155,7 @@ def _slots(value: dict[str, Any] | None) -> SlotsState | None:
             for state in value["states"]
         ),
         {pool: tuple(members) for pool, members in value["waiting"].items()},
+        _situation(value["now"]) if value.get("now") is not None else None,
     )
 
 

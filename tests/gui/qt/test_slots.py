@@ -36,6 +36,7 @@ from xtouch_daemon.live.messages import (
     StateView,
     TwinView,
 )
+from xtouch_daemon.slots.outcomes import Situation
 
 
 def panel(window: MainWindow) -> SlotsPanel:
@@ -705,3 +706,44 @@ def test_a_what_if_has_the_node_of_the_candidates_and_the_mode_is_as_wide_as_its
     (mode,) = page.what_if_row.findChildren(QComboBox)
     assert mode.sizeAdjustPolicy() == QComboBox.SizeAdjustPolicy.AdjustToContents
     assert mode.minimumSizeHint().width() < 200
+
+
+def test_simulate_starts_from_reality_and_frames_what_differs(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon
+):
+    window = make_window(live_socket=live_daemon.path)
+    page = panel(window)
+    window.document.set(("slots", "4"), ["out if present", "apps"])
+    window.editor.edited()
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    # out is absent in reality, one application plays, call is on
+    now = Situation("default", frozenset({"call"}), frozenset({"out"}), apps=1)
+    slots = dataclasses.replace(snapshot((0,)).slots, now=now)  # pyright: ignore[reportArgumentType]
+    real = dataclasses.replace(device_snapshot(window, strip_state(("Real", "1%"))), features=("on_device",))
+    live_daemon.send(dataclasses.replace(real, slots=slots))
+    qtbot.waitUntil(lambda: page.simulate_button.isEnabled())
+    qtbot.waitUntil(lambda: page.snapshot() is not None and page.snapshot().slots is not None)  # pyright: ignore
+
+    page.simulate_button.click()
+    assert page.what_if == WhatIf("default", frozenset({"call"}), frozenset({"out"}), apps=1)
+    toggles = {button.text(): button for button in page.what_if_row.findChildren(QPushButton) if button.isCheckable()}
+    # as it is: out absent (a ring), call on (filled); nothing differs, so nothing has a frame
+    assert toggles["out"].property("lit") is False
+    assert toggles["call"].property("lit") is True
+    assert not any(toggle.isChecked() for toggle in toggles.values())
+    pool = page.what_if_row.findChild(QWidget, "apps")
+    assert pool is not None
+    (count,) = pool.findChildren(QSpinBox)
+    assert count.value() == 1
+    # a click makes out present: it differs from reality now
+    toggles["out"].click()
+    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+    (out,) = (button for button in page.what_if_row.findChildren(QPushButton) if button.text() == "out")
+    assert out.property("lit") is True
+    assert out.isChecked()
+    # reality changes meanwhile: where it started stays
+    live_daemon.send(dataclasses.replace(real, slots=dataclasses.replace(slots, now=Situation())))
+    page.simulate(page.what_if)
+    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+    (out,) = (button for button in page.what_if_row.findChildren(QPushButton) if button.text() == "out")
+    assert out.isChecked()

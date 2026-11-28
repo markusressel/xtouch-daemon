@@ -26,7 +26,7 @@ from xtouch_daemon.daemon.slot_files import (
 from xtouch_daemon.live.messages import SlotsState, SlotView, StateView, VoipState
 from xtouch_daemon.slots.inputs import App, Channel, Device, Member, Person, excluded, owner_of
 from xtouch_daemon.slots.model import DEFAULT
-from xtouch_daemon.slots.outcomes import Situation
+from xtouch_daemon.slots.outcomes import Situation, situation_now
 from xtouch_daemon.slots.recording import Observer
 from xtouch_daemon.slots.resolver import Result
 from xtouch_daemon.slots.simulation import Simulation
@@ -203,7 +203,15 @@ class SlotEngine:
                 for name in self.scene.states
             ),
             {pool: tuple(_member_text(member) or "" for member in members) for pool, members in result.waiting.items()},
+            self._now(),
         )
+
+    def _now(self) -> Situation | None:
+        """Reality as a situation (see `situation_now`), also while a situation runs; None before the first step."""
+        real = self.simulation
+        if real.result is None or real.states is None:
+            return None
+        return situation_now(self.scene, real.states, real.present, real.result)
 
     def deadline(self) -> float | None:
         """When a delay or a dwell ends, if one is pending: then the slots need another step."""

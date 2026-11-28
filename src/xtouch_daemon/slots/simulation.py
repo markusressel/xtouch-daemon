@@ -38,6 +38,8 @@ class Simulation:
         self.dwell = dwell
         self.result: Result | None = None
         self.states: States | None = None
+        self.present: frozenset[str] = frozenset()
+        """The channels present at the last step."""
         self.pools = Observation()
         """What the pools saw at the last step: the applications of `auto` with those it still holds."""
         self._changed: dict[int, float] = {}
@@ -68,7 +70,7 @@ class Simulation:
         What the slots show at `now`: `held` are the slots under a finger (or a held button, or a touchless fader the
         user just moved), `pins` the members pinned with the `pick` encoder.
         """
-        present = self.presence.update(observation, now)
+        present = self.present = self.presence.update(observation, now)
         self.states = self.engine.update(observation, present, now)
         self._changed = {slot: since for slot, since in self._changed.items() if now - since < self.dwell}
         dwelling = set(self._changed)

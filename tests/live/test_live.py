@@ -16,6 +16,7 @@ from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
+from xtouch_daemon.live import codec
 from xtouch_daemon.live import server as server_module
 from xtouch_daemon.live.codec import (
     decode,
@@ -154,6 +155,13 @@ def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):
     )
     with_slots = Snapshot("abc", True, False, None, snapshot.strips, slots=slots)
     assert decode(encode(with_slots)) == with_slots
+    # with reality as a situation, where Simulate starts
+    now = Situation("gaming", frozenset({"call", "night"}), frozenset({"voip"}), people=2, apps=1, devices=0)
+    with_now = Snapshot("abc", True, False, None, snapshot.strips, slots=dataclasses.replace(slots, now=now))
+    assert decode(encode(with_now)) == with_now
+    assert b'"on":["call","night"]' in encode(with_now)
+    with pytest.raises(TypeError, match="object is not JSON"):
+        codec._sets(object())  # pyright: ignore[reportPrivateUsage]
     # with the channels that have sound; an older daemon tells none
     sounding = Snapshot("abc", True, False, None, snapshot.strips, sounding=("out", "game"))
     assert decode(encode(sounding)) == sounding

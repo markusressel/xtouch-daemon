@@ -5,9 +5,12 @@ The distinct outcomes of a configuration, and the table in the design that shows
 import re
 
 from tests.support.paths import DOCS
-from tests.support.slots import example, older, scene
+from tests.support.slots import attendees, example, older, scene
+from xtouch_daemon.slots.inputs import Observation
 from xtouch_daemon.slots.model import DEFAULT
-from xtouch_daemon.slots.outcomes import Outcome, dimensions, outcomes, states_for, table
+from xtouch_daemon.slots.outcomes import Outcome, Situation, dimensions, outcomes, situation_now, states_for, table
+from xtouch_daemon.slots.simulation import Simulation
+from xtouch_daemon.slots.states import Override
 
 
 def test_the_table_in_the_design_is_the_one_of_its_example():
@@ -76,3 +79,44 @@ def test_neighbors_that_always_show_the_same_are_merged():
         Outcome("x", ("a", "b", "b", "c", "e", "e", "d", "d")),
     ]
     assert table(rows) == "when     1  2-3  4  5-6  7-8\ndefault  a  b    c  c    d\nx        a  b    c  e    d"
+
+
+def test_reality_as_a_situation_where_simulate_starts():
+    read = scene(
+        """
+[channel.out]
+type = "output"
+
+[channel.alice]
+type = "person"
+person = "Alice"
+
+[state.night]
+homeassistant = true
+
+[state.video]
+mode = true
+apps = ["mpv"]
+
+[slots]
+1 = ["alice if present", "out"]
+2 = ["out if night", "people"]
+3 = ["auto"]
+4 = ["apps"]
+"""
+    )
+    simulation = Simulation(read)
+    playing = Observation(people=attendees("Bob", "Carol"), voice_chat=True, playing=("brave", "mpv"))
+    result = simulation.step(playing, 0)
+    assert simulation.states is not None
+    now = situation_now(read, simulation.states, simulation.present, result)
+    # Alice is not in the call: her channel is absent; two people, and two applications (one on auto, one on apps)
+    assert now == Situation("video", frozenset(), frozenset({"alice"}), people=2, apps=2, devices=0)
+    # later nobody is there and nothing plays (past the delays): the pools are empty; night is on by hand
+    simulation.engine.set_override("night", Override.ON)
+    simulation.step(Observation(), 1000)
+    result = simulation.step(Observation(), 2000)
+    assert simulation.states is not None
+    assert situation_now(read, simulation.states, simulation.present, result) == Situation(
+        "default", frozenset({"night"}), frozenset({"alice"})
+    )
