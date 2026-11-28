@@ -1,1 +1,21 @@
 module XTouch.Forms
+FormView 1.0 FormView.qml
+OptionRow 1.0 OptionRow.qml
+NameField 1.0 NameField.qml
+NumberField 1.0 NumberField.qml
+ChoiceField 1.0 ChoiceField.qml
+ColorField 1.0 ColorField.qml
+ChipsField 1.0 ChipsField.qml
+NumbersField 1.0 NumbersField.qml
+TablesField 1.0 TablesField.qml
+TableEntry 1.0 TableEntry.qml
+ButtonField 1.0 ButtonField.qml
+BindingField 1.0 BindingField.qml
+EntityTable 1.0 EntityTable.qml
+TypedChoice 1.0 TypedChoice.qml
+SuggestionList 1.0 SuggestionList.qml
+HelpLabel 1.0 HelpLabel.qml
+ProblemText 1.0 ProblemText.qml
+PartPreviewPlaceholder 1.0 PartPreviewPlaceholder.qml
+UsedBy 1.0 UsedBy.qml
+HistoryBars 1.0 HistoryBars.qml

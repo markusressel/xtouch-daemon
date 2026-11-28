@@ -23,3 +23,8 @@ SlotStateButton 1.0 SlotStateButton.qml
 SlotStatePopover 1.0 SlotStatePopover.qml
 SlotTip 1.0 SlotTip.qml
 SlotWhatIf 1.0 SlotWhatIf.qml
+SettingsSection 1.0 SettingsSection.qml
+SectionBlock 1.0 SectionBlock.qml
+ConnectionBox 1.0 ConnectionBox.qml
+PluginBox 1.0 PluginBox.qml
+AliasesPane 1.0 AliasesPane.qml

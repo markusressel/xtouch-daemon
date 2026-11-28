@@ -3,6 +3,7 @@ The window in Qt Quick, offscreen with Qt's software renderer, with a fake syste
 configuration in a temporary directory (see tests/gui/qt/conftest.py for the widgets). `ui` is the window of a test.
 """
 
+import os
 import tempfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
@@ -30,11 +31,16 @@ from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.qt.theme.tokens import Motion, ThemeMode
 from xtouch_daemon.gui.quick.app import App, Dependencies, load_window
-from xtouch_daemon.gui.quick.engine import make_engine
+from xtouch_daemon.gui.quick.engine import QML, STYLE, make_engine
 from xtouch_daemon.gui.quick.theme import Theme
 from xtouch_daemon.system.systemd import Service
 
 MakeUi = Callable[..., Ui]
+
+# The style of the controls is chosen once per process, by the first QML that imports them. A worker that ran the
+# prototype of the cards (tests/gui/qt/quick) first would have Qt's own style: set ours for the whole process.
+os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", STYLE)
+os.environ.setdefault("QML_IMPORT_PATH", str(QML))
 
 
 @pytest.fixture(autouse=True)

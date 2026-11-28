@@ -151,3 +151,38 @@ crumbs, the "why" steps) and `qml/XTouch/Pages/Slot*.qml`. The Python types of t
   option rows of the place of a candidate; `SlotControlParts.qml` (input: the entry's `path` and `parts`) is the rows
   of the parts of a control entry. Both write through `SlotsPage.setPlaceOption` and `SlotControls.setOption`.
 - The share between the cards and the inspector is not remembered yet.
+
+## The forms
+
+`gui/quick/forms/` (Python) and `qml/XTouch/Forms/` (QML) make a form from the models, with one recursive row and no
+code per option. The page Settings (`pages/settings.py`) is the first user; the pages Channels and States show their
+forms the same way.
+
+**In Python.** A `Form` is a list of rows over one place of the document:
+
+```python
+form = channel_form(forms_of(app), "output")   # the options of a channel of the type; `pool_form(...)` for a pool
+form.retarget(("channel", "out"))              # the channel it shows now: the rows change in place
+```
+
+- `forms_of(app)` is the `FormContext` of the window: the sound server (`set_audio(state)`), the daemon's state
+  (`snapshot`, `known`, `send`) and the entities of Home Assistant. The shell gives it what it knows; without it, the
+  context reads the sound server in a thread on first use.
+- A `RowSpec` binds an option to its suggestions, placeholder and link; `strips.py` makes them for a strip type. A
+  page with other options builds its own `Form(context, specs, base=..., present=...)`.
+- The rows are `form.rows`, a `FormRowsModel` with the roles `key`, `spec` (what an option is: its name, kind,
+  choices, default; it changes only when the model does) and `info` (what it shows now: value, placeholder, problems;
+  it changes with the document). A value that changes updates `info` in place; it never rebuilds a row.
+- Edits go through `form.setValue(name, value)` and `form.reset(name)`: one step to undo per edit, typing in one
+  option merges. Loading never writes. A form that is not `active` waits and shows the latest on `active = true`.
+- `form.rest` has the problems no row shows, `form.reveal(name)` asks the view to scroll to a row and focus it.
+
+**In QML.** `FormView { form: theForm }` shows a form. Rows come and go with `Reveal`, problems and help fade and
+expand. `UsedBy` (`context.usedBy(where, none)`) and `HistoryBars` (`context.historyBars(history)`) are the small
+pictures of a channel and a state. `PartPreviewPlaceholder` stands where the preview of a group of parts (display,
+encoder, buttons) belongs: the part of the drawing of the device replaces it with its `PartPreview`.
+
+**Settings.** `SettingsPage` has `entries` (the navigation), `sections` (a backend per section: `form`, `present`,
+`add()`, `remove()`, `live`), `aliases`, `current`, `showSection(name)` and `reveal(path)`. The shell calls
+`show_live(snapshot)` with the daemon's snapshots. The broker test and the plugin installers run in threads
+(`pages/settings_support.py`), and only the latest result of a test shows.
