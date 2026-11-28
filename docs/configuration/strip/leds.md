@@ -3,7 +3,15 @@
 ![The buttons of a strip, lit: Rec and Mute red, Solo yellow, Select green](../../images/controls/buttons.png){ .xt-part width="64" }
 
 Every strip has four buttons with LEDs: Rec, Solo, Mute and Select. Mute mutes the strip, and its LED is on while
-the strip is muted; on `output`, `input` and `apps` strips you cannot change that (only a
+the strip is muted; `mute_led = "flash"` makes it flash instead, e.g. for your microphone:
+
+```toml
+[channel.mic]
+type = "input"
+mute_led = "flash"
+```
+
+What Mute does you cannot change on `output`, `input` and `apps` strips (only a
 [custom channel](../channels/custom.md#buttons) can). You can change what the other three do, and what their LEDs
 show. Each has a default:
 
@@ -19,7 +27,7 @@ entity that Home Assistant sets, see [Home Assistant](../../guides/home-assistan
 
 ## Buttons
 
-Each of `select`, `rec` and `solo` takes a table. A part you leave out does what the strip type does by default.
+Each of `select`, `rec` and `solo` takes a table. A part you leave out does what the type of the channel does by default.
 
 ```toml
 [channel.main]

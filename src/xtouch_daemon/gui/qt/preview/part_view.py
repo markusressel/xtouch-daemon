@@ -7,7 +7,7 @@ the options of a form do on the device.
 from math import ceil
 
 from PyQt6.QtCore import QRectF, Qt
-from PyQt6.QtGui import QKeyEvent
+from PyQt6.QtGui import QColor, QKeyEvent, QPainter, QPainterPath, QPaintEvent, QPen
 from PyQt6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
 
 from xtouch_daemon.gui.domain.demos import Frame, Part
@@ -26,20 +26,46 @@ from xtouch_daemon.gui.qt.preview.geometry import (
 )
 from xtouch_daemon.gui.qt.preview.panel import Hand
 from xtouch_daemon.gui.qt.preview.strip_view import StripView
-from xtouch_daemon.gui.qt.theme.tokens import Space
+from xtouch_daemon.gui.qt.theme.style import current_colors
+from xtouch_daemon.gui.qt.theme.tokens import Radius, Space
 
 _RING = RING_RADII[1] + 6
 CROPS: dict[Part, QRectF] = {
     "encoder": QRectF(ENCODER.x() - _RING, ENCODER.y() - _RING, 2 * _RING, 2 * _RING),
     "display": LCD.adjusted(-4, -4, 4, 4),
-    "buttons": QRectF(BUTTON_X - 26, BUTTON_TOP - 6, 52, BUTTONS_BOTTOM - BUTTON_TOP + 6),
+    "buttons": QRectF(BUTTON_X - 26, BUTTON_TOP - 6, 52, BUTTONS_BOTTOM - BUTTON_TOP + 12),
     "fader": QRectF(METER.left() - 8, METER.top() - 6, WIDTH - METER.left() + 8, HEIGHT - METER.top() + 2),
 }
 """What of the strip each part shows, in logical units."""
 SIZE = (120, 220)
 """The most room the drawing of a part takes, in pixels at 100 %."""
-CAPTION_WIDTH = 160
-"""The width of the caption under it: a few words a line."""
+CAPTION_WIDTH = SIZE[0]
+"""The least width of the caption under it (the drawing's where it is wider): a few words a line."""
+
+
+class Corners(QWidget):
+    """
+    Rounds the corners of the drawing of a part, on the card it sits on: the corners outside a rounded rectangle in
+    the color of the card, and a thin edge, so the cut of the strip doesn't end in hard square corners.
+    """
+
+    def __init__(self, drawing: QWidget):
+        super().__init__()
+        self.setParent(drawing)  # pyright: ignore[reportArgumentType]: PyQt's stub types the parent as Self
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
+
+    def paintEvent(self, a0: QPaintEvent | None) -> None:
+        colors = current_colors()
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        whole = QPainterPath()
+        whole.addRect(QRectF(self.rect()))
+        inside = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+        rounded = QPainterPath()
+        rounded.addRoundedRect(inside, Radius.MEDIUM, Radius.MEDIUM)
+        painter.fillPath(whole.subtracted(rounded), QColor(colors.raised))
+        painter.setPen(QPen(QColor(colors.border), 1))
+        painter.drawPath(rounded)
 
 
 class PartDrawing(QWidget):
@@ -58,6 +84,9 @@ class PartDrawing(QWidget):
         self.view.resize(ceil(WIDTH * self.scale), ceil(HEIGHT * self.scale))
         self.view.move(round(-crop.left() * self.scale), round(-crop.top() * self.scale))
         self.setFixedSize(ceil(crop.width() * self.scale), ceil(crop.height() * self.scale))
+        self.corners = Corners(self)
+        self.corners.resize(self.size())
+        self.corners.raise_()
 
     @property
     def resizing(self) -> bool:
@@ -90,7 +119,8 @@ class PartPreview(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(Space.XS)
         self.drawing = PartDrawing(part)
-        layout.addWidget(self.drawing, 0, Qt.AlignmentFlag.AlignHCenter)
+        # flush with the title of the card, as the fields of a card without a preview: no room lost on the left
+        layout.addWidget(self.drawing, 0, Qt.AlignmentFlag.AlignLeft)
         steps = QHBoxLayout()
         steps.setSpacing(Space.XS)
         self.back = flat_button("chevron-left", "The step before")
@@ -98,14 +128,13 @@ class PartPreview(QWidget):
         self.counter = label("", "hint")
         self.next = flat_button("chevron-right", "The next step")
         self.next.clicked.connect(lambda: self.step(1))
-        steps.addStretch()
         for widget in (self.back, self.counter, self.next):
             steps.addWidget(widget)
         steps.addStretch()
         layout.addLayout(steps)
         self.caption = label("", "hint", wrap=True)
-        self.caption.setFixedWidth(CAPTION_WIDTH)
-        self.caption.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
+        self.caption.setFixedWidth(max(CAPTION_WIDTH, self.drawing.width()))
+        self.caption.setAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop)
         layout.addWidget(self.caption)
         layout.addStretch()
         self.frames: tuple[Frame, ...] = ()

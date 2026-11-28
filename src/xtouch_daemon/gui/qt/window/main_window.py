@@ -71,6 +71,7 @@ from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, 
 from xtouch_daemon.gui.qt.fields.entities import EntitySource
 from xtouch_daemon.gui.qt.fields.menu import MenuBar, TextMenus, attach_menu
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
+from xtouch_daemon.gui.qt.fields.sound import sounding
 from xtouch_daemon.gui.qt.file_watch import FileWatch
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
@@ -141,8 +142,8 @@ PLACE_TIPS = {
 """What each position of the control "Preview" does."""
 APPLY_GRACE_MS = 2000
 """How long a reload may take before the window says that the daemon did not take the file."""
-LOGO_SIZE = 44
-"""The size of the icon of the project in the header, next to the title."""
+LOGO_SIZE = 20
+"""The size of the icon of the project in the menu bar, before the menus."""
 WINDOW_SIZE = (1280, 1000)
 """The size of the window when it opens, where the screen has room for it."""
 DEVICE_HEIGHT = 380
@@ -208,6 +209,8 @@ class MainWindow(QMainWindow):
         """Whether the window was shown: the first time the keys go to the strips."""
         self.trying: QProcess | None = None
         """The daemon started by "Try without a device", with the virtual device; it ends with the window."""
+        self.restarting_trial = False
+        """Whether the daemon of `trying` stops to start again (see `restart_daemon`)."""
         if session is not None and session.trying is not None:
             self._keep_trying(session.trying)
         self.resume_place = Place(session.preview) if session is not None else None
@@ -215,15 +218,20 @@ class MainWindow(QMainWindow):
 
         root = QWidget()
         body = QVBoxLayout(root)
-        body.setContentsMargins(Space.XL, Space.L, Space.XL, 0)
+        # the pages reach the right edge of the window, so their scroll bars sit at it; the bars above keep a margin
+        body.setContentsMargins(Space.XL, Space.L, 0, 0)
         body.setSpacing(Space.S)
-        body.addLayout(self._preview_status())
+        bars = QVBoxLayout()
+        bars.setContentsMargins(0, 0, Space.XL, 0)
+        bars.setSpacing(Space.S)
+        bars.addLayout(self._preview_status())
         self.preview_message = label("", "error", wrap=True)
         """What the daemon said about the live preview: why it did not take the latest change, or why it ended."""
         self.preview_message.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.preview_message.hide()
-        body.addWidget(self.preview_message)
-        body.addWidget(self._disk_bar())
+        bars.addWidget(self.preview_message)
+        bars.addWidget(self._disk_bar())
+        body.addLayout(bars)
         body.addWidget(self._pages(), 1)
         configuration = QWidget()
         editor = QHBoxLayout(configuration)
@@ -241,8 +249,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(placeholder)
         # hidden, it leaves no handle between it and the docks either
         placeholder.hide()
-        # the header and the footer reach across the window, the docks are between them
-        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._bar("header", self._header()))
+        # the footer reaches across the window under the docks; the menu bar above them has the service (see `_menus`)
+        self._service()
         self.addToolBar(Qt.ToolBarArea.BottomToolBarArea, self._bar("footer", self._footer()))
         errors.listen(self._error_raised)
         self.device_dock = self._device_dock()
@@ -293,6 +301,8 @@ class MainWindow(QMainWindow):
         super().showEvent(event)
         if not self.shown:
             self.shown = True
+            if (after := ChannelsPage.PREBUILD_AFTER_MS) is not None:
+                QTimer.singleShot(after, self.channels_page.prebuild)
             # the keys start on the strips (the arrows pick one), not on the first button of the header
             self.device_view.preview.strips[0].setFocus()
 
@@ -319,27 +329,13 @@ class MainWindow(QMainWindow):
 
     # -- building -------------------------------------------------------------------------------------------------
 
-    def _header(self) -> QWidget:
-        header = QWidget()
-        set_role(header, "bar")
-        header.setAttribute(Qt.WidgetAttribute.WA_StyledBackground)
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(Space.XL, Space.M, Space.L, Space.M)
-        logo = QLabel()
-        logo.setPixmap(app_icon().pixmap(QSize(LOGO_SIZE, LOGO_SIZE)))
-        layout.addWidget(logo)
-        layout.addSpacing(Space.S)
-        # the file is in the title of the window and the tip of the pill next to Save
-        layout.addWidget(label("X-Touch Extender", "title"))
-        layout.addStretch(1)
-        layout.addSpacing(Space.L)
+    def _service(self) -> None:
+        """The controls of the service, at the right end of the menu bar: no bar of their own above the docks."""
         self.service_controls = ServiceControls(self.service)
         self.service_controls.changed.connect(self.refresh_service)
         # the status line comes later, with the footer
         self.service_controls.told.connect(lambda text: self.status.setText(text))
         self.service_controls.settings_asked.connect(self.show_page)
-        layout.addWidget(self.service_controls)
-        return header
 
     def _preview_control(self) -> QWidget:
         """
@@ -370,23 +366,27 @@ class MainWindow(QMainWindow):
         return box
 
     def _preview_status(self) -> QHBoxLayout:
-        """The bar of the page shown (see `_pages`) and the sound server."""
+        """The bar of the page shown (see `_pages`): hidden on a page without one, so the page starts higher."""
         top = QHBoxLayout()
         self.page_bars = QStackedWidget()
         """The bar of each page of the rail (an empty one for a page without), switched with the page."""
         top.addWidget(self.page_bars, 1)
-        self.audio_label = label("Reading the sound server…", "pill")
+        return top
+
+    def _audio_status(self, layout: QHBoxLayout) -> None:
+        """The sound server, in the footer: what the GUI read from it for the suggestions, and Read again."""
+        # cut with … where the footer has no room: it never makes the window wider
+        self.audio_label = ElidedLabel("Reading the sound server…", "pill")
         """What the GUI read from the sound server (for the suggestions); a click: all of it."""
         make_clickable(self.audio_label, self._show_audio)
         self.audio_error: str | None = None
         self.audio_popover: QFrame | None = None
         self.reopen_audio = False
         """Whether the popover asked to read again: it shows the result."""
-        top.addWidget(self.audio_label, 0, Qt.AlignmentFlag.AlignVCenter)
+        layout.addWidget(self.audio_label, 0, Qt.AlignmentFlag.AlignVCenter)
         self.refresh_audio = flat_button("refresh", "Read the devices and applications of the sound server again")
         self.refresh_audio.clicked.connect(self.load_audio)
-        top.addWidget(self.refresh_audio)
-        return top
+        layout.addWidget(self.refresh_audio)
 
     def _pages(self) -> QStackedWidget:
         def audio() -> AudioState:
@@ -413,9 +413,13 @@ class MainWindow(QMainWindow):
             # the device while it is tested, also with a preview in the GUI
             lambda: self.live_preview.in_gui and not self.device_test.running,
             self._previewing,
+            self._restart_reason,
         )
         self.device_view.close_virtual_device.connect(self.close_virtual_device)
+        self.device_view.restart_daemon.connect(self.restart_daemon)
         self.device_view.picked.connect(self.show_slot)
+        self.device_view.unpicked.connect(self.slots_page.unpick)
+        self.slots_page.slot_picked.connect(lambda slot: self.device_view.show_selected(slot - 1 if slot else None))
         self.device_view.moved.connect(self.move_slot)
         self.device_view.try_without_device.connect(self.try_without_device)
         self.device_view.test_toggled.connect(self.toggle_test)
@@ -457,7 +461,8 @@ class MainWindow(QMainWindow):
         self.stack.addWidget(self.settings)
         for name in RAIL_PAGES:
             self.page_bars.addWidget(slots.bar if name == "slots" else QWidget())
-        self.stack.currentChanged.connect(self.page_bars.setCurrentIndex)
+        self.stack.currentChanged.connect(self._show_page_bar)
+        self._show_page_bar(0)
         return self.stack
 
     def _disk_bar(self) -> QFrame:
@@ -534,6 +539,11 @@ class MainWindow(QMainWindow):
         bar = MenuBar(self)
         self.setMenuWidget(bar)
         self.menu_bar = bar
+        logo = QLabel()
+        logo.setPixmap(app_icon().pixmap(QSize(LOGO_SIZE, LOGO_SIZE)))
+        logo.setContentsMargins(Space.XS, 0, Space.S, 0)
+        bar.add_leading(logo)
+        bar.add_trailing(self.service_controls)
 
         def action(
             menu: QMenu, text: str, slot: Callable[[], object], *keys: QKeySequence.StandardKey | str
@@ -683,6 +693,7 @@ class MainWindow(QMainWindow):
         self.problems_menu = QMenu(self.problems_button)
         attach_menu(self.problems_button, self.problems_menu)
         layout.addWidget(self.problems_button)
+        self._audio_status(layout)
         self.status = ElidedLabel("", "hint")
         layout.addWidget(self.status, 1)
         self.hover_tip = ElidedLabel("", "hint")
@@ -725,6 +736,11 @@ class MainWindow(QMainWindow):
     def _error_raised(self, text: str) -> None:
         """An error no code caught (see `errors`): the window goes on, the status line says it."""
         self.status.setText(f"Something went wrong: {text}. The window goes on; the terminal has the details.")
+
+    def _show_page_bar(self, index: int) -> None:
+        self.page_bars.setCurrentIndex(index)
+        # only the page Slots has a bar (Simulate and the states); the others start in its place
+        self.page_bars.setVisible(RAIL_PAGES[index] == "slots")
 
     def show_page(self, name: str) -> None:
         """Shows a page of the rail ("slots", "channels", "states", "settings"), or one of the settings."""
@@ -791,6 +807,7 @@ class MainWindow(QMainWindow):
         self.homeassistant_page.show_live(snapshot)
         self.entity_source.show_live(snapshot)
         self.voip_page.show_live(snapshot)
+        sounding().show(snapshot.sounding if snapshot is not None else ())
         changes = changes_status(
             self.daemon,
             snapshot,
@@ -1257,13 +1274,16 @@ class MainWindow(QMainWindow):
             return
         if not self.document.exists and not self.save():
             return
+        self._start_trial()
+        self.status.setText("Starting a daemon with the virtual device…")
+
+    def _start_trial(self) -> None:
         process = QProcess()
         process.setProcessChannelMode(QProcess.ProcessChannelMode.ForwardedChannels)
         process.start(
             sys.executable, ["-m", "xtouch_daemon", "run", "--virtual-device", "--config", str(self.document.path)]
         )
         self._keep_trying(process)
-        self.status.setText("Starting a daemon with the virtual device…")
 
     def _keep_trying(self, process: QProcess) -> None:
         """The daemon to try without a device is this window's: it ends with it."""
@@ -1277,8 +1297,35 @@ class MainWindow(QMainWindow):
             return
         self.trying = None
         process.deleteLater()
+        if self.restarting_trial:
+            self.restarting_trial = False
+            self._start_trial()
+            self.status.setText("Starting the daemon for trying without a device again…")
+            return
         self.status.setText(f"The daemon for trying without a device ended (exit code {code}).")
         self.refresh_service()
+
+    def restart_daemon(self) -> None:
+        """
+        The daemon that drives the hosted virtual device stops and starts again, so its shutdown and startup sequences
+        show on it: the daemon of "Try without a device", or the service.
+        """
+        if self.trying is not None:
+            self.restarting_trial = True
+            self.trying.terminate()
+            self.status.setText("Stopping the daemon for trying without a device, to start it again…")
+            return
+        self._restart()
+
+    def _restart_reason(self) -> str | None:
+        """Why `restart_daemon` can't restart the daemon, None when it can."""
+        if self.trying is not None:
+            return None
+        if self.daemon is None:
+            return "No daemon runs now."
+        if not self.daemon.systemd:
+            return f"This daemon runs outside the service (process {self.daemon.pid}): restart it where it runs."
+        return None
 
     def toggle_test(self, on: bool) -> None:
         """ "Test the device": the daemon tests it for this window (on), or the device shows the slots again."""

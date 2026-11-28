@@ -122,17 +122,10 @@
             "type": "boolean"
           },
           "absent_after": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "default": null,
-            "description": "Seconds the channel stays present after it had nothing to control any more; by default 3.",
-            "title": "Absent After"
+            "default": 3.0,
+            "description": "Seconds the channel stays present after it had nothing to control any more.",
+            "title": "Absent After",
+            "type": "number"
           },
           "color": {
             "$ref": "#/$defs/strip.color"
@@ -145,6 +138,9 @@
           },
           "meter_point": {
             "$ref": "#/$defs/strip.meter_point"
+          },
+          "mute_led": {
+            "$ref": "#/$defs/strip.mute_led"
           },
           "select": {
             "$ref": "#/$defs/strip.select"
@@ -239,6 +235,9 @@
             "meter_point": {
               "$ref": "#/$defs/strip.meter_point"
             },
+            "mute_led": {
+              "$ref": "#/$defs/strip.mute_led"
+            },
             "select": {
               "$ref": "#/$defs/strip.select"
             },
@@ -317,6 +316,9 @@
             },
             "meter_point": {
               "$ref": "#/$defs/strip.meter_point"
+            },
+            "mute_led": {
+              "$ref": "#/$defs/strip.mute_led"
             },
             "select": {
               "$ref": "#/$defs/strip.select"
@@ -424,6 +426,9 @@
             "meter_point": {
               "$ref": "#/$defs/strip.meter_point"
             },
+            "mute_led": {
+              "$ref": "#/$defs/strip.mute_led"
+            },
             "select": {
               "$ref": "#/$defs/strip.select"
             },
@@ -521,6 +526,9 @@
             },
             "meter_point": {
               "$ref": "#/$defs/strip.meter_point"
+            },
+            "mute_led": {
+              "$ref": "#/$defs/strip.mute_led"
             },
             "select": {
               "$ref": "#/$defs/strip.select"
@@ -636,6 +644,9 @@
               "meter_point": {
                 "$ref": "#/$defs/strip.meter_point"
               },
+              "mute_led": {
+                "$ref": "#/$defs/strip.mute_led"
+              },
               "select": {
                 "$ref": "#/$defs/strip.select"
               },
@@ -733,6 +744,9 @@
               },
               "meter_point": {
                 "$ref": "#/$defs/strip.meter_point"
+              },
+              "mute_led": {
+                "$ref": "#/$defs/strip.mute_led"
               },
               "select": {
                 "$ref": "#/$defs/strip.select"
@@ -855,6 +869,9 @@
               },
               "meter_point": {
                 "$ref": "#/$defs/strip.meter_point"
+              },
+              "mute_led": {
+                "$ref": "#/$defs/strip.mute_led"
               },
               "select": {
                 "$ref": "#/$defs/strip.select"
@@ -1009,6 +1026,9 @@
                     },
                     "meter_point": {
                       "$ref": "#/$defs/strip.meter_point"
+                    },
+                    "mute_led": {
+                      "$ref": "#/$defs/strip.mute_led"
                     },
                     "select": {
                       "$ref": "#/$defs/strip.select"
@@ -1172,7 +1192,7 @@
     },
     "ButtonConfig": {
       "additionalProperties": false,
-      "description": "What a button does: a press, a hold, and what its LED shows. Unset, each takes what the strip type does.",
+      "description": "What a button does: a press, a hold, and what its LED shows. Unset, each does what the channel type does.",
       "properties": {
         "press": {
           "anyOf": [
@@ -2949,7 +2969,7 @@
         }
       ],
       "default": null,
-      "description": "The second line of the LCD, instead of the volume. A `watch` or a `poll` shows each line it prints, an entity its\nstate. By default what the strip type shows."
+      "description": "The second line of the LCD, instead of the volume. A `watch` or a `poll` shows each line it prints, an entity its\nstate."
     },
     "strip.lit_when_idle": {
       "default": false,
@@ -3094,6 +3114,15 @@
         "led": null
       },
       "description": "What Mute does (`press`, `hold`) and what its LED shows (`led`). By default nothing."
+    },
+    "strip.mute_led": {
+      "default": "on",
+      "description": "The LED of Mute while the strip is muted: lit, or flashing.",
+      "enum": [
+        "on",
+        "flash"
+      ],
+      "type": "string"
     },
     "strip.person": {
       "anyOf": [

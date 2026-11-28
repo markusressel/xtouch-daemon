@@ -9,7 +9,7 @@ from PyQt6.QtWidgets import QAbstractItemView, QComboBox, QFrame, QListView, QVB
 
 from xtouch_daemon.gui.qt.fields.depth import lift
 from xtouch_daemon.gui.qt.fields.popover import Popover, place
-from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.style import set_role, show_unset
 from xtouch_daemon.gui.qt.theme.tokens import Space
 
 ROWS = 12
@@ -17,12 +17,25 @@ ROWS = 12
 
 
 class Choice(QComboBox):
-    """A `QComboBox` whose list is a popover in its window rather than a popup window."""
+    """
+    A `QComboBox` whose list is a popover in its window rather than a popup window. While none of its values is
+    chosen, its placeholder (the default, or as where it comes from) is gray, like that of a text field.
+    """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.list: QFrame | None = None
         """The list while it is open (or closed, until it is deleted); None for none."""
+        self.currentIndexChanged.connect(self._show_unset)
+        self._show_unset()
+
+    def _show_unset(self) -> None:
+        # an editable one shows its placeholder in its text field, gray already
+        show_unset(self, self.currentIndex() < 0 and not self.isEditable())
+
+    def setEditable(self, editable: bool) -> None:
+        super().setEditable(editable)
+        self._show_unset()
 
     @property
     def is_open(self) -> bool:

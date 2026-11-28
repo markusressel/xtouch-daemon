@@ -117,6 +117,15 @@ def set_role(widget: QWidget, value: str | bool, name: str = "role") -> None:
     style.polish(widget)
 
 
+def show_unset(widget: QWidget, unset: bool) -> None:
+    """
+    A field that shows the value it takes while it is not set (its default, or as where it comes from) shows it in
+    gray, like the placeholder of a text field. A text field does that itself; `Choice` calls this itself; a spin box
+    calls it where its special value is shown (see `OptionRow`).
+    """
+    set_role(widget, unset, "unset")
+
+
 def _entities(c: ThemeColors) -> str:
     """
     The colors of the states, channels and slots (see `Entity`): a label in one (`entity`) has its color, a chip of
@@ -222,6 +231,7 @@ QLineEdit[problem="true"], QSpinBox[problem="true"], QDoubleSpinBox[problem="tru
 QWidget[role="chips"][problem="true"] {{ border-color: {c.error}; }}
 QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabled {{ color: {c.placeholder};
     border-color: {c.border}; }}
+QSpinBox[unset="true"], QDoubleSpinBox[unset="true"], QComboBox[unset="true"] {{ color: {c.placeholder}; }}
 QSpinBox, QDoubleSpinBox {{ min-width: {Space.XXL * 3}px; padding-right: {Space.XL}px; }}
 QAbstractSpinBox QLineEdit {{ border: none; padding: 0; background: transparent; }}
 QSpinBox::up-button, QDoubleSpinBox::up-button, QSpinBox::down-button, QDoubleSpinBox::down-button {{
@@ -299,6 +309,7 @@ QToolButton[role="menubar_item"]:hover, QToolButton[role="menubar_item"][open="t
 QDockWidget::title {{ background: {c.chrome}; padding: {Space.XS}px {Space.M}px; }}
 QFrame[role="card"] {{ background: {c.raised}; border: 1px solid {c.border}; border-radius: {Radius.LARGE}px; }}
 QFrame[role="card"] QLabel {{ background: transparent; border: none; }}
+QFrame[role="card"][picked="true"] {{ border: 2px solid {c.accent}; }}
 QFrame[role="entry"] {{ background: {c.sunken}; border: 1px solid {c.border}; border-radius: {Radius.MEDIUM}px; }}
 QFrame[role="entry"][open="true"] {{ border-color: {c.accent}; }}
 QLabel[role="entry_title"] {{ font-weight: 600; }}

@@ -281,15 +281,24 @@ def pool_people(scene: Scene, pool: str, observation: Observation, with_slot: se
     return members
 
 
+def held_by_pool(scene: Scene, app: str, present: frozenset[str]) -> bool:
+    """
+    Whether `apps` still takes an application that played: one without a channel for the `hold` of the pool, one of a
+    channel only while the channel is present (its `absent_after`), so the pool never keeps the channel longer.
+    """
+    owner = owner_of(scene, app)
+    return owner is None or owner in present
+
+
 def pool_present(scene: Scene, pool: str, observation: Observation, present: frozenset[str]) -> bool:
     """
     Whether a pool has members, counted before slots are assigned (so conditions never depend on the result): `apps`
-    while anything plays that it may take, `people` while anyone is in the voice chat who would be one of them (also
-    someone whose `person` channel has a slot of its own), `auto` while either is, `devices` while an output or input
-    is there that no channel has, a pool of channels while one of them is present.
+    while anything plays that it may take (see `held_by_pool`), `people` while anyone is in the voice chat who would
+    be one of them (also someone whose `person` channel has a slot of its own), `auto` while either is, `devices`
+    while an output or input is there that no channel has, a pool of channels while one of them is present.
     """
     if pool == APPS:
-        return any(not excluded(scene, app) for app in observation.playing)
+        return any(not excluded(scene, app) and held_by_pool(scene, app, present) for app in observation.playing)
     if pool == PEOPLE:
         people = (
             person_channel_of(scene, attendee.name)
@@ -315,12 +324,9 @@ def pool_present(scene: Scene, pool: str, observation: Observation, present: fro
 class Presence:
     """The channels that are present, each kept `absent_after` seconds after it had nothing to control any more."""
 
-    def __init__(self, scene: Scene, absent_after: float):
+    def __init__(self, scene: Scene):
         self.scene = scene
-        self._delayed = {
-            name: Delayed(0.0, channel.absent_after if channel.absent_after is not None else absent_after)
-            for name, channel in scene.channels.items()
-        }
+        self._delayed = {name: Delayed(0.0, channel.absent_after) for name, channel in scene.channels.items()}
 
     def carry(self, before: Presence) -> None:
         """Goes on from where `before` was (a reload): the channels with the same id."""

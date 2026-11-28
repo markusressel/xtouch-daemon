@@ -1,16 +1,16 @@
 """
 The slots under the drawing of the device: a bar of the states (live, with their overrides), a card per slot with its
 stack (the candidates in order, their conditions as chips, a green dot on the one the device shows), and an inspector
-for the candidate picked: what it shows, when, the options of its place, its channel and where else that is used, and
-the controls of the slot.
+for the slot picked and its candidate picked: what it shows, when, the options of its place, its channel and where else
+that is used, and the controls of the slot. With no slot picked, an overview of all slots takes the inspector's place.
 """
 
 import dataclasses
 from collections.abc import Callable
 from typing import Any
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QIcon, QKeySequence, QShortcut, QStandardItemModel
+from PyQt6.QtCore import QEvent, QObject, QRectF, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QColor, QIcon, QKeySequence, QMouseEvent, QPainter, QPen, QPixmap, QShortcut, QStandardItemModel
 from PyQt6.QtWidgets import (
     QFrame,
     QGridLayout,
@@ -110,6 +110,8 @@ SIMULATE_TIP = (
 class SlotsPanel(Page):
     simulated = pyqtSignal(arguments=[])
     """Simulate started, changed or ended: the virtual twin runs `what_if` (see `TwinSession`), or ends."""
+    slot_picked = pyqtSignal(int, arguments=["slot"])
+    """A slot was picked (1 for the leftmost one), 0 for none: the drawing selects its strip."""
 
     def __init__(
         self,
@@ -136,10 +138,12 @@ class SlotsPanel(Page):
         self.twin_slots = twin_slots
         self.simulate_unavailable = simulate_unavailable
         self.shows_twin = shows_twin
-        self.slot = 1
-        """The slot picked (1 for the leftmost one)."""
+        self.slot: int | None = None
+        """The slot picked (1 for the leftmost one), None for none: then the overview shows instead of the inspector."""
         self.candidate: int | None = None
         """The candidate of the slot the inspector shows, None for none."""
+        self.end = False
+        """The row of the slot that is no candidate is picked: the dark end of its rail, or `auto` of an empty slot."""
         self.shown_live: object = None
         self.what_if: WhatIf | None = None
         """What Simulate shows, None while the cards show what the daemon tells."""
@@ -174,6 +178,9 @@ class SlotsPanel(Page):
         """Simulate and the states, or the what-ifs: in the row of the window above the page (see `MainWindow`)."""
         self.state_buttons: dict[str, QToolButton] = {}
         cards = QWidget()
+        # a click below the cards picks nothing (see `eventFilter`)
+        cards.installEventFilter(self)  # pyright: ignore[reportArgumentType]
+        self.cards_area = cards
         self.cards = QVBoxLayout(cards)
         self.cards.setSpacing(Space.S)
         self.card_scroll = QScrollArea()
@@ -280,8 +287,23 @@ class SlotsPanel(Page):
         """The controls of the slot (`[controls]`), whatever it shows."""
         inspector.addWidget(self.slot_controls)
         inspector.addStretch()
-        self.inspector_scroll = scrolled(self.inspector)
-        self.splitter = PaneSplitter("slots", self.card_scroll, self.inspector_scroll)
+        # room between the card and the scroll bar, which sits at the right edge of the window
+        self.inspector_scroll = scrolled(_inset(self.inspector))
+        self.overview, overview = card()
+        """With no slot picked: a line for each slot, what it shows and its problems; a click picks the slot."""
+        overview.addWidget(label("Slots", "section"))
+        overview.addWidget(label("Pick a slot or a candidate to edit it.", "hint", wrap=True))
+        self.overview_lines = QVBoxLayout()
+        self.overview_lines.setSpacing(Space.XS)
+        overview.addWidget(row(self.overview_lines))
+        overview.addStretch()
+        self.shown_overview: tuple[object, ...] | None = None
+        self.overview_scroll = scrolled(_inset(self.overview))
+        self.right = Stack()
+        """The inspector while a slot is picked, else the overview."""
+        self.right.add(self.inspector_scroll)
+        self.right.add(self.overview_scroll)
+        self.splitter = PaneSplitter("slots", self.card_scroll, self.right)
         self.layout_.addWidget(self.splitter, 1)
         self._show()
 
@@ -304,6 +326,8 @@ class SlotsPanel(Page):
         stack.reordered.connect(lambda order, current: self.reorder(slot, order, current))
         layout.addWidget(stack)
         self.lists.append(stack)
+        # a click on the card beside its candidates picks the slot alone (see `eventFilter`)
+        frame.installEventFilter(self)  # pyright: ignore[reportArgumentType]
         self.card_frames.append(frame)
         self.cards.addWidget(frame)
 
@@ -373,14 +397,24 @@ class SlotsPanel(Page):
                 stack.fill(candidates, shown_candidate, why, self.document.values, dark, member)
             if slot == self.slot and self.candidate is not None and self.candidate < stack.count():
                 stack.setCurrentRow(self.candidate)
+            elif slot == self.slot and self.end:
+                # gone when the strip shows something again
+                self.end = stack.end_row() >= 0
+                stack.setCurrentRow(stack.end_row())
             elif slot != self.slot:
                 stack.setCurrentRow(-1)
             stack.blockSignals(False)
             problems = self.editor.validation.at("slots", str(slot)) + self.editor.validation.at("controls", str(slot))
             set_role(self.card_frames[slot - 1], bool(problems), "problem")
+            set_role(self.card_frames[slot - 1], slot == self.slot, "picked")
             self.card_frames[slot - 1].setToolTip("\n".join(str(problem) for problem in problems))
 
     def _show_inspector(self) -> None:
+        if self.slot is None:
+            self.right.show_part(self.overview_scroll)
+            self._show_overview()
+            return
+        self.right.show_part(self.inspector_scroll)
         stack = rows(self.document.values, self.slot)
         if self.candidate is not None and self.candidate >= len(stack):
             self.candidate = len(stack) - 1 if stack else None
@@ -390,6 +424,11 @@ class SlotsPanel(Page):
             text = (
                 f"Slot {self.slot} has no candidate: it shows `auto`, the next application that plays or person of "
                 "the voice chat. Add a candidate (+ on its card) to show a channel here, e.g. an output."
+            )
+        elif self.end:
+            text = (
+                "The strip is dark: none of the candidates has anything to show now. + adds a candidate at the end, "
+                "e.g. an output, which is always there."
             )
         elif self.candidate is None:
             text = "Pick a candidate to edit it. The first one whose condition holds is shown; + adds one at the end."
@@ -476,6 +515,8 @@ class SlotsPanel(Page):
         Why the slot shows what it shows, a step a line: ✗ a candidate passed over and why, → what it shows (○ dark),
         ● held. The bar of the box: green while it shows something, neutral while dark or while nothing tells.
         """
+        if self.slot is None:
+            return
         live = self.shown_slots()
         view = self._views().get(self.slot) if live is not None else None
         steps = why_steps(view.why) if view is not None else ()
@@ -525,11 +566,15 @@ class SlotsPanel(Page):
         `Slot 3 › 1 games › 2 apps › 3 people`: the candidates in their order, the one picked highlighted, the one
         the slot shows with a dot; a click picks one.
         """
-        view = self._views().get(self.slot)
+        view = self._views().get(self._slot)
         shown = view.candidate if view is not None else None
         # the candidate it came to, which has nothing for it: the strip is dark
         dark = view is not None and view.pool is not None and view.member is None
-        key = (self.slot, tuple((row.show, row.when) for row in stack), self.candidate, shown, dark)
+        # the end of the rail, while the strip is dark (see `StackList.fill`)
+        end = stack and self.lists[self._slot - 1].end_row() >= 0
+        # the theme too: the dot is painted in its color
+        key = (self.slot, tuple((row.show, row.when) for row in stack), self.candidate, shown, dark, end, self.end)
+        key += (current_mode(),)
         if key == self.shown_crumbs:
             return
         self.shown_crumbs = key
@@ -538,8 +583,8 @@ class SlotsPanel(Page):
             self.crumbs.addWidget(label("›", "hint"))
             crumb = QToolButton()
             set_role(crumb, Entity.CHANNEL.value, "entity")
-            mark = ("○ " if dark else "● ") if index == shown else ""
-            crumb.setText(f"{mark}{index + 1}  {candidate.show}")
+            _mark(crumb, ("○" if dark else "●") if index == shown else "")
+            crumb.setText(f"{index + 1}  {candidate.show}")
             crumb.setCheckable(True)
             crumb.setChecked(index == self.candidate)
             crumb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -550,8 +595,28 @@ class SlotsPanel(Page):
                 else ""
             )
             crumb.setToolTip(f"Candidate {index + 1} of {len(stack)}: {when} → {candidate.show}{more}")
-            crumb.clicked.connect(lambda _=False, index=index: self.lists[self.slot - 1].setCurrentRow(index))
+            crumb.clicked.connect(lambda checked, index=index: self._crumb_clicked(index, checked))
             self.crumbs.addWidget(crumb)
+        if end:
+            self.crumbs.addWidget(label("›", "hint"))
+            crumb = QToolButton()
+            # what the slot shows, like a candidate: nothing
+            set_role(crumb, Entity.CHANNEL.value, "entity")
+            _mark(crumb, "●")
+            crumb.setText("dark")
+            crumb.setCheckable(True)
+            crumb.setChecked(self.end)
+            crumb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+            crumb.setToolTip("None of the candidates has anything to show now, so the strip is dark")
+            crumb.clicked.connect(lambda checked: self._crumb_clicked(self.lists[self._slot - 1].end_row(), checked))
+            self.crumbs.addWidget(crumb)
+
+    def _crumb_clicked(self, row: int, checked: bool) -> None:
+        """A crumb picks its row of the card; the one picked, clicked again, picks the slot alone."""
+        if checked:
+            self.lists[self._slot - 1].setCurrentRow(row)
+        else:
+            self.pick_slot(self._slot)
 
     def _place_form(self, strip: str, allowed: frozenset[str], pick: bool = True) -> tuple[QWidget, list[OptionRow]]:
         """The form of the options of a place of `strip`, for the candidate picked; `pick`: the encoder may pick."""
@@ -590,18 +655,18 @@ class SlotsPanel(Page):
     def _place_option(self, name: str) -> Any:
         """An option of the place of the candidate picked."""
         assert self.candidate is not None
-        return rows(self.document.values, self.slot)[self.candidate].options.get(name)
+        return rows(self.document.values, self._slot)[self.candidate].options.get(name)
 
     def _set_place_option(self, name: str, value: Any) -> None:
         """Sets an option of the place of the candidate picked (None: removes it)."""
         assert self.candidate is not None
-        stack = rows(self.document.values, self.slot)
+        stack = rows(self.document.values, self._slot)
         candidate = stack[self.candidate]
         options = {key: each for key, each in candidate.options.items() if key != name}
         if value is not None:
             options[name] = value
         stack[self.candidate] = Row(candidate.show, candidate.when, options)
-        self._put(self.slot, stack)
+        self._put(self._slot, stack)
 
     def _place_edited(self, option_row: OptionRow, name: str) -> OptionRow:
         def edited() -> None:
@@ -665,7 +730,7 @@ class SlotsPanel(Page):
             name = option_row.option.name
             # a switch and the colors show the value they take unset as if it were set: the help says it too
             value = self._inherited(name) if option_row.option.kind in (Kind.SWITCH, Kind.COLOR) else None
-            set_help(option_row.help, place_help(place, name, self.slot, value), docs.guide_link("slots"))
+            set_help(option_row.help, place_help(place, name, self._slot, value), docs.guide_link("slots"))
             option_row.help.show()
             option_row.reset.setToolTip(place.back)
 
@@ -680,6 +745,9 @@ class SlotsPanel(Page):
 
     def show_problems(self, validation: Validation) -> None:
         self.slot_controls.show_problems(validation)
+        if self.slot is None:
+            self._show_overview()
+            return
         if self.candidate is None:
             self._show_rest([str(problem) for problem in validation.at("slots", str(self.slot))])
             return
@@ -742,6 +810,11 @@ class SlotsPanel(Page):
             state_button.setToolTip(f"{tip}\n\nClick for its override, or to simulate it the other way.")
         self._show_cards()
         self._show_why()
+        if self.slot is None:
+            self._show_overview()
+        else:
+            # the dot on the candidate shown, and the end of the rail while the strip is dark
+            self._show_crumbs(rows(self.document.values, self.slot))
 
     def _views(self) -> dict[int, SlotView]:
         slots = self.shown_slots()
@@ -806,16 +879,92 @@ class SlotsPanel(Page):
     # -- picking --------------------------------------------------------------------------------------------------
 
     def select_slot(self, slot: int) -> None:
-        """A strip of the drawing was clicked: its card, with the candidate the device shows."""
+        """
+        A strip of the drawing was clicked: its card, with the candidate the device shows, or the end of the rail
+        while the strip is dark.
+        """
         view = self._views().get(slot)
         count = len(rows(self.document.values, slot))
-        self.slot = slot
-        self.candidate = view.candidate if view is not None and view.candidate is not None else 0 if count else None
-        self._show_cards()
-        self._show_inspector()
+        candidate = view.candidate if view is not None and view.candidate is not None else 0 if count else None
         stack = self.lists[slot - 1]
+        end = stack.end_row() >= 0
+        self._pick(slot, None if end else candidate, end)
         stack.setFocus()
         self.card_scroll.ensureWidgetVisible(self.card_frames[slot - 1])
+        # up and down only: a card wider than the pane would scroll to its right end, cutting off its conditions
+        self.card_scroll.horizontalScrollBar().setValue(0)  # pyright: ignore[reportOptionalMemberAccess]
+
+    def pick_slot(self, slot: int) -> None:
+        """The card of a slot was clicked beside its candidates: the slot alone, with no candidate."""
+        self._pick(slot, None)
+        # the keys of the menu Edit go to its card (paste); as a click, the list doesn't pick its first candidate
+        self.lists[slot - 1].setFocus(Qt.FocusReason.MouseFocusReason)
+
+    def unpick(self) -> None:
+        """Nothing picked: no card is outlined, none has a row highlighted, the overview shows."""
+        self._pick(None, None)
+
+    def _pick(self, slot: int | None, candidate: int | None, end: bool = False) -> None:
+        self.slot, self.candidate, self.end = slot, candidate, end
+        for each in self.lists:
+            each.blockSignals(True)
+            each.clearSelection()
+            each.setCurrentRow(-1)
+            each.blockSignals(False)
+        self._show_cards()
+        self._show_inspector()
+        self.slot_picked.emit(slot or 0)
+
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None) -> bool:
+        """A click on a card beside its candidates picks its slot alone; one below the cards picks nothing."""
+        if a1 is not None and a1.type() == QEvent.Type.MouseButtonPress:
+            assert isinstance(a1, QMouseEvent)
+            if a1.button() == Qt.MouseButton.LeftButton:
+                if a0 in self.card_frames:
+                    self.pick_slot(self.card_frames.index(a0) + 1)  # pyright: ignore[reportArgumentType]
+                    return True
+                if a0 is self.cards_area:
+                    self.unpick()
+                    return True
+        return False
+
+    def _show_overview(self) -> None:
+        """A line for each slot: what it shows now (while the daemon tells it), its candidates and its problems."""
+        live = self.shown_slots()
+        views = self._views()
+        lines: list[tuple[int, str, Tone, str]] = []
+        for slot in range(1, protocol.STRIPS + 1):
+            count = len(rows(self.document.values, slot))
+            problems = len(
+                self.editor.validation.at("slots", str(slot)) + self.editor.validation.at("controls", str(slot))
+            )
+            candidates = f"{count} candidate{'s' if count != 1 else ''}" if count else "no candidate: `auto`"
+            parts = [candidates]
+            tone = Tone.NEUTRAL
+            view = views.get(slot) if live is not None else None
+            steps = why_steps(view.why) if view is not None else ()
+            if steps:
+                final = steps[-1]
+                if final.kind is StepKind.SHOWN:
+                    parts.insert(0, f"shows {final.subject}")
+                    tone = Tone.GOOD
+                elif final.kind is StepKind.DARK:
+                    parts.insert(0, f"dark: {final.reason}")
+            if problems:
+                parts.append(f"{problems} problem{'s' if problems != 1 else ''}")
+                tone = Tone.BAD
+            text = "; ".join(parts)
+            lines.append((slot, text[:1].upper() + text[1:], tone, current_mode()))
+        key = tuple(lines)
+        if key == self.shown_overview:
+            return
+        self.shown_overview = key
+        while (item := self.overview_lines.takeAt(0)) is not None:
+            if (widget := item.widget()) is not None:
+                widget.hide()
+                widget.deleteLater()
+        for slot, text, tone, _ in lines:
+            self.overview_lines.addWidget(_OverviewLine(slot, text, tone, lambda slot=slot: self.pick_slot(slot)))
 
     def _picked(self, slot: int, index: int) -> None:
         if index < 0:
@@ -826,12 +975,21 @@ class SlotsPanel(Page):
                 stack.clearSelection()
                 stack.setCurrentRow(-1)
                 stack.blockSignals(False)
-        self.slot, self.candidate = slot, index
+        end = index == self.lists[slot - 1].end_row()
+        self.slot, self.candidate, self.end = slot, None if end else index, end
+        self._show_cards()
         self._show_inspector()
+        self.slot_picked.emit(slot)
+
+    @property
+    def _slot(self) -> int:
+        """The slot picked, where only a slot picked gets: the inspector, the candidate picked."""
+        assert self.slot is not None
+        return self.slot
 
     def _candidate_row(self) -> Row:
         assert self.candidate is not None
-        return rows(self.document.values, self.slot)[self.candidate]
+        return rows(self.document.values, self._slot)[self.candidate]
 
     # -- editing --------------------------------------------------------------------------------------------------
 
@@ -844,8 +1002,9 @@ class SlotsPanel(Page):
 
     def _write(self, slot: int, stack: list[Row], candidate: int | None) -> None:
         self._put(slot, stack)
-        self.slot, self.candidate = slot, candidate
+        self.slot, self.candidate, self.end = slot, candidate, False
         self.editor.edited(Change(Scope.SLOTS, ("slots", str(slot))))
+        self.slot_picked.emit(slot)
 
     def add(self, slot: int) -> None:
         """A new candidate at the end of the stack: `auto` (Ctrl+Up moves it up)."""
@@ -903,12 +1062,12 @@ class SlotsPanel(Page):
 
     def duplicate_entry(self) -> bool:
         candidate = self._focused_candidate()
-        return candidate is not None and self._insert(self.slot, [candidate]) > 0
+        return candidate is not None and self._insert(self._slot, [candidate]) > 0
 
     def remove_entry(self) -> bool:
         if self._focused_candidate() is None:
             return False
-        self.remove(self.slot)
+        self.remove(self._slot)
         return True
 
     def rename_entry(self) -> bool:
@@ -933,13 +1092,13 @@ class SlotsPanel(Page):
 
     def _replace(self, candidate: Row) -> None:
         assert self.candidate is not None
-        stack = rows(self.document.values, self.slot)
+        stack = rows(self.document.values, self._slot)
         # options that the new place does not take go
         allowed = place_options(candidate.show, self.document.values)
         stack[self.candidate] = Row(
             candidate.show, candidate.when, {key: value for key, value in candidate.options.items() if key in allowed}
         )
-        self._write(self.slot, stack, self.candidate)
+        self._write(self._slot, stack, self.candidate)
 
     def _show_state(self, name: str) -> None:
         """
@@ -1001,6 +1160,72 @@ class SlotsPanel(Page):
             self.request(SetOverride(name, value))
 
 
+class _OverviewLine(QFrame):
+    """A slot in the overview: its name, what it shows and its problems; a bar in the color of how it is doing."""
+
+    def __init__(self, slot: int, text: str, tone: Tone, picked: Callable[[], None]) -> None:
+        super().__init__()
+        self.picked = picked
+        set_role(self, "popover_row")
+        set_role(self, tone.value, "tone")
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setToolTip(f"Pick slot {slot}")
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(Space.M, Space.XS, Space.S, Space.XS)
+        layout.setSpacing(Space.S)
+        layout.addWidget(entity_label(f"Slot {slot}", Entity.SLOT))
+        description = label("", "hint", wrap=True)
+        description.setTextFormat(Qt.TextFormat.RichText)
+        description.setText(help_text(text))
+        layout.addWidget(description, 1)
+
+    def mousePressEvent(self, a0: QMouseEvent | None) -> None:
+        assert a0 is not None
+        if a0.button() == Qt.MouseButton.LeftButton:
+            self.picked()
+
+
+def _inset(widget: QWidget) -> QWidget:
+    """`widget` with room on its right for the scroll bar of its pane."""
+    holder = QWidget()
+    layout = QVBoxLayout(holder)
+    layout.setContentsMargins(0, 0, Space.L, 0)
+    layout.addWidget(widget)
+    return holder
+
+
 def _help(text: str) -> str:
     """`text` as the help shows it (see `help_text`), its lines as lines."""
     return "<br>".join(help_text(line) for line in text.split("\n"))
+
+
+def _mark(crumb: QToolButton, mark: str) -> None:
+    """
+    The dot of a crumb: ● what the slot shows, ○ where it came to and has nothing; "" for none. A painted icon, not a
+    character: the button centers an icon on its text, a font puts a ● wherever its glyph sits.
+    """
+    crumb.setProperty("mark", mark)
+    if not mark:
+        return
+    metrics = crumb.fontMetrics()
+    size = metrics.height()
+    diameter = round(size * 0.45)
+    ratio = crumb.devicePixelRatioF()
+    pixmap = QPixmap(round(size * ratio), round(size * ratio))
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    color = QColor(current_colors().text)
+    circle = QRectF((size - diameter) / 2, (size - diameter) / 2, diameter, diameter)
+    if mark == "●":
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(color)
+    else:
+        painter.setPen(QPen(color, 1.2))
+        circle.adjust(0.6, 0.6, -0.6, -0.6)
+    painter.drawEllipse(circle)
+    painter.end()
+    crumb.setIcon(QIcon(pixmap))
+    crumb.setIconSize(QSize(size, size))
+    crumb.setToolButtonStyle(Qt.ToolButtonStyle.ToolButtonTextBesideIcon)

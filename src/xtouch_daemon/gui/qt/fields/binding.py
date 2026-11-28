@@ -282,7 +282,8 @@ class BindingField(QWidget):
             case Kind.COLOR:
                 self.colors.show_value(str(shown))
             case _:
-                self.unbound.setText(f"default: {self._default_text()}" if value is None else "")
+                # what it does then is the default under the help (see `OptionRow.load`)
+                self.unbound.setText("not bound" if value is None else "")
 
     def word(self) -> object:
         """The word shown (or what it is by default), None while the part is bound to a program or a channel."""

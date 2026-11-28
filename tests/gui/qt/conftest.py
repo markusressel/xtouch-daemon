@@ -29,6 +29,8 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.entities import Fetch
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.qt.app_events import app_events
+from xtouch_daemon.gui.qt.fields.sound import sounding
+from xtouch_daemon.gui.qt.pages.channels import ChannelsPage
 from xtouch_daemon.gui.qt.pages.sections import BrokerTest, PluginInstaller
 from xtouch_daemon.gui.qt.theme.style import apply_theme
 from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
@@ -56,6 +58,10 @@ def isolated(qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     monkeypatch.setattr(QMessageBox, "critical", dialogs.message)
     monkeypatch.setattr(QMessageBox, "exec", lambda box: dialogs.execute(box))
     apply_theme(ThemeMode.DARK)
+    # no channel has sound: a window of another test told it
+    sounding().show(())
+    # the forms are built when they show: a test sees no form it didn't open (one turns it on)
+    monkeypatch.setattr(ChannelsPage, "PREBUILD_AFTER_MS", None)
     return dialogs
 
 

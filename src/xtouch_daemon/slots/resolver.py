@@ -435,7 +435,8 @@ class _Resolver:
             owner = owner_of(self.scene, app)
             if owner is None:
                 members[App(app)] = None
-            elif owner not in with_slot:
-                # a channel without a slot goes in as a whole: one owner per stream
+            elif owner not in with_slot and owner in self.inputs.present:
+                # a channel without a slot goes in as a whole: one owner per stream; only while it is present, the
+                # `hold` of the pool is for applications without a channel
                 members[Channel(owner)] = None
         return list(members)

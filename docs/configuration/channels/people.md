@@ -43,11 +43,12 @@ label = "Mum"
 | `talking_color` | `"green"` | The backlight while the person talks. |
 | `meter` | `true` | `false` turns the LED meter off. It shows the voice of the person, or lights while they talk if the plugin sends no levels. |
 | `meter_point` | `behavior.meter_point` | `"pre_fader"`: their voice before the volume of their fader; `"post_fader"`: after it, see [Meters](index.md#meters). |
+| `mute_led` | `"on"` | The LED of Mute while you muted the person: `"on"` lit, `"flash"` flashing. |
 | `max_volume` | `behavior.max_volume` | The volume of a person with the fader at the top, 1..200 percent; 100 % is at the 0 dB mark as on the other strips. Above 100 % the voice is louder than the voice chat client plays it, and may clip. |
 
 The strips of people have no `launch`. To start the voice chat client, use a control, see
 [Launching the application](applications.md#launching-the-application). A place of `people` in a slot takes
-`color`, `meter` and `meter_point`: `{ show = "people", color = "orange" }`.
+`color`, `meter`, `meter_point` and `mute_led`: `{ show = "people", color = "orange" }`.
 
 ## Where people sit
 

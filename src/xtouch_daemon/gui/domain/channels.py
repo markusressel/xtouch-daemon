@@ -77,6 +77,20 @@ CHANNEL_TYPES = {
 """The types of channels, in the order the page offers them."""
 
 
+LCD_DEFAULTS = {
+    "output": "the volume, e.g. 46%, or muted; off while the output is not there",
+    "input": "the volume, e.g. 80%, or muted; off while the input is not there",
+    "apps": "the volume, e.g. 60%, or muted; idle while none of its applications plays",
+    "custom": "the value of the fader, else of the encoder",
+}
+"""What the second line of the LCD shows while `lcd` is unset, by the type of the channel."""
+
+
+def lcd_default(channel_type: str) -> str:
+    """What the second line of the LCD of a `channel_type` shows while `lcd` is unset: its default in the form."""
+    return LCD_DEFAULTS.get(channel_type, "the volume, e.g. 46%, or muted")
+
+
 def channel_options(channel_type: str) -> tuple[Option, ...]:
     """The options of a channel of the type: its strip's, then those about slots (`tags`, `in_pool`, ...)."""
     kind = CHANNEL_TYPES[channel_type]

@@ -1,6 +1,7 @@
 """
 The cards of the page Slots: the candidates of a slot on a rail (`StackList`), each as a rule (`candidate_rule`):
-its condition as chips, what it shows, and where it stands against the one the device shows.
+its condition as chips, what it shows (with the colors of its LCD, see `ShowChip`), and where it stands against the
+one the device shows.
 """
 
 from collections.abc import Mapping
@@ -13,6 +14,7 @@ from PyQt6.QtWidgets import (
     QFrame,
     QGraphicsOpacityEffect,
     QHBoxLayout,
+    QLabel,
     QListWidget,
     QListWidgetItem,
     QVBoxLayout,
@@ -33,6 +35,7 @@ from xtouch_daemon.gui.domain.slot_stacks import (
 )
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, entity_label, label
 from xtouch_daemon.gui.qt.fields.controls import LcdBadge
+from xtouch_daemon.gui.qt.fields.sound import SoundBadge, sound_of
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS, Entity, Motion, Space
 from xtouch_daemon.slots.model import AUTO
@@ -84,6 +87,12 @@ class StackList(QListWidget):
         indexes = [self.item(index).data(_INDEX) for index in range(self.count())]  # pyright: ignore[reportOptionalMemberAccess]
         return [index for index in indexes if index is not None]
 
+    def end_row(self) -> int:
+        """The row that is no candidate (the dark end of the rail, or `auto` of an empty slot), -1 for none."""
+        last = self.count() - 1
+        item = self.item(last)
+        return last if item is not None and item.data(_INDEX) is None else -1
+
     def keyPressEvent(self, e: QKeyEvent | None) -> None:
         assert e is not None
         step = {Qt.Key.Key_Up: -1, Qt.Key.Key_Down: 1}.get(Qt.Key(e.key()))
@@ -91,8 +100,11 @@ class StackList(QListWidget):
         if step is None or not e.modifiers() & Qt.KeyboardModifier.ControlModifier or current < 0:
             super().keyPressEvent(e)
             return
+        if current == self.end_row():
+            # the end of the rail stays where it is, and stays picked
+            return
         target = current + step
-        if 0 <= target < self.count():
+        if 0 <= target < len(self.order()):
             order = self.order()
             order.insert(target, order.pop(current))
             self.reordered.emit(order, target)
@@ -135,8 +147,8 @@ class StackList(QListWidget):
             item.setSizeHint(self.itemWidget(item).sizeHint())  # pyright: ignore[reportOptionalMemberAccess]
         if dark and candidates:
             item = QListWidgetItem()
-            # no candidate: it can't be picked, moved or dropped on
-            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            # no candidate: it can be picked (its slot, with why the strip is dark), not moved or dropped on
+            item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
             self.addItem(item)
             end = CandidateRow(len(candidates), count, "shown", "", numbered=False)
             end.rule.addWidget(label("nothing to show: the strip is dark", "hint"))
@@ -147,7 +159,8 @@ class StackList(QListWidget):
             item.setSizeHint(end.sizeHint())
         if self.count() == 0:
             item = QListWidgetItem(f"{AUTO} (no entry)")
-            item.setFlags(Qt.ItemFlag.NoItemFlags)
+            # picks the slot, with what it shows without candidates
+            item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
             self.addItem(item)
         rows_height = sum(self.sizeHintForRow(index) for index in range(self.count()))
         self.grow_to(rows_height)
@@ -225,6 +238,44 @@ class CandidateRow(QWidget):
             painter.drawText(band, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft, "else")
 
 
+SWATCH = 10
+"""The side of a swatch of an LCD color in the chip of what a slot shows."""
+
+
+class ShowChip(QLabel):
+    """
+    What a candidate shows as a filled chip in the color of the channels, with the backlights its LCD can have as
+    small swatches before the name: one for a channel, several for a pool that hands out channels of other colors.
+    """
+
+    def __init__(self, text: str, colors: tuple[str, ...]):
+        super().__init__(text)
+        set_role(self, "chip")
+        set_role(self, Entity.CHANNEL.value, "entity")
+        self.colors = colors
+        if colors:
+            # room for the swatches, before the padding of the chip
+            self.setContentsMargins(len(colors) * (SWATCH + Space.XS) - Space.XS // 2, 0, 0, 0)
+
+    def paintEvent(self, a0: QPaintEvent | None) -> None:
+        super().paintEvent(a0)
+        if not self.colors:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        painter.setPen(QPen(QColor(current_colors().control_border), 1))
+        # on the middle of the text as it looks, not of its line: the line has room for descenders below and accents
+        # above, which a name like `browser` doesn't use; between the middle of capitals and of lowercase letters
+        metrics = self.fontMetrics()
+        contents = self.contentsRect()
+        baseline = contents.top() + (contents.height() - metrics.height()) / 2 + metrics.ascent()
+        top = baseline - (metrics.capHeight() + metrics.xHeight()) / 4 - SWATCH / 2
+        for index, color in enumerate(self.colors):
+            painter.setBrush(QColor(LCD_COLORS[color]))
+            left = Space.S + index * (SWATCH + Space.XS)
+            painter.drawRoundedRect(QRectF(left + 0.5, top + 0.5, SWATCH - 1, SWATCH - 1), 2, 2)
+
+
 def chip(text: str, show: str, values: Mapping[str, Any]) -> QWidget:
     """
     A part of a condition as an outlined chip: in words (`present` says what has to be present, see `readable`), in
@@ -286,18 +337,26 @@ def candidate_rule(
                 layout.addWidget(label("or", "hint"))
             layout.addWidget(chip(part, candidate.show, values))
     layout.addWidget(label("→", "hint"))
+    # a color the LCD has no backlight for has no swatch: the problems name it
+    colors = tuple((color, where) for color, where in lcd_colors(values, candidate) if color in LCD_COLORS)
+    lcd = "\n".join(f"The LCD: {color} ({where})" for color, where in colors)
     if candidate.show == EMPTY:
         layout.addWidget(label(candidate.show, "hint"))
-    elif member is not None:
-        name, waiting = member
-        shows = entity_label(f"{candidate.show} · {name}", Entity.CHANNEL, True)
-        shows.setToolTip(f"{candidate.show} hands out {name} here. " + (waiting or "Nobody else waits for a slot."))
-        layout.addWidget(shows)
-    else:
-        layout.addWidget(entity_label(candidate.show, Entity.CHANNEL, True))
-    for color, where in lcd_colors(values, candidate):
-        if color in LCD_COLORS:
+        for color, where in colors:
             layout.addWidget(LcdBadge(color, f"{color}: {where}"))
+    else:
+        text = candidate.show if member is None else f"{candidate.show} · {member[0]}"
+        shows = ShowChip(text, tuple(color for color, _ in colors))
+        tip = ""
+        if member is not None:
+            tip = f"{candidate.show} hands out {member[0]} here. " + (member[1] or "Nobody else waits for a slot.")
+        shows.setToolTip("\n\n".join(part for part in (tip, lcd) if part))
+        layout.addWidget(shows)
+        channel = values.get("channel", {}).get(candidate.show)
+        sound = sound_of(channel.get("type")) if isinstance(channel, Mapping) else None
+        if sound is not None:
+            # moves while the channel has sound (see `fields.sound`)
+            layout.addWidget(SoundBadge(candidate.show, sound))
     # a color the LCD has no backlight for stays as text, for the problems to name
     rest = {
         name: value

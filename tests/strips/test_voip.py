@@ -86,6 +86,14 @@ async def test_a_person_has_names_ignoring_case(surface: RecordingSurface, env: 
     assert caro.participant is None
 
 
+async def test_mute_of_a_person_can_flash(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
+    # Bob is muted for the user
+    _, bob = make(surface, env, provider, fixed("Annabelle"), fixed("Bob", mute_led="flash"))
+    bob.update(DISCONNECTED)
+    await settle()
+    assert surface.strips[1].leds[Button.MUTE] == Led.FLASH
+
+
 def test_a_strip_of_the_voice_chat_shows_a_person(surface: RecordingSurface, env: StripEnv, provider: FakeProvider):
     with pytest.raises(AssertionError, match="shows a person"):
         make(surface, env, provider, CONFIG)

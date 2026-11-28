@@ -14,6 +14,8 @@ from PyQt6.QtWidgets import (
     QAbstractSpinBox,
     QLabel,
     QLayout,
+    QStyle,
+    QStyleOption,
     QToolButton,
     QWidget,
 )
@@ -92,8 +94,13 @@ class ElidedLabel(QLabel):
             super().setToolTip(self.text() if shown != self.text() else "")
         style = self.style()
         assert style is not None
+        painter = QPainter(self)
+        # the background and border of its role (a pill), as the label would draw them
+        option = QStyleOption()
+        option.initFrom(self)
+        style.drawPrimitive(QStyle.PrimitiveElement.PE_Widget, option, painter, self)
         style.drawItemText(
-            QPainter(self), rect, int(self.alignment()), self.palette(), self.isEnabled(), shown, self.foregroundRole()
+            painter, rect, int(self.alignment()), self.palette(), self.isEnabled(), shown, self.foregroundRole()
         )
 
 
@@ -187,6 +194,8 @@ def help_text(text: str) -> str:
 
 
 LEARN_MORE = "Learn more"
+WHOLE_DEFAULT = 24
+"""The longest default kept on one line: a longer one wraps like the text."""
 
 
 CHIP_SHARE = 0.14
@@ -205,25 +214,36 @@ def _chip_color() -> str:
 
 def help_tail(default: str | None = None, link: str | None = None) -> str:
     """
-    The end of a help, set apart from its text on the same line: what an unset option takes (a muted DEFAULT and the
+    The end of a help, on a line of its own under the text: what an unset option takes (a muted DEFAULT and the
     value as a chip) and the link to the documentation, each kept whole where the text wraps.
     """
     colors = current_colors()
     parts: list[str] = []
     if default:
-        value = html.escape(default).replace(" ", "&nbsp;")
+        value = html.escape(default)
+        if len(default) <= WHOLE_DEFAULT:
+            # kept whole where the text wraps; a longer one wraps rather than run out of the window
+            value = value.replace(" ", "&nbsp;")
         parts.append(
             f'<span style="color: {colors.text_muted}; font-size: small; font-weight: 700">DEFAULT</span>&nbsp;'
             f'<code style="background-color: {_chip_color()}; color: {colors.text}">&nbsp;{value}&nbsp;</code>'
         )
     if link:
         parts.append(f'<a href="{html.escape(link)}">{LEARN_MORE.replace(" ", "&nbsp;")}&nbsp;↗</a>')
-    return "&emsp;".join(parts)
+    # Qt draws an em space narrow: plain spaces that don't break keep the two apart
+    return ("&nbsp;" * 5).join(parts)
 
 
 def help_html(text: str, link: str | None = None, default: str | None = None) -> str:
-    """Help from a docstring, then what an unset option takes and a link to the documentation (see `help_tail`)."""
-    return "&emsp;".join(part for part in (help_text(text), help_tail(default, link)) if part)
+    """
+    Help from a docstring, then on a line of its own what an unset option takes and a link to the documentation (see
+    `help_tail`): in the same place under every field, not wherever the text happens to end.
+    """
+    tail = help_tail(default, link)
+    if not text:
+        return tail
+    # a little apart from the text, so the two don't run together
+    return help_text(text) + (f'<div style="margin-top: {Space.XS}px">{tail}</div>' if tail else "")
 
 
 def help_label(text: str, role: str, link: str | None = None, default: str | None = None) -> QLabel:

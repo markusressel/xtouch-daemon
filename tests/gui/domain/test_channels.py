@@ -1,7 +1,9 @@
 from xtouch_daemon.gui.domain.channels import (
     CHANNEL_TYPES,
+    LCD_DEFAULTS,
     channel_options,
     free_id,
+    lcd_default,
     pool_options,
     shown_by,
     stack_of,
@@ -49,3 +51,12 @@ def test_a_free_id():
     assert free_id({"mic": 1, "mic_2": 1}, "mic") == "mic_3"
     # auto is a pool of its own
     assert free_id(set(), "auto") == "auto_2"
+
+
+def test_the_lcd_says_what_it_shows_unbound_by_the_type_of_the_channel() -> None:
+    assert lcd_default("output") == "the volume, e.g. 46%, or muted; off while the output is not there"
+    assert lcd_default("apps") == "the volume, e.g. 60%, or muted; idle while none of its applications plays"
+    assert lcd_default("custom") == "the value of the fader, else of the encoder"
+    # every type with an LCD to bind has its own
+    with_lcd = {kind for kind in CHANNEL_TYPES if any(option.name == "lcd" for option in channel_options(kind))}
+    assert with_lcd == set(LCD_DEFAULTS)

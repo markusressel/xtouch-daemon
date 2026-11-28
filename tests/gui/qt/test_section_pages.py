@@ -41,7 +41,7 @@ from xtouch_daemon.gui.qt.pages.sections import BrokerTester, PluginInstaller, S
 from xtouch_daemon.gui.qt.theme import style
 from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
-from xtouch_daemon.live.messages import MqttState, SlotsState, SlotView, VoipClient, VoipState
+from xtouch_daemon.live.messages import MqttState, SlotsState, SlotView, StateView, VoipClient, VoipState
 from xtouch_daemon.voip import mumble, teamspeak
 
 
@@ -452,3 +452,42 @@ def test_the_mode_of_a_daemon_with_slots_shows_next_to_the_preview(
     qtbot.waitUntil(lambda: pill(pill_of_mode) == "Mode: gaming")
     assert not pill_of_mode.isHidden()
     assert "The rules pick it now." in pill_of_mode.toolTip()
+
+
+def test_the_popover_of_the_mode_sets_the_states_apart(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon
+):
+    window = make_window(live_socket=live_daemon.path)
+    window.show()
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    states = (
+        StateView("gaming", True, True, None, "a Steam game runs", "auto"),
+        StateView("in_call", False, False, None, None, "auto"),
+    )
+    slots = SlotsState("gaming", None, (SlotView(1, 0, "game", None, None, ()),), states, {})
+    live_daemon.send(dataclasses.replace(snapshot(window, strip_state()), slots=slots))
+    qtbot.waitUntil(lambda: pill(window.device_view.slots_pill) == "Mode: gaming")
+
+    popover = window.device_view._show_modes()  # pyright: ignore[reportPrivateUsage]
+    assert popover is not None
+    texts = [plain(shown.text()) for shown in popover.findChildren(QLabel)]
+    # what a mode is, above the rows; the row of the mode says only what holds now
+    assert texts.index(
+        "A mode is a state with mode = true: one at a time is on, and without one the slots show their "
+        "default (no mode). The chord of the device picks the next one."
+    ) < texts.index("Mode")
+    assert "The rules pick it." in texts
+    # the states after a heading of their own: they are no modes
+    assert texts.index("Mode") < texts.index("STATES") < texts.index("in_call")
+    assert "gaming" not in texts
+    popover.close()
+
+
+def test_a_long_default_wraps_rather_than_run_out_of_the_window(qtbot: QtBot):
+    from xtouch_daemon.gui.qt.fields.basics import help_tail
+
+    # a short one is kept whole, a long one breaks between its words
+    assert "the&nbsp;value&nbsp;of&nbsp;it" in help_tail("the value of it")
+    assert "off while the output is not there" in help_tail(
+        "the volume, e.g. 46%, or muted; off while the output is not there"
+    )

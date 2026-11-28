@@ -266,6 +266,11 @@ class Snapshot:
     The connection to the API of Home Assistant; None while the daemon has none (no `[homeassistant]`, no entities in
     the configuration, or an older daemon).
     """
+    sounding: tuple[str, ...] = ()
+    """
+    The ids of the channels with sound right now (see `slots.sounding`): the GUI animates them. Empty from an
+    older daemon.
+    """
 
 
 @dataclass(frozen=True)

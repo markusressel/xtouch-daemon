@@ -35,6 +35,17 @@ names, « hides them again.
     Add (by type, or a pool of channels of your own), Duplicate and Remove. Renaming an id updates the slots, conditions,
     pools and controls that name it. Each channel says where it is used (`slot 2`, `pool games`, `state call`).
 
+    While the daemon runs, a channel with sound has a small animation after its name. Play something, and the
+    channels that take it move, also those that no slot shows yet:
+
+    - An output and applications have three bars: something plays to the output, or the application plays and is not
+      paused.
+    - An input has a ring that spreads from a dot: an application records from it.
+    - A person has a dot that breathes while they talk.
+
+    Home Assistant and custom channels have no sound, so they never move. The animation tells that sound flows, not
+    how loud it is: the meters of the drawing show that.
+
 === "States"
 
     The modes first, then the other states. The form asks in order:
@@ -74,10 +85,10 @@ Each strip is drawn as on the control surface: the [encoder](../configuration/st
 next to Rec, Solo, Mute and Select, and the fader with its dB scale (-∞ at the bottom, 0 dB at 77 % of the travel, the
 option `unity_at` of `[behavior]`). What each slot shows is printed under its LCD.
 
-### Header, footer and help
+### Menu bar, footer and help
 
-- **Header:** the state of the service (see [The service](#the-service)), and what the sound server has.
-- **Footer:** the problems, whether the control surface runs the file, the [Preview](#preview) control, and the buttons Undo,
+- **Menu bar:** the menus, and on its right the state of the service (see [The service](#the-service)).
+- **Footer:** the problems, what the sound server has, whether the control surface runs the file, the [Preview](#preview) control, and the buttons Undo,
   Redo, Revert and "Save and apply". The title has • while there are unsaved changes.
 - A *pill* is a small status label (e.g. "running"). One with ▾ opens a popover, a small panel inside the window, on a
   click. It says what the pill means in full, with what you can do about it. A problem is tinted, and its fix is the
@@ -98,7 +109,7 @@ theme and the [zoom](#zoom); Help has this documentation and the keyboard shortc
 
 ## The service
 
-The pill of the service in the header tells its state: "running", "stopped", "not installed", or the worst problem of
+The pill of the service, on the right of the menu bar, tells its state: "running", "stopped", "not installed", or the worst problem of
 a connection of the daemon. A click opens the service with Install and start, Start, Restart or Stop, the unit systemd uses, and the connections of
 the daemon (see [Live view](#live-view)). The button that the service needs also sits next to the pill. Installing and
 starting ask first.
@@ -143,7 +154,7 @@ window Device says what it shows:
 | Live · virtual device | The daemon drives the [virtual device](../getting-started/without-a-device.md). |
 | virtual device not running · Open it | The daemon waits for the virtual device: a click opens it in the window (see [below](#the-virtual-device)). |
 
-Next to it, a pill shows the [mode](../configuration/slots.md#states-and-modes): "Mode: gaming", "No mode" while no
+Over the middle of the drawing, a pill shows the [mode](../configuration/slots.md#states-and-modes): "Mode: gaming", "No mode" while no
 mode is on, "· by hand" when it was picked by hand. A click lists the states, with what turned each on, and picks a
 mode by hand ("Pick gaming", "Pick no mode", "Back to the rules").
 
@@ -158,7 +169,8 @@ A bar above the drawing switches what the mouse does on it:
 
 === "Select"
 
-    A click picks a strip, and with it its [slot](../configuration/slots.md) on the page Slots.
+    A click picks a strip, and with it its [slot](../configuration/slots.md) on the page Slots. A click beside the
+    strips, on the panel around them, picks nothing: no strip is selected, and no slot on the page Slots.
 
     Dragging a strip moves its slot, with its candidates (`[slots]`) and controls (`[controls]`); ++esc++ puts it back,
     and so does ++ctrl+z++ afterwards. ++ctrl+left++ / ++ctrl+right++ and the context menu do the same.
@@ -171,7 +183,11 @@ A bar above the drawing switches what the mouse does on it:
     |---|---|
     | ![Fader](../images/controls/fader.png){ .xt-icon } Fader | Press to touch it, drag to move it, release to let go. Alt-drag moves it without a touch, as the motor does. |
     | ![Select](../images/controls/select.png){ .xt-icon } Button | Held while the mouse button is down. |
-    | ![Encoder](../images/controls/encoder.png){ .xt-icon } Encoder | The wheel turns it, and so does a drag on the knob (up or right is clockwise). A click pushes it; holding the knob still holds it down. |
+    | ![Encoder](../images/controls/encoder.png){ .xt-icon } Encoder | The wheel turns it, and so does a drag on the knob or the ring (up or right is clockwise). A click on the knob pushes it; holding the knob still holds it down. |
+    | ![Encoder](../images/controls/encoder.png){ .xt-icon } LED of the ring | A click turns the encoder step by step until the ring lights that LED. The LEDs at the two ends mean "all the way": it turns until they light, e.g. the balance at 100 %, or as far as it goes. Holding an LED still turns the encoder with the mouse; a drag that starts on an LED turns it like a drag on the knob. |
+
+    What the mouse can take glows under it, and its tooltip says what a click, a drag and a hold do. While a drag
+    turns the encoder, ticks around the knob show its steps, and a pointer on the knob passes one tick per step.
 
 Play works on the [virtual device](#the-virtual-device) the window hosts, and on the control surface of a running daemon, which
 takes the mouse as if the control surface sent it. If the drawing shows a [preview in the GUI](#preview), the mouse acts on the
@@ -202,10 +218,19 @@ older version has no log for the window: restart it.
 
 ## The virtual device
 
-While the window hosts the virtual device, Play is on. A bar above the drawing unplugs and plugs it, switches it off
-and on, breaks the touch sensor of faders ("Broken touch", to try
-[`touchless_faders`](../configuration/behavior.md#faders-without-a-touch-sensor)), and closes it ("Close", or closing
-the window: for the daemon it is unplugged).
+While the window hosts the virtual device, Play is on, and a pill next to "Live" says whether the daemon
+drives it. A click on the pill opens what the mouse can't do on the drawing:
+
+- **Connection:** "Unplug" and "Plug in" take it away from the daemon and give it back. "Switch off and on" also makes
+  it forget what it showed, like the control surface after a power cut. "Close" closes it; closing the window does
+  too. For the daemon, it is unplugged.
+- **Daemon:** "Restart" stops the daemon and starts it again, so you see its
+  [startup and shutdown sequences](../configuration/behavior.md#startup-and-shutdown-sequences) on the virtual device.
+  It restarts the service, or the daemon of "Try without a device". A daemon started in a terminal or an IDE is
+  restarted where it runs.
+- **Broken touch:** a switch per fader breaks its touch sensor, to try
+  [`touchless_faders`](../configuration/behavior.md#faders-without-a-touch-sensor). The popover stays open, so you can
+  break several.
 
 When the control surface (`[device] name`) is plugged in while the daemon drives the virtual one, a bar says so. Its button:
 
@@ -218,6 +243,16 @@ When the control surface (`[device] name`) is plugged in while the daemon drives
 ## The slots
 
 The page Slots has the state bar at the top, a card per slot, and the inspector of the slot picked.
+
+You can pick a whole slot or one of its candidates:
+
+- A click on a candidate picks it, and its slot.
+- A click on a card beside its candidates, e.g. on its title, picks the slot alone.
+- A click below the cards picks nothing.
+
+The card of the slot picked has an outline, and the drawing selects its strip. When the window opens, nothing is
+picked. Then an overview takes the place of the inspector: a line for each slot with what it shows now, how many
+candidates it has and its problems. A click on a line picks its slot.
 
 ### State bar
 
@@ -239,22 +274,26 @@ condition holds wins.
 **The rail** on the left joins the candidates, with "else" between two. The node is green on the candidate that the
 control surface shows (or that Simulate would show). Above it, candidates are dimmed with why they did not win (`✗ browser
 doesn't play`, `✗ browser is on slot 3`); below it, they are dimmed more: not reached. When none has anything to show,
-the rail ends in "nothing to show: the strip is dark".
+the rail ends in "nothing to show: the strip is dark". A click on that row picks the slot and says why the strip is
+dark; so does a click on a dark strip of the drawing.
 
 **The chips:**
 
 - What the slot shows is a filled teal chip. On the one shown, the chip of a pool names what it hands out
-  (`apps · firefox`, `people · Alice`).
+  (`apps · firefox`, `people · Alice`). A small square at the start of the chip has the backlight color the LCD gets
+  with this candidate, e.g. blue for `browser` (see below).
 - Conditions are outlined chips; the states are violet.
 - `present` is spelled out in an olive chip (green in the light theme), by the type of the channel: `mic if present`
   reads `mic is connected`, `mum if present` reads `mum is in the voice chat`, `present(people)` reads `someone is in
   the voice chat`.
 
-![An LCD with a blue backlight](../images/controls/lcd.png){ .xt-part width="96" }
+**The color square** in the chip of what the slot shows is the backlight of the LCD: the candidate's own `color`,
+else the channel's or the pool's, else white. A candidate that can show several colors (`auto`: applications and
+people) has a square for each. The tooltip of the chip says where each color comes from. A dark strip (`-`) has a
+tiny dark LCD after it instead.
 
-**A tiny LCD** after a row has the color of the strip: the candidate's own `color`, else the channel's or the pool's,
-else white. A candidate that can show several colors (`auto`: applications and people) has several. Its tooltip says
-where the color comes from.
+**The sound:** a channel with sound has the animation of the page Channels after its chip (see
+[The window](#the-window)).
 
 **Editing:** + adds `auto` at the end; the bin (or ++del++) removes the candidate picked; drag a candidate, or move it
 with ++ctrl+up++ and ++ctrl+down++.
@@ -263,7 +302,8 @@ with ++ctrl+up++ and ++ctrl+down++.
 
 The inspector starts with the path of the slot's candidates, e.g. `Slot 3 › 1 games › 2 apps`: the slot tried
 candidate 1 and then went on to candidate 2. ● marks the candidate that the slot shows, ○ one the slot came to but that
-had nothing left to show. A click picks a candidate.
+had nothing left to show. While the strip is dark, the path ends in `● dark`. A click picks a candidate; a click on
+the one picked picks the slot alone.
 
 Below it, a box says why the slot shows what it shows, the same as
 [`xtouch-daemon why 3`](../reference/commands.md#why), and what a pool hands out. Then it edits the candidate picked:
@@ -358,7 +398,8 @@ do in a few steps (‹ and › go through them), and follows the values in the f
 | A part that can be [bound](../configuration/strip/bindings.md) | A bind button (below). |
 | An entity, an attribute | Suggestions from Home Assistant (below). |
 
-Each field has the help of the option under it, with its default and a "Learn more" link; a button that sets the option
+Each field has the help of the option under it, and on a line of its own under the help its default (DEFAULT and the
+value) and a "Learn more" link; a button that sets the option
 back to its default; and its errors next to it, with the messages of `xtouch-daemon check-config`. The problems button
 in the footer lists them all. The mouse wheel never changes a value.
 
@@ -427,8 +468,8 @@ value matches, e.g. "Matches 2: ..." for `bluez_output.*`, or "Matches nothing k
   play. `[aliases]` gets the names of the applications.
 - `person` of a `person` channel: the people in the voice chat now, as the running daemon tells them.
 
-The pill "Sound server: ..." says how much the GUI read. A click lists the outputs, inputs and applications, with
-"Read again", e.g. after you started an application. Without a sound server, or without a daemon for the people of the
+The pill "Sound server: ..." at the left of the footer says how much the GUI read. A click lists the outputs, inputs
+and applications, with "Read again", e.g. after you started an application. Without a sound server, or without a daemon for the people of the
 voice chat, type the names by hand.
 
 ## Undo

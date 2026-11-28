@@ -40,12 +40,26 @@ class Entry:
     """A path to show under the text, in a monospace font (its middle goes where it doesn't fit)."""
     items: tuple[tuple[str, str], ...] = ()
     """A list under the text, a line each: the item and a note on it (muted, "" for none)."""
+    toggles: tuple[tuple[str, bool, Callable[[bool], object]], ...] = ()
+    """
+    Switches in a row under the text: their text, whether they are on, and what a click does with the new value. Unlike
+    the buttons of `actions`, they leave the popover open, so several can be switched at once.
+    """
+
+
+@dataclass(frozen=True)
+class Group:
+    """A heading between the rows of a popover: the rows after it are of another kind, e.g. states after the mode."""
+
+    title: str
+    text: str = ""
+    """What the rows of the group have in common, under the title; "" for nothing."""
 
 
 def show_popover(
     anchor: QWidget,
     heading: str,
-    entries: Sequence[Entry],
+    entries: Sequence[Entry | Group],
     intro: str = "",
     actions: tuple[tuple[str, Callable[[], object]], ...] = (),
 ) -> QFrame:
@@ -83,7 +97,12 @@ def show_popover(
         explanation.setFixedWidth(TEXT_WIDTH + Space.M + 3)
         layout.addWidget(explanation)
     for entry in entries:
-        layout.addWidget(_row(popup, entry))
+        if isinstance(entry, Group):
+            _group(layout, entry)
+        else:
+            layout.addWidget(_row(popup, entry))
+    # the size of the wrapped texts in the font of the style, which the rows get only when polished
+    popup.ensurePolished()
     popup.adjustSize()
     popup.move(place(anchor, window, popup.size()))
     popup.show()
@@ -176,6 +195,18 @@ def _under(widget: QWidget, where: QPoint) -> bool:
     return widget.rect().contains(widget.mapFromGlobal(where))
 
 
+def _group(layout: QVBoxLayout, group: Group) -> None:
+    """The heading of a group of rows, set apart from the rows above it."""
+    layout.addSpacing(Space.S)
+    layout.addWidget(label(group.title.upper(), "group"))
+    if group.text:
+        text = label("", "hint", wrap=True)
+        text.setTextFormat(Qt.TextFormat.RichText)
+        text.setText(help_text(group.text))
+        text.setFixedWidth(TEXT_WIDTH + Space.M + 3)
+        layout.addWidget(text)
+
+
 def _row(popup: QFrame, entry: Entry) -> QFrame:
     tone = entry.status.tone if entry.status is not None else Tone.NEUTRAL
     row = QFrame()
@@ -226,6 +257,9 @@ def _row(popup: QFrame, entry: Entry) -> QFrame:
         shown.setFixedWidth(TEXT_WIDTH)
         grid.addWidget(shown, line, 0, 1, 3)
         line += 1
+    if entry.toggles:
+        grid.addLayout(_toggles(entry), line, 0, 1, 3, Qt.AlignmentFlag.AlignLeft)
+        line += 1
     if buttons is not None and not titled:
         # nothing above the text: the buttons go under it
         grid.addLayout(buttons, line, 0, 1, 3, Qt.AlignmentFlag.AlignRight)
@@ -247,6 +281,21 @@ def _buttons(popup: QFrame, entry: Entry, tone: Tone) -> QHBoxLayout | None:
         button.clicked.connect(lambda _=False, action=action: (popup.close(), action()))
         buttons.addWidget(button)
     return buttons
+
+
+def _toggles(entry: Entry) -> QHBoxLayout:
+    """The switches of `entry`, checkable segments in a row."""
+    toggles = QHBoxLayout()
+    toggles.setSpacing(0)
+    for text, on, toggled in entry.toggles:
+        button = QPushButton(text)
+        set_role(button, "segment", "variant")
+        button.setCheckable(True)
+        button.setChecked(on)
+        button.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        button.toggled.connect(lambda checked, toggled=toggled: toggled(checked))
+        toggles.addWidget(button)
+    return toggles
 
 
 OPEN_KEYS = (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter)

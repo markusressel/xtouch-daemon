@@ -5,9 +5,9 @@ The slots on the page Device: the state bar, a card per slot, the inspector, and
 import dataclasses
 
 import pytest
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtGui import QDropEvent
-from PyQt6.QtWidgets import QComboBox, QFrame, QPushButton, QToolButton
+from PyQt6.QtWidgets import QComboBox, QFrame, QPushButton, QToolButton, QWidget
 from PyQt6.QtWidgets import QLabel as QLabelType
 from pytestqt.qtbot import QtBot
 
@@ -16,7 +16,8 @@ from tests.support.gui import snapshot as device_snapshot
 from xtouch_daemon.gui.domain.live_preview import Place
 from xtouch_daemon.gui.domain.simulate import WhatIf
 from xtouch_daemon.gui.qt.fields.basics import DOT_ICON
-from xtouch_daemon.gui.qt.pages.slot_cards import CandidateRow, StackList
+from xtouch_daemon.gui.qt.fields.controls import LcdBadge
+from xtouch_daemon.gui.qt.pages.slot_cards import CandidateRow, ShowChip, StackList
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.theme import style
 from xtouch_daemon.gui.qt.theme.tokens import THEMES, ThemeMode
@@ -93,6 +94,11 @@ def test_the_cards_show_the_stacks(window: MainWindow):
     assert texts(page.lists[0]) == ["1 always → out"]
     assert texts(page.lists[1]) == ["1 when call → browser", "2 when app or person without a slot → auto"]
     assert texts(page.lists[2]) == ["auto (no entry)"]
+    # at the start no slot is picked: the overview takes the place of the inspector
+    assert page.slot is None
+    assert page.right.part is page.overview_scroll
+    page.pick_slot(1)
+    assert page.right.part is page.inspector_scroll
     assert page.title.text() == "Slot 1"
     assert plain(page.hint.text()).startswith("Pick a candidate to edit it.")
 
@@ -116,6 +122,60 @@ def test_the_cards_show_the_stacks(window: MainWindow):
     page.channel_button.click()
     assert window.current_page == "channels"
     assert window.channels_page.selection == ("pool", "auto")
+
+
+def overview_lines(page: SlotsPanel) -> list[QWidget]:
+    lines = page.overview_lines
+    return [widget for index in range(lines.count()) if (widget := lines.itemAt(index).widget()) is not None]  # pyright: ignore[reportOptionalMemberAccess]
+
+
+def overview(page: SlotsPanel) -> list[str]:
+    """The lines of the overview, as they read."""
+    return [" ".join(plain(child.text()) for child in line.findChildren(QLabelType)) for line in overview_lines(page)]
+
+
+def test_the_overview_has_a_line_for_each_slot(qtbot: QtBot, window: MainWindow):
+    page = panel(window)
+    window.show_page("slots")
+    lines = overview(page)
+    assert len(lines) == 8
+    assert lines[:3] == ["Slot 1 1 candidate", "Slot 2 2 candidates", "Slot 3 No candidate: auto"]
+    # what the daemon tells, and the problems of a slot
+    live = snapshot((0, 1, None))
+    page.snapshot = lambda: live
+    page.show_live(live)
+    assert overview(page)[0] == "Slot 1 Shows 0; 1 candidate"
+    window.document.set(("controls", "1"), {"select": "nonsense"})
+    window.editor.edited()
+    assert overview(page)[0].endswith("; 1 problem")
+    # a click on a line picks its slot, and the drawing its strip
+    click(qtbot, overview_lines(page)[0])
+    assert (page.slot, page.candidate) == (1, None)
+    assert window.device_view.selected == 0
+
+
+def test_a_click_picks_a_slot_a_candidate_or_nothing(qtbot: QtBot, window: MainWindow):
+    page = panel(window)
+    window.show_page("slots")
+    # on a card beside its candidates: the slot alone, outlined
+    qtbot.mouseClick(
+        page.card_frames[2], Qt.MouseButton.LeftButton, pos=page.card_frames[2].rect().topLeft() + QPoint(4, 4)
+    )
+    assert (page.slot, page.candidate) == (3, None)
+    assert page.card_frames[2].property("picked")
+    assert window.device_view.preview.strips[2].selected
+    # a candidate: its slot too, and the strip follows
+    page.lists[1].setCurrentRow(1)
+    assert (page.slot, page.candidate) == (2, 1)
+    assert not page.card_frames[2].property("picked")
+    assert window.device_view.selected == 1
+    # below the cards: nothing
+    area = page.cards_area
+    qtbot.mouseClick(area, Qt.MouseButton.LeftButton, pos=QPoint(area.width() // 2, area.height() - 2))
+    assert (page.slot, page.candidate) == (None, None)
+    assert all(stack.currentRow() == -1 for stack in page.lists)
+    assert window.device_view.selected is None
+    assert page.right.part is page.overview_scroll
 
 
 def test_the_device_shows_which_candidate_and_the_states(window: MainWindow):
@@ -317,6 +377,98 @@ def test_a_place_shows_what_it_takes_from_its_channel_or_pool(window: MainWindow
     assert page.place_header.isHidden()
 
 
+def crumb(page: SlotsPanel, text: str) -> QToolButton:
+    """The crumb of the path in the inspector with `text`."""
+    layout = page.crumbs
+    widgets = [layout.itemAt(index).widget() for index in range(layout.count())]  # pyright: ignore[reportOptionalMemberAccess]
+    return next(each for each in widgets if isinstance(each, QToolButton) and shown(each) == text)
+
+
+def shown(button: QToolButton) -> str:
+    """The text of a crumb as it reads, after its dot (an icon): ● what the slot shows, ○ where it has nothing."""
+    mark = button.property("mark")
+    return f"{mark} {button.text()}" if mark else button.text()
+
+
+def test_the_rows_that_are_no_candidate_can_be_picked(qtbot: QtBot, window: MainWindow):
+    page = panel(window)
+    # slot 2 is dark: its pool has nothing to hand out
+    live = snapshot((0, 1, None))
+    views = list(live.slots.slots)  # pyright: ignore[reportOptionalMemberAccess]
+    views[1] = SlotView(2, 1, None, "auto", None, ("shows nothing: auto has nothing for it",))
+    live = dataclasses.replace(live, slots=dataclasses.replace(live.slots, slots=tuple(views)))  # pyright: ignore[reportArgumentType]
+    page.snapshot = lambda: live
+    page.show_live(live)
+    stack = page.lists[1]
+    end = stack.end_row()
+    assert end == 2
+    stack.setCurrentRow(end)
+    assert (page.slot, page.candidate, page.end) == (2, None, True)
+    assert plain(page.hint.text()).startswith("The strip is dark")
+    assert stack.currentRow() == end
+    # it stays picked while the cards are built again, and can't be moved
+    page.show_live(dataclasses.replace(live))
+    assert stack.currentRow() == end
+    qtbot.keyClick(stack, Qt.Key.Key_Up, Qt.KeyboardModifier.ControlModifier)
+    assert texts(stack)[:2] == ["1 when call → browser", "2 when app or person without a slot → auto"]
+    # the path in the inspector ends in the dark strip, picked
+    dark = crumb(page, "● dark")
+    assert dark.isChecked()
+    # clicked again: the slot alone
+    dark.click()
+    assert (page.slot, page.candidate, page.end) == (2, None, False)
+    assert stack.currentRow() == -1
+    page.show_live(live)
+    dark = crumb(page, "● dark")
+    dark.click()
+    assert page.end
+    # a candidate after it: the end is no longer picked
+    stack.setCurrentRow(0)
+    assert (page.candidate, page.end) == (0, False)
+    first = crumb(page, "1  browser")
+    assert first.isChecked()
+    first.click()
+    assert (page.slot, page.candidate) == (2, None)
+    # the strip of a dark slot picks the end of its rail
+    window.device_view.select(1)
+    assert (page.slot, page.candidate, page.end) == (2, None, True)
+    # `auto` of an empty slot picks the slot
+    page.lists[2].setCurrentRow(0)
+    assert (page.slot, page.candidate, page.end) == (3, None, True)
+    assert plain(page.hint.text()).startswith("Slot 3 has no candidate")
+
+
+def test_the_chip_of_what_a_candidate_shows_has_the_colors_of_its_lcd(window: MainWindow):
+    page = panel(window)
+    window.document.set(("slots", "1"), [{"show": "out", "color": "red"}])
+    window.document.set(("slots", "3"), "-")
+    window.editor.edited()
+    row = page.lists[0].itemWidget(page.lists[0].item(0))  # pyright: ignore[reportArgumentType]
+    assert row is not None
+    (shows,) = row.findChildren(ShowChip)
+    assert shows.text() == "out"
+    assert shows.colors == ("red",)
+    assert "The LCD: red (color of this candidate)" in shows.toolTip()
+    # the swatches have room before the name
+    assert shows.contentsMargins().left() > 0
+    assert shows.grab().size() == shows.size()
+    # a dark strip has no chip: a tiny dark LCD
+    dark = page.lists[2].itemWidget(page.lists[2].item(0))  # pyright: ignore[reportArgumentType]
+    assert dark is not None
+    assert not dark.findChildren(ShowChip)
+    assert [badge.name for badge in dark.findChildren(LcdBadge)] == ["off"]
+
+
+def test_picking_a_slot_scrolls_the_cards_only_up_and_down(window: MainWindow):
+    page = panel(window)
+    bar = page.card_scroll.horizontalScrollBar()
+    assert bar is not None
+    bar.setRange(0, 100)
+    bar.setValue(50)
+    page.select_slot(4)
+    assert bar.value() == 0
+
+
 def test_problems_show_on_the_card_and_in_the_inspector(window: MainWindow):
     page = panel(window)
     window.document.set(("slots", "2"), ["browser if nonsense", "auto"])
@@ -343,6 +495,7 @@ def test_problems_show_on_the_card_and_in_the_inspector(window: MainWindow):
 def test_the_inspector_has_the_controls_of_the_slot(window: MainWindow):
     window.document.set(("controls", "1"), {"select": "toggle:call"})
     window.editor.edited()
+    panel(window).pick_slot(1)
     controls = panel(window).slot_controls
     assert controls.title.text() == "Controls of slot 1"
     assert [list(box.rows) for box in controls.boxes] == [["select", "id"]]

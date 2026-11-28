@@ -54,7 +54,8 @@ class LogView(QWidget):
         """The records in the text: where each starts, and its text (more lines for a traceback)."""
 
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(Space.L, Space.S, Space.L, Space.L)
+        # as small as the bar and a line: the window Log may be a narrow band under the page
+        layout.setContentsMargins(Space.L, Space.S, Space.L, Space.S)
         layout.setSpacing(Space.S)
         bar = QHBoxLayout()
         bar.setSpacing(Space.S)
@@ -96,6 +97,11 @@ class LogView(QWidget):
         self.text.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse | Qt.TextInteractionFlag.TextSelectableByKeyboard
         )
+        # a line of the log at least, not the few lines a scroll area asks for by default; in the font of the log
+        self.text.ensurePolished()
+        line = self.text.fontMetrics().lineSpacing()
+        margin = round(self.text.document().documentMargin())  # pyright: ignore[reportOptionalMemberAccess]
+        self.text.setMinimumHeight(line + 2 * (margin + self.text.frameWidth()))
         layout.addWidget(self.text, 1)
         self._scrolling = False
         """Whether the window scrolls itself (`_render`, `_append`): that is no hand that stops Follow."""

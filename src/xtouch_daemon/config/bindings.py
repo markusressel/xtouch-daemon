@@ -604,7 +604,7 @@ LcdPart = Annotated[
     WORD_OR_TABLE,
 ]
 """
-What the second line of the LCD shows instead of what the type shows: Home Assistant's text, a watch's, or an entity.
+What the second line of the LCD shows instead of the volume: Home Assistant's text, a watch's, or an entity.
 """
 ColorPart = Annotated[
     Annotated[Annotated[ColorWord, COLOR_PARTS], Tag(TEXT)]

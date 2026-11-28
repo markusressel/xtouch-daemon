@@ -1,6 +1,7 @@
 """
 The lines of a list of channels, pools or states in the colors of what they are: the name in the hue of its kind
 (see `Entity`), the line below in muted text with the states, channels and slots it names in theirs (see `help_text`).
+A channel with sound has its animation after its name (`SOUND_ROLE`).
 """
 
 import html
@@ -12,10 +13,13 @@ from PyQt6.QtGui import QAbstractTextDocumentLayout, QColor, QPainter, QTextDocu
 from PyQt6.QtWidgets import QAbstractItemView, QApplication, QStyle, QStyledItemDelegate, QStyleOptionViewItem
 
 from xtouch_daemon.gui.qt.fields.basics import DOT, help_text, paint_dot
+from xtouch_daemon.gui.qt.fields.sound import SIZE, Sound, clock_of, paint_sound, sounding
 from xtouch_daemon.gui.qt.theme.style import current_colors
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 
 LINES_ROLE = Qt.ItemDataRole.UserRole + 1
+SOUND_ROLE = Qt.ItemDataRole.UserRole + 3
+"""The channel of an item and its animation (`ChannelSound`), for one that can have sound."""
 
 
 class Lines(NamedTuple):
@@ -24,6 +28,11 @@ class Lines(NamedTuple):
     name: str
     entity: Entity
     below: str
+
+
+class ChannelSound(NamedTuple):
+    channel: str
+    sound: Sound
 
 
 class EntityItemDelegate(QStyledItemDelegate):
@@ -69,6 +78,14 @@ class EntityItemDelegate(QStyledItemDelegate):
         painter.setClipRect(QRectF(0, 0, rect.width(), document.size().height()))
         document.documentLayout().draw(painter, QAbstractTextDocumentLayout.PaintContext())  # pyright: ignore[reportOptionalMemberAccess]
         painter.restore()
+        sound = index.data(SOUND_ROLE)
+        if isinstance(sound, ChannelSound) and sounding().sounds(sound.channel):
+            # after the name, in the middle of its line
+            top = rect.top() + (rect.height() - document.size().height()) / 2
+            line = item.fontMetrics.lineSpacing()
+            x = rect.left() + item.fontMetrics.horizontalAdvance(lines.name) + Space.S
+            box = QRectF(x, top + (line - SIZE.height()) / 2, SIZE.width(), SIZE.height())
+            paint_sound(painter, box, sound.sound, clock_of(sound.channel), getattr(current_colors(), lines.entity))
 
 
 DOT_ROLE = Qt.ItemDataRole.UserRole + 2

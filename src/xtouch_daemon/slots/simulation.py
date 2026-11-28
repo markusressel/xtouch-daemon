@@ -32,7 +32,7 @@ class Simulation:
     ):
         """`known` are the people seen before (a restart), at times of this simulation's clock."""
         self.scene = scene
-        self.presence = Presence(scene, absent_after)
+        self.presence = Presence(scene)
         self.members = PoolMembers(scene, absent_after)
         self.engine = StateEngine(scene, overrides, mode_pick)
         self.dwell = dwell

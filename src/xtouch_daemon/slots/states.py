@@ -202,6 +202,11 @@ def default_delay_off(state: StateConfig) -> float:
     Without `delay_off`: modes and states with sources stay a while, composed states none (their expression has
     the delays of what it names already; another one would let `call` and `not call` overlap).
     """
-    if state.when is not None:
+    return delay_off_for(state.mode, state.when is not None)
+
+
+def delay_off_for(mode: bool, composed: bool) -> float:
+    """`delay_off` by default of a mode or a state, `composed` of a `when` (see `default_delay_off`)."""
+    if composed:
         return 0.0
-    return MODE_DELAY_OFF if state.mode else STATE_DELAY_OFF
+    return MODE_DELAY_OFF if mode else STATE_DELAY_OFF

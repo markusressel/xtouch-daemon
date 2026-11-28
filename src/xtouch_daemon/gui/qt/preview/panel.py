@@ -30,6 +30,7 @@ from PyQt6.QtGui import (
     QColor,
     QKeyEvent,
     QLinearGradient,
+    QMouseEvent,
     QPainter,
     QPaintEvent,
     QPen,
@@ -90,6 +91,8 @@ class Preview(QWidget):
     """The 8 strips side by side, on a panel like the device."""
 
     clicked = pyqtSignal(int, arguments=["index"])
+    cleared = pyqtSignal(arguments=[])
+    """The panel was clicked beside the strips (in Select): nothing is selected anymore."""
     moved = pyqtSignal(int, int, arguments=["source", "target"])
     """A strip was moved (dragged, Ctrl+arrow, or with the menu), from 0: its slot goes along."""
 
@@ -236,6 +239,13 @@ class Preview(QWidget):
         # in Play a click is a hand on the device: it selects nothing
         if not self.playing:
             self.clicked.emit(index)
+
+    def mousePressEvent(self, event: QMouseEvent | None) -> None:
+        """A click beside the strips (on the panel or around it) selects nothing: the strip selected is no more."""
+        assert event is not None
+        if event.button() == Qt.MouseButton.LeftButton and not self.playing and not self.dragging:
+            self.cleared.emit()
+        super().mousePressEvent(event)
 
     # -- moving strips (Select) -------------------------------------------------------------------------------------
 

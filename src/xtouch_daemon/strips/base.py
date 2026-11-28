@@ -24,7 +24,7 @@ from xtouch_daemon.config.bindings import (
 )
 from xtouch_daemon.config.buttons import HOLD_TIME, WHILE_HELD, Action, ButtonSetup, LaunchAction, indicator
 from xtouch_daemon.config.sections import BehaviorConfig
-from xtouch_daemon.config.values import ColorName, EncoderMode, Indicator, MeterPoint, color_of
+from xtouch_daemon.config.values import ColorName, EncoderMode, Indicator, MeterPoint, MuteLed, color_of
 from xtouch_daemon.hardware.protocol import METER_MAX, Button, Color, Led, RingMode
 from xtouch_daemon.hardware.strip import Claimable, Strip
 from xtouch_daemon.mqtt import MqttBridge
@@ -112,6 +112,13 @@ class Look:
     """Whether the LCD keeps its backlight while the strip is idle."""
     parts: Parts = field(default_factory=Parts)
     """The parts bound to programs of your own or to Home Assistant (`config.bindings`)."""
+    mute_led: MuteLed = "on"
+    """The LED of Mute while muted: lit, or flashing."""
+
+    @property
+    def muted_led(self) -> Led:
+        """The LED of Mute while muted."""
+        return Led.FLASH if self.mute_led == "flash" else Led.ON
 
 
 class StripController:
@@ -626,8 +633,8 @@ class VolumeStrip(StripController):
             return
         if self.fader_sets_volume:
             self.strip.set_fader(self._fraction(level.volume))
-        self.strip.set_ring(*self.knob.ring())
-        self.strip.set_led(Button.MUTE, Led.ON if level.muted else Led.OFF)
+        self.strip.set_ring(*self.knob.ring(), self.knob.ends())
+        self.strip.set_led(Button.MUTE, self.look.muted_led if level.muted else Led.OFF)
         if self.notice is not None:
             self.strip.set_text(1, self.notice)
         elif self._wanted is not None:

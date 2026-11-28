@@ -3,15 +3,15 @@ The device as it is right now (the live view of the daemon), or the preview of t
 Simulate while it is open) on its virtual twin in the daemon: the window Device, docked or on its own, on every page. A
 bar above the drawing switches between Select (a click picks a slot, a drag moves it) and Play (the mouse is a hand on
 the device), and offers to try it without a device while no daemon runs; on its right the mode the device shows,
-whether the drawing is live, and the test of the device. While the GUI hosts the virtual device, a second bar has what
-the mouse can't do on it; while the test runs, one says what each control does.
+whether the drawing is live, and the test of the device. While the GUI hosts the virtual device, a pill there opens
+what the mouse can't do on it; while the test runs, a second bar says what each control does.
 """
 
 from collections.abc import Callable
 
-from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QKeySequence, QShortcut
-from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QPushButton, QVBoxLayout, QWidget
+from PyQt6.QtCore import QEvent, QObject, QSize, Qt, pyqtSignal
+from PyQt6.QtGui import QKeySequence, QResizeEvent, QShortcut
+from PyQt6.QtWidgets import QButtonGroup, QFrame, QHBoxLayout, QPushButton, QSizePolicy, QVBoxLayout, QWidget
 
 from xtouch_daemon.gui.domain.looks import device_faces, twin_faces
 from xtouch_daemon.gui.domain.slots import MODES
@@ -24,13 +24,13 @@ from xtouch_daemon.gui.domain.status import (
     test_unavailable,
 )
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, discard, label, show_status
-from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
+from xtouch_daemon.gui.qt.fields.popover import Entry, Group, make_clickable, show_popover
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.preview.panel import Hand, Preview
 from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
-from xtouch_daemon.gui.qt.virtual_device import HostedDevice, VirtualDeviceBar
+from xtouch_daemon.gui.qt.virtual_device import HostedDevice, VirtualDevicePill
 from xtouch_daemon.live.messages import SetMode, Snapshot, TwinView
 from xtouch_daemon.slots.model import DEFAULT
 
@@ -53,9 +53,13 @@ PLAY_TIP = (
 
 class DeviceView(QWidget):
     close_virtual_device = pyqtSignal(arguments=[])
-    """The bar of the hosted virtual device was told to close it."""
+    """The popover of the hosted virtual device was told to close it."""
+    restart_daemon = pyqtSignal(arguments=[])
+    """The popover of the hosted virtual device was told to restart the daemon that drives it."""
     picked = pyqtSignal(int, arguments=["slot"])
     """A strip of the drawing was clicked: the slot (1 for the leftmost one) to show on the page Slots."""
+    unpicked = pyqtSignal(arguments=[])
+    """The drawing was clicked beside the strips: no strip, and no slot on the page Slots, is picked."""
     moved = pyqtSignal(int, int, arguments=["source", "target"])
     """A strip was dragged to another place: its slot moves there (slots from 1)."""
     live_clicked = pyqtSignal(arguments=[])
@@ -78,12 +82,14 @@ class DeviceView(QWidget):
         owned: Callable[[], bool],
         shows_twin: Callable[[], bool] = lambda: False,
         previewing: Callable[[], bool] = lambda: False,
+        restart_reason: Callable[[], str | None] = lambda: None,
     ) -> None:
         """
         `remote`: the hand on the daemon's device; `twin_hand` and `twin`: the hand on the virtual twin of the window
         and its latest view; `owned`: whether the daemon runs as this user; `shows_twin`: whether the drawing shows the
         twin (the preview in the GUI); `previewing`: whether the drawing shows a preview of the window (on the twin or
-        on the device).
+        on the device); `restart_reason`: why the daemon that drives the hosted virtual device can't be restarted
+        from here, None when it can.
         """
         super().__init__()
         self.view_layout = layout = QVBoxLayout(self)
@@ -95,6 +101,7 @@ class DeviceView(QWidget):
         self.shows_twin = shows_twin
         self.previewing = previewing
         self.owned = owned
+        self.restart_reason = restart_reason
         self.daemon_runs = True
         """Whether a daemon runs (see `show_daemon`): without one, it offers to try without a device."""
         self.snapshot: Snapshot | None = None
@@ -110,8 +117,10 @@ class DeviceView(QWidget):
         self.test_bar.hide()
         layout.addWidget(self.test_bar)
         layout.addWidget(self._device_bar())
-        self.virtual_bar: VirtualDeviceBar | None = None
+        self.virtual_pill: VirtualDevicePill | None = None
+        """While the GUI hosts the virtual device: how it is connected, and what can be done with it."""
         self.preview.clicked.connect(self.select)
+        self.preview.cleared.connect(self.deselect)
         self.preview.moved.connect(lambda source, target: self.moved.emit(source + 1, target + 1))
         layout.addWidget(self.preview, 1)
         self.slots.simulated.connect(lambda: self.show_live(self.snapshot))
@@ -121,9 +130,9 @@ class DeviceView(QWidget):
         """The strip picked (0 for the leftmost one), None for none."""
 
     def _mode_bar(self) -> QWidget:
-        bar = QWidget()
-        layout = QHBoxLayout(bar)
-        layout.setContentsMargins(0, 0, 0, Space.XS)
+        left = QWidget()
+        layout = QHBoxLayout(left)
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
         self.modes = QButtonGroup(self)
         self.select_button = self._segment("Select", "cursor-default-outline", SELECT_TIP)
@@ -143,11 +152,13 @@ class DeviceView(QWidget):
         layout.addWidget(self.hand_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         layout.addStretch(1)
         self.slots_pill = label("", "pill")
-        """The mode the device shows; a click: the modes to pick and the states."""
+        """The mode the device shows, over the middle of the drawing; a click: the modes to pick and the states."""
         self.slots_pill.hide()
-        make_clickable(self.slots_pill, self._show_modes)
-        layout.addWidget(self.slots_pill, 0, Qt.AlignmentFlag.AlignVCenter)
-        layout.addSpacing(Space.XS)
+        make_clickable(self.slots_pill, lambda: self._show_modes() and None)
+        right = QWidget()
+        layout = QHBoxLayout(right)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
         self.live_pill = label("", "pill")
         """Live or the file; a click: what that means (and the virtual device to open, while the daemon waits)."""
         make_clickable(self.live_pill, self._show_live)
@@ -155,6 +166,10 @@ class DeviceView(QWidget):
         self.offered = False
         self.slots_status: Status | None = None
         layout.addWidget(self.live_pill, 0, Qt.AlignmentFlag.AlignVCenter)
+        self.virtual_slot = QHBoxLayout()
+        """Where the pill of the hosted virtual device goes, next to what the drawing shows."""
+        self.virtual_slot.setContentsMargins(Space.XS, 0, 0, 0)
+        layout.addLayout(self.virtual_slot)
         layout.addSpacing(Space.S)
         self.test_button = QPushButton("Test the device")
         set_icon(self.test_button, "test-tube")
@@ -181,6 +196,11 @@ class DeviceView(QWidget):
         self.virtual_button.clicked.connect(self.use_virtual_device.emit)
         self.virtual_button.hide()
         layout.addWidget(self.virtual_button)
+        self.mode_row = CenteredRow(left, self.slots_pill, right)
+        bar = QWidget()
+        outer = QVBoxLayout(bar)
+        outer.setContentsMargins(0, 0, 0, Space.XS)
+        outer.addWidget(self.mode_row)
         return bar
 
     def _segment(self, text: str, icon_name: str, tip: str) -> QPushButton:
@@ -230,11 +250,11 @@ class DeviceView(QWidget):
         entry = Entry("", Status("", status.tone), status.tip, actions)
         show_popover(self.live_pill, "Drawing", [entry])
 
-    def _show_modes(self) -> None:
+    def _show_modes(self) -> QFrame | None:
         """The mode, the modes to pick (or back to the rules) and the states, with what turned them on."""
         slots = self.snapshot.slots if self.snapshot is not None else None
         if slots is None or self.slots_status is None:
-            return
+            return None
         request = self.slots.request
         modes = [DEFAULT, *(state.name for state in slots.states if state.mode)]
         picks = tuple(
@@ -244,17 +264,19 @@ class DeviceView(QWidget):
         )
         if slots.mode_pick is not None:
             picks += (("Back to the rules", lambda: request(SetMode("auto"))),)
-        how = "It was picked by hand, until the rules want another one." if slots.mode_pick else "The rules pick it."
-        entries = [Entry("Mode", self.slots_status, f"{MODES} {how}", picks, Entity.STATE)]
-        for state in slots.states:
-            if state.mode:
-                continue
+        how = "Picked by hand, until the rules want another one." if slots.mode_pick else "The rules pick it."
+        # what a mode is goes above, as the intro: the row says only what holds now
+        entries: list[Entry | Group] = [Entry("Mode", self.slots_status, how, picks, Entity.STATE)]
+        states = [state for state in slots.states if not state.mode]
+        if states:
+            entries.append(Group("States", "Not modes: each is on or off by itself, also several at once."))
+        for state in states:
             value = Status("on", Tone.GOOD) if state.value else Status("off", Tone.NEUTRAL)
             why = state.source or "none of its sources is on"
             why = why[:1].upper() + why[1:]
             override = "" if state.override == "auto" else f" Overridden: {state.override}."
             entries.append(Entry(state.name, value, f"{why}.{override}", entity=Entity.STATE))
-        show_popover(self.slots_pill, "Mode and states", entries)
+        return show_popover(self.slots_pill, "Mode and states", entries, intro=MODES)
 
     def show_daemon(self, runs: bool) -> None:
         """Whether a daemon runs: without one (and nothing hosted), "Try without a device"."""
@@ -380,18 +402,17 @@ class DeviceView(QWidget):
         self._show_mode()
 
     def host(self, hosted: HostedDevice | None) -> None:
-        """The GUI hosts the virtual device (None: not any more): its bar, and Play on it."""
-        if self.virtual_bar is not None:
-            # off the screen at once, its menu with it (see `discard`)
-            discard(self.view_layout, self.virtual_bar)
-            self.virtual_bar = None
+        """The GUI hosts the virtual device (None: not any more): its pill, and Play on it."""
+        if self.virtual_pill is not None:
+            # off the screen at once, its popover with it (see `discard`)
+            discard(self.virtual_slot, self.virtual_pill)
+            self.virtual_pill = None
         self.hosted = hosted
         if hosted is not None:
-            close = QPushButton("Close")
-            close.setToolTip("Closes the virtual device: for the daemon, it is unplugged.")
-            close.clicked.connect(self.close_virtual_device.emit)
-            self.virtual_bar = VirtualDeviceBar(hosted, close)
-            self.view_layout.insertWidget(1, self.virtual_bar)
+            self.virtual_pill = VirtualDevicePill(
+                hosted, self.close_virtual_device.emit, self.restart_daemon.emit, self.restart_reason
+            )
+            self.virtual_slot.addWidget(self.virtual_pill, 0, Qt.AlignmentFlag.AlignVCenter)
         self._show_mode()
         if hosted is not None:
             # opened to play with it
@@ -402,3 +423,76 @@ class DeviceView(QWidget):
         self.selected = index
         self.show_live(self.snapshot)
         self.picked.emit(index + 1)
+
+    def show_selected(self, index: int | None) -> None:
+        """The strip of the slot picked on the page Slots (0 for the leftmost one), None for none: only drawn."""
+        if index != self.selected:
+            self.selected = index
+            self.show_live(self.snapshot)
+
+    def deselect(self) -> None:
+        """Nothing picked: no strip of the drawing, and no slot on the page Slots."""
+        self.selected = None
+        self.show_live(self.snapshot)
+        self.unpicked.emit()
+
+
+class CenteredRow(QWidget):
+    """
+    A row of three: `left` and `right` at its ends, `middle` (while it shows) in the middle of the row, e.g. over the
+    middle of the drawing under it. Where the ends need its place, it moves aside as little as it can; the room left
+    for `left` cuts its texts (see `ElidedLabel`), rather than move it.
+    """
+
+    def __init__(self, left: QWidget, middle: QWidget, right: QWidget, gap: int = Space.S):
+        super().__init__()
+        self.left, self.middle, self.right, self.gap = left, middle, right, gap
+        for part in (left, middle, right):
+            part.setParent(self)  # pyright: ignore[reportArgumentType]: PyQt's stub types the parent as Self
+        # shown or hidden, it takes its place or gives it back
+        middle.installEventFilter(self)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+
+    def _middle_width(self) -> int:
+        return 0 if self.middle.isHidden() else self.middle.sizeHint().width() + 2 * self.gap
+
+    def sizeHint(self) -> QSize:
+        parts = (self.left, self.right) if self.middle.isHidden() else (self.left, self.middle, self.right)
+        width = self.left.sizeHint().width() + self._middle_width() + self.right.sizeHint().width()
+        return QSize(width, max(part.sizeHint().height() for part in parts))
+
+    def minimumSizeHint(self) -> QSize:
+        width = self.left.minimumSizeHint().width() + self._middle_width() + self.right.sizeHint().width()
+        return QSize(width, self.sizeHint().height())
+
+    def event(self, event: QEvent | None) -> bool:
+        if event is not None and event.type() == QEvent.Type.LayoutRequest:
+            # a part changed its size (a longer text, a button shown)
+            self.updateGeometry()
+            self.place()
+        return super().event(event)
+
+    def eventFilter(self, watched: QObject | None, event: QEvent | None) -> bool:
+        if event is not None and event.type() in (QEvent.Type.Show, QEvent.Type.Hide):
+            self.updateGeometry()
+            self.place()
+        return False
+
+    def resizeEvent(self, event: QResizeEvent | None) -> None:
+        super().resizeEvent(event)
+        self.place()
+
+    def place(self) -> None:
+        width, height = self.width(), self.height()
+        right_width = min(self.right.sizeHint().width(), width)
+        right_x = width - right_width
+        self.right.setGeometry(right_x, 0, right_width, height)
+        left_end = right_x
+        if not self.middle.isHidden():
+            size = self.middle.sizeHint()
+            centered = (width - size.width()) // 2
+            # centered, also over a hint it cuts; moved right for the least the left end needs, never into the right end
+            x = min(max(centered, self.left.minimumSizeHint().width() + self.gap), right_x - self.gap - size.width())
+            self.middle.setGeometry(x, (height - size.height()) // 2, size.width(), size.height())
+            left_end = x - self.gap
+        self.left.setGeometry(0, 0, max(0, left_end), height)

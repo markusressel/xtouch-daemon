@@ -15,9 +15,13 @@ from tests.support.gui import Dialogs, MakeWindow, pick, show_channel
 from xtouch_daemon.gui.domain import docs
 from xtouch_daemon.gui.qt.fields.menu import open_menu
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
-from xtouch_daemon.gui.qt.pages.base import Flip
+from xtouch_daemon.gui.qt.pages.base import EDGE, Flip
+from xtouch_daemon.gui.qt.preview.geometry import BUTTON_TOP, BUTTONS_BOTTOM
+from xtouch_daemon.gui.qt.preview.part_view import CROPS
 from xtouch_daemon.gui.qt.theme.settings import load_window_state
+from xtouch_daemon.gui.qt.theme.style import current_colors
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
+from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 
 
 def menu_titles(window: MainWindow) -> list[str]:
@@ -96,15 +100,21 @@ def test_where_the_window_device_is_stays_for_the_next_start(make_window: MakeWi
 
 
 def test_the_bars_stay_where_they_are(window: MainWindow):
-    # the header and the footer can't be moved or hidden like the bars of a toolbar
+    # the footer can't be moved or hidden like the bars of a toolbar
     assert window.contextMenuPolicy() == Qt.ContextMenuPolicy.PreventContextMenu
-    for name in ("header", "footer"):
+    for name in ("footer",):
         bar = window.findChild(QToolBar, name)
         assert bar is not None
         assert not bar.isMovable()
         toggle = bar.toggleViewAction()
         assert toggle is not None
         assert not toggle.isVisible()
+
+
+def test_the_service_is_in_the_menu_bar_without_a_header(window: MainWindow):
+    # no bar of its own above the docks: the room goes to the drawing and the configuration
+    assert window.findChild(QToolBar, "header") is None
+    assert window.service_controls.parent() is window.menu_bar
 
 
 def test_a_long_hint_over_the_drawing_never_makes_the_window_wider(window: MainWindow):
@@ -146,3 +156,73 @@ def test_a_form_wider_than_its_pane_is_laid_out_once(window: MainWindow, monkeyp
     assert viewport is not None
     # nothing is cut off on the right
     assert content.width() == viewport.width()
+
+
+@pytest.mark.parametrize("page", ["slots", "channels", "states"])
+def test_the_scroll_bar_of_the_right_pane_sits_at_the_edge_of_the_window(make_window: MakeWindow, page: str):
+    window = make_window()
+    window.resize(1280, 900)
+    window.show_page(page)
+    QApplication.processEvents()
+    (splitter,) = window.pages[page].findChildren(PaneSplitter)
+    pane = splitter.widget(1)
+    assert pane is not None
+    right = pane.mapToGlobal(pane.rect().topRight()).x()
+    configuration = window.stack.mapToGlobal(window.stack.rect().topRight()).x()
+    assert right == configuration
+    # the rows above the panes keep their distance from the edge
+    first = window.pages[page].layout_.itemAt(0)
+    assert first is not None
+    widget = first.widget()
+    if widget is not None and widget is not splitter:
+        assert widget.contentsMargins().right() == EDGE
+
+
+def test_the_drawing_of_a_part_has_round_corners(make_window: MakeWindow):
+    window = make_window()
+    show_channel(window, "out")
+    preview = next(iter(window.channels_page.form_previews["output"].values()))
+    corners = preview.drawing.corners
+    assert corners.size() == preview.drawing.size()
+    image = preview.drawing.grab().toImage()
+    # the corner is the card, the middle the strip
+    assert image.pixelColor(0, 0).name() == current_colors().raised
+    assert image.pixelColor(image.width() // 2, image.height() // 2).name() != current_colors().raised
+
+
+def test_the_drawing_of_the_buttons_has_room_under_select():
+    # the name printed under SELECT, and a margin as above REC: the round edge doesn't cover it
+    crop = CROPS["buttons"]
+    assert crop.bottom() - BUTTONS_BOTTOM == BUTTON_TOP - crop.top()
+
+
+def test_only_a_page_with_a_bar_has_the_row_above_it(make_window: MakeWindow):
+    window = make_window()
+    window.show_page("slots")
+    assert not window.page_bars.isHidden()
+    for page in ("channels", "states", "mqtt"):
+        window.show_page(page)
+        assert window.page_bars.isHidden()
+    # the sound server is in the footer, on every page
+    footer = window.audio_label.parentWidget()
+    assert footer is window.problems_button.parentWidget()
+    assert window.audio_label.minimumSizeHint().width() == 0
+
+
+def test_the_mode_is_over_the_middle_of_the_drawing(qtbot: QtBot, window: MainWindow):
+    view = window.device_view
+    window.resize(1400, 900)
+    window.show()
+    view.slots_pill.setText("Mode: gaming  ▾")
+    view.slots_pill.show()
+    qtbot.waitUntil(lambda: view.slots_pill.isVisible())
+    row = view.mode_row
+    middle = view.slots_pill.geometry().center().x()
+    assert abs(middle - row.width() // 2) <= 1
+    # no room: it gives way to the buttons on the right, never over them
+    row.resize(row.minimumSizeHint().width(), row.height())
+    row.place()
+    assert view.slots_pill.geometry().right() < row.right.geometry().left()
+    assert row.left.geometry().right() < view.slots_pill.geometry().left()
+    view.slots_pill.hide()
+    assert row.left.geometry().right() < row.right.geometry().left()

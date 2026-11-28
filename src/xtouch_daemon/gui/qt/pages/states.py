@@ -40,13 +40,14 @@ from xtouch_daemon.gui.qt.fields.menu import attach_menu, describe, with_icon
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles, divider, text_width
 from xtouch_daemon.gui.qt.fields.rich_items import DOT_ROLE, DotItemDelegate
 from xtouch_daemon.gui.qt.fields.used_by import UsedBy
-from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, row, scrolled, set_text
+from xtouch_daemon.gui.qt.pages.base import Audio, Page, button, card, edged, row, scrolled, set_text
 from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, Snapshot
 from xtouch_daemon.slots.model import DEFAULT, StateConfig
+from xtouch_daemon.slots.states import delay_off_for
 
 _ID = re.compile(r"[a-z0-9_]+")
 """What a state can be called."""
@@ -245,9 +246,10 @@ class StatesPage(Page):
         inspector.addStretch()
         pane = QWidget()
         pane.setLayout(inspector)
-        inspector.setContentsMargins(0, 0, Space.S, 0)
+        inspector.setContentsMargins(0, 0, Space.L, 0)
         self.splitter = PaneSplitter("states", row(side), scrolled(pane))
         self.layout_.addWidget(self.splitter, 1)
+        edged(self)
         self._show()
 
     def _build_form(self, layout: QVBoxLayout) -> None:
@@ -335,7 +337,16 @@ class StatesPage(Page):
         self.delays_button.setAutoRaise(True)
         self.delays_button.toggled.connect(self._show_delays)
         layout.addWidget(self.delays_button)
-        self.delay_rows = [option_row("delay_on"), option_row("delay_off"), option_row("persist")]
+
+        def delay_off() -> str:
+            # by default as the kind of the state: a mode, a state with sources, or one with a condition
+            state = self.document.get(("state", self.selection or "")) or {}
+            return f"{delay_off_for(bool(state.get('mode')), state.get('when') is not None):g}"
+
+        delay_off_row = self._row(
+            found["delay_off"], lambda name: ("state", self.selection or "", name), None, delay_off
+        )
+        self.delay_rows = [option_row("delay_on"), delay_off_row, option_row("persist")]
         for widget in self.delay_rows:
             layout.addWidget(widget)
         self._align()

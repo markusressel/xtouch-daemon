@@ -84,7 +84,7 @@ def test_channels_are_present_while_they_have_something_to_control():
 
 def test_presence_keeps_a_channel_for_absent_after():
     read = scene(SCENE)
-    presence = Presence(read, absent_after=3)
+    presence = Presence(read)
     assert "browser" in presence.update(Observation(playing=("firefox",), devices=frozenset({"bluez_output.1"})), 0)
     present = presence.update(Observation(), 1)
     assert {"browser", "buds"} <= present
@@ -108,7 +108,10 @@ def test_which_channel_has_an_application_and_what_auto_never_takes():
 def test_pools_are_present_before_slots_are_assigned():
     read = scene(SCENE)
     assert not pool_present(read, "auto", Observation(playing=("discord", "speech-dispatcher")), frozenset())
-    assert pool_present(read, "auto", Observation(playing=("discord", "firefox")), frozenset())
+    browser = Observation(playing=("discord", "firefox"))
+    assert pool_present(read, "auto", browser, frozenset({"browser"}))
+    # the browser stopped long enough to be absent: the hold of the pool doesn't keep it
+    assert not pool_present(read, "auto", browser, frozenset())
     # people share the slots of auto: anyone in the voice chat (before the slots are assigned)
     assert pool_present(read, "auto", Observation(people=attendees("Alice")), frozenset())
     # not someone whose person channel never goes into auto
@@ -136,7 +139,7 @@ channels = ["#screens"]
     assert present_now("screen", read.channels["screen"], Observation())
     assert not present_now("screen", read.channels["screen"], away)
     assert present_now("lamp", read.channels["lamp"], away)
-    presence = Presence(read, absent_after=3)
+    presence = Presence(read)
     assert presence.update(Observation(), 0) == {"screen", "lamp"}
     # it stays `absent_after`, as any channel
     assert presence.update(away, 1) == {"screen", "lamp"}

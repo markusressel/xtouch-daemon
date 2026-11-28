@@ -30,6 +30,9 @@ that on the Unix socket `$XDG_RUNTIME_DIR/xtouch-daemon.sock` (mode 0600, next t
   - the `fingerprint()` of the configuration in use;
   - `slots` (`SlotsState`): the mode and the one picked by hand; per slot the candidate, channel, pool, member and
     why; per state its value, `since`, `source` and override; per pool the members that wait;
+  - `sounding`: the ids of the channels with sound right now (`slots/sounding.py`), from what the sound server and
+    the voice chat tell: an output or input that is running, an `apps` channel with a stream that is not paused, a
+    `person` who talks. The GUI animates them; an animation runs on its own clock, so it costs no lines;
   - `preview`, `simulated` and `features` (what the daemon takes: `mode`, `override`, `play`, `preview`, `situation`,
     `on_device`, `test`, `log`).
 - **The devices it saw.** A line of its own, `{"known_devices": [...]}` (`KnownDevices`), when a client connects (if

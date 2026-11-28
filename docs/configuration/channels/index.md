@@ -52,18 +52,19 @@ These options apply to `output`, `input` and `apps` channels. Strings need their
 | `meter_point` | `behavior.meter_point` | Where the meter takes the level: `"pre_fader"` before the volume and Mute of the strip, `"post_fader"` after them. See [Meters](#meters). |
 | `rec` | `"recording"` | What the Rec button does and what its LED shows. A word (`"recording"`, `"playing"`, `"default"`, `"muted"` or `"off"`) sets only the LED; a table such as `rec = { press = "default" }` sets what a press does. See [Buttons and LEDs](../strip/leds.md). |
 | `solo` | `"off"` | The same for the Solo button. |
+| `mute_led` | `"on"` | The LED of Mute while the strip is muted: `"on"` lit, `"flash"` flashing, which is harder to miss, e.g. on a microphone. |
 | `select` | What the type does | The same for the Select button, see [Elements of a strip](#elements-of-a-strip) and [Buttons](../strip/leds.md#buttons). |
 | `min_volume` | `0` | The volume of the fader at the bottom, 0 to 200 percent. |
 | `max_volume` | `behavior.max_volume` (130) | The volume of the fader at the top, 0 to 200 percent. |
 | `encoder` | `"balance"` on `output` and `input` strips, `"media"` on `apps` strips | What the encoder does: a mode, or a value of your own, see [Encoders](../strip/encoders.md). |
 | `fader` | `"volume"` | `"homeassistant"` gives the fader to Home Assistant ([Encoders](../strip/encoders.md#fader-homeassistant)); `{ set, watch, ... }` binds it to programs ([Bindings](../strip/bindings.md)). With either, the encoder sets the volume. |
-| `lcd` | What the type shows | The second line of the LCD: `"homeassistant"`, `{ watch }` or `{ poll }`, see [Bindings](../strip/bindings.md). |
+| `lcd` | The volume (`46%`) or `muted`; while there is nothing to control, `off` on `output` and `input` channels, `idle` on `apps` channels | The second line of the LCD: `"homeassistant"`, `{ watch }` or `{ poll }`, see [Bindings](../strip/bindings.md). |
 
 The `behavior.*` defaults come from the [`[behavior]` section](../behavior.md#behavior).
 
 ### Where else the options work
 
-- **Pools and places.** The look options (`color`, `lit_when_idle`, `meter`, `meter_point`, `rec`, `solo`) also
+- **Pools and places.** The look options (`color`, `lit_when_idle`, `meter`, `meter_point`, `rec`, `solo`, `mute_led`) also
   work in the built-in pools (`[pool.apps]`, `[pool.auto]`, `[pool.devices]`) for every strip they fill, and in a
   place of a slot for that slot only: `{ show = "mic", color = "blue" }` (see [Places](../slots.md#places)). A place
   of `apps`, `auto` or `devices` also takes `encoder`, `min_volume` and `max_volume`. `label`, `select`, `fader` and
@@ -151,9 +152,9 @@ a peak at full scale also lights the red LED for half a second.
 `"pre_fader"` (the default) takes it before the strip's volume and Mute, so the meter keeps showing the audio while
 the fader is down. `"post_fader"` takes it after them: what you hear, dark while muted.
 
-What each strip type shows:
+What each type of channel shows:
 
-| Strip | `"pre_fader"` | `"post_fader"` |
+| Type | `"pre_fader"` | `"post_fader"` |
 |---|---|---|
 | `output` | PipeWire's monitor of the output, before its volume and Mute. | The monitor level times its volume, nothing while muted. |
 | `apps`, `auto` | The audio of the streams with their volume taken out again, so the fader doesn't move the meter. **While muted the meter stays dark:** PipeWire applies Mute inside the stream, so the audio is gone. | The streams as they play. |

@@ -81,7 +81,7 @@ class VoipStrip(StripController):
             return
         self.strip.set_color(self.talking_color if person.talking else self.color)
         self.strip.set_text(0, self.name)
-        self.strip.set_led(Button.MUTE, Led.ON if person.muted else Led.OFF)
+        self.strip.set_led(Button.MUTE, self.look.muted_led if person.muted else Led.OFF)
         if self._wanted == person.volume:
             self._wanted = None
         volume = self._wanted if self._wanted is not None else person.volume

@@ -41,7 +41,9 @@ from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.config.values import (
     ENCODERS,
     METER_POINTS,
+    MUTE_LEDS,
     MeterPoint,
+    MuteLed,
     Volume,
 )
 
@@ -70,6 +72,8 @@ class BaseStripConfig(Model):
     Where the meter takes the level: before the volume and Mute of the strip, or after them. By default
     `behavior.meter_point`.
     """
+    mute_led: Annotated[MuteLed, MUTE_LEDS] = "on"
+    """The LED of Mute while the strip is muted: lit, or flashing."""
     select: SelectButton = ButtonConfig()
     """
     What Select does (`press`, `hold`) and what its LED shows (`led`). By default it makes the device the default
@@ -99,7 +103,7 @@ class BaseStripConfig(Model):
     lcd: LcdPart | None = None
     """
     The second line of the LCD, instead of the volume. A `watch` or a `poll` shows each line it prints, an entity its
-    state. By default what the strip type shows.
+    state.
     """
 
     @property

@@ -8,6 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- GUI, Play: what the mouse can take glows under it (the knob, an LED of the ring, a button, the fader), with a tooltip
+  of what a click, a drag and a hold do. While a drag turns the encoder, ticks around the knob show its steps and a
+  pointer passes one per step.
+- `mute_led = "flash"` makes the LED of Mute flash while the strip is muted, instead of lighting it: on a channel
+  (e.g. your microphone), a `person` channel, `[pool.people]` and the other pools, or a place of a slot. The GUI has it
+  under Buttons, and its preview of the buttons shows Mute flashing.
+- GUI: a channel with sound has a small animation after its name on the page Channels and after its chip on the cards
+  of the slots: three bars for an output and applications, a spreading ring for an input, a breathing dot for a
+  person who talks. Playing something shows which channels take it, also those that no slot shows yet. The daemon
+  tells the channels with sound in the live view (`sounding`).
 - A state can follow a program of your own: `command = { watch = "..." }` or `{ poll = "...", every = 5 }` in
   `[state.<id>]`. The state is on while the newest line the program printed is `on`, `1`, `true` or `yes`; any
   other line, and a run of `poll` that fails, turns it off. The GUI has it in the menu Add source of the page
@@ -111,6 +121,47 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: an unbound `lcd` says what the second line of the LCD shows for the type of its channel, e.g. "the volume, e.g.
+  46%, or muted; off while the output is not there", instead of "what the type shows". The configuration pages say so
+  too.
+- GUI: the popover of the mode explains modes at its top, and its row of the mode says only how it was picked. The
+  states follow under a heading of their own, "States", so they no longer read as more modes.
+- GUI: the header is gone: the pill of the service is at the right end of the menu bar, so the drawing and the
+  configuration get its room.
+- GUI: the pill of the mode is over the middle of the drawing; it moves aside only where the bar has no room for it.
+- GUI: the default of an option and its "Learn more" link are on a line of their own under its help, in the same place
+  under every field, a little apart from the text. A part left unbound (e.g. the LCD of a channel) says "not bound"
+  and has its default there too, instead of "default: …" in the place of a field.
+- GUI: the drawing of a part on the page Channels is flush with the title of its card, in a narrower column.
+- GUI: the bar of the virtual device the window hosts is now the pill "Virtual device", next to "Live", with how it
+  is connected. Its popover unplugs and plugs it in, switches it off and on, closes it, and breaks the touch sensor of
+  faders, a switch per fader that leaves the popover open. "Restart" there restarts the daemon that drives it (the
+  service or the one of "Try without a device"), so its shutdown and startup sequences show on it.
+- GUI: the page Slots picks a slot or a candidate, or nothing. A click on a card beside its candidates picks the slot
+  alone, a click below the cards or on the drawing of the control surface beside the strips picks nothing. Before,
+  nothing could undo a pick. The card of the slot picked has an outline, and the drawing selects its strip, also when
+  a candidate is picked on the page. The window opens with nothing picked: an overview of all slots (what each shows,
+  its candidates and problems) takes the place of the inspector, which showed slot 1 before.
+- GUI: on the cards of the page Slots, the backlight color of the LCD is a small square inside the chip of what a
+  candidate shows, instead of a tiny LCD after the row; the rows get narrower. Picking a slot no longer scrolls the
+  cards sideways to their right end.
+- GUI: the rows of a card that are no candidate can be picked too: "nothing to show: the strip is dark" at the end of
+  the rail, and `auto (no entry)` of an empty slot. They pick the slot, and the inspector says why the strip is dark
+  or what it shows without candidates. A dark strip of the drawing picks the end of its rail.
+- GUI: a number field that is not set shows its text in gray, like the placeholder of a text field. `absent_after`
+  of a channel shows its default, 3, instead of "default: not set"; `delay_off` of a state shows the default for its
+  kind (3, 10 for a mode, 0 with `when`). A number whose default depends on something else says "not set", and its
+  help says what applies.
+- GUI: the forms of the page Channels are built in the background a second after the window opens, so the first
+  click on a channel of another type shows its form at once instead of after a moment.
+- GUI: the pages reach the right edge of the window: the scroll bar of the right pane sits at the edge, without unused
+  room beside it. The drawings of the parts on the page Channels have round corners and a thin edge.
+- GUI: the path of candidates in the inspector ends in `● dark` while the strip is dark, and a click on the candidate
+  picked picks the slot alone, on the card too. Ctrl+Up on the dark end of a rail no longer moves the pick.
+- GUI: a drop-down list that shows its default (or the value of the channel) shows it in gray, like the other fields.
+  The SELECT printed under the drawing of the buttons is no longer cut off.
+- GUI: the pill of the sound server moved to the footer, and the row above the pages shows only on the page Slots
+  (for Simulate and the states): the other pages start a row higher.
 - Documentation: the hardware is "the control surface" (the physical one where the virtual one is the other choice),
   and a fact of the model names "the X-Touch Extender". "The X-Touch" meant the Extender, but it is the bigger desk
   with 9 faders, which the daemon doesn't need; a test fails a page that says it alone. Claims that the code
@@ -169,6 +220,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- The ring of the balance showed its end from 90 % on, so turning towards the end LED in the GUI stopped short of
+  100 %. Now four LEDs split the way to the side and the fifth lights only at 100 %, with the two LEDs at the ends of
+  the ring.
+- GUI, Play: a press on an LED of the ring turned the encoder at once, so a drag or a hold near the knob turned it
+  towards the LED instead. Now a click on an LED turns until the ring lights it, a hold turns on after a moment, and
+  a drag that starts on the ring turns it like the knob. The LEDs at the ends could not be aimed at: they now mean
+  "all the way".
+- GUI: the window Log can be made as low as its bar and a line of the log; it kept a few lines of height before.
+- `apps` and `auto` kept an `apps` channel without a slot for the `hold` of the pool after the channel was gone by
+  its own `absent_after`: a slot like `["browser if present", "apps"]` showed the browser through `apps` for two
+  more seconds (in the look of that candidate) before it went dark. The pool takes such a channel only while it is
+  present now.
+- GUI: the dot of a candidate in the path over the inspector sits on the middle of its text, not low.
+- GUI: a popover cut the last line of a longer text, measured before the font of its style applied.
 - Documentation: a changed `[device] name` or `virtual` is reloaded (the daemon switches to the other X-Touch), the
   pages said it needs a restart; only `fader = "homeassistant"` needs `[mqtt]`, not every binding; the pages quoted a
   message the GUI doesn't show ("The device does not run the saved file yet"; its pill says "Not on the device

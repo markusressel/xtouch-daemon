@@ -134,7 +134,7 @@ def describe_action(action: str | LaunchAction | RunAction | ServiceAction) -> s
 
 
 class ButtonConfig(Model):
-    """What a button does: a press, a hold, and what its LED shows. Unset, each takes what the strip type does."""
+    """What a button does: a press, a hold, and what its LED shows. Unset, each does what the channel type does."""
 
     press: Annotated[Action, ACTIONS] | None = None
     """What a press does. An action that lasts while held (`talk`, `mute_others`) needs no `hold`."""

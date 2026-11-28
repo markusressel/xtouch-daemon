@@ -49,7 +49,7 @@ from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.fields.controls import ColorPicker, NumberToggles, Switch
 from xtouch_daemon.gui.qt.fields.names import NameCompleter
 from xtouch_daemon.gui.qt.fields.tables import Tables
-from xtouch_daemon.gui.qt.theme.style import set_role
+from xtouch_daemon.gui.qt.theme.style import set_role, show_unset
 from xtouch_daemon.gui.qt.theme.tokens import Space
 
 MATCHED = frozenset({"device", "card", "profile"})
@@ -168,6 +168,8 @@ class OptionRow(QWidget):
         self._get = get
         self._put = put
         self._placeholder = placeholder
+        self.link = link
+        """The page of the documentation that "Learn more" opens; None for none."""
         self._loading = False
         self.inherited: str | None = None
         """
@@ -300,6 +302,7 @@ class OptionRow(QWidget):
                 if option.name.endswith("_volume"):
                     self.spin.setSuffix(" %")
                 self.spin.valueChanged.connect(self._edit_number)
+                self.spin.valueChanged.connect(self._gray_unset)
                 return self._left(self.spin)
             case Kind.NUMBER:
                 spin = NumberSpin(self)
@@ -320,6 +323,7 @@ class OptionRow(QWidget):
                     spin.unset = self._unset
                 self.spin.setRange(low, option.maximum or 1_000_000)
                 self.spin.valueChanged.connect(self._edit_number)
+                self.spin.valueChanged.connect(self._gray_unset)
                 return self._left(self.spin)
             case Kind.SWITCH:
                 self.switch = Switch(self)
@@ -475,12 +479,14 @@ class OptionRow(QWidget):
                     # a value of another type shows the default; its problem says what is wrong
                     number = shown if isinstance(shown, int | float) else self.option.default
                     if self.option.default is None:
-                        default = self._placeholder() if self._placeholder else "not set"
-                        self.spin.setSpecialValueText(self._unset_text(default))
+                        # without a default of its own: what applies depends on something else, the help says what
+                        default = self._placeholder() if self._placeholder else None
+                        self.spin.setSpecialValueText(self._unset_text(default) or "not set")
                     if isinstance(self.spin, QSpinBox):
                         self.spin.setValue(int(self._unset) if number is None else int(number))
                     else:
                         self.spin.setValue(self._unset if number is None else float(number))
+                    self._gray_unset(self.spin.value())
                 case Kind.SWITCH:
                     if value is None and self.inherited is not None and self._placeholder:
                         # unset: as where it comes from
@@ -511,6 +517,10 @@ class OptionRow(QWidget):
                 case Kind.BINDING:
                     self.binding.show_value(value)
                     self._show_meaning()
+                    if not self.option.default_text and self._placeholder is not None:
+                        # what the part does unbound, under the help as every default (it may change with others)
+                        set_help(self.help, self.option.help, self.link, self._placeholder())
+                        self.help.show()
                 case _ as unreachable:
                     assert_never(unreachable)
         finally:
@@ -552,6 +562,10 @@ class OptionRow(QWidget):
         meaning = self.option.meaning(value)
         set_help(self.meaning, f"`{value}`: {meaning}" if meaning else "")
         self.meaning.setVisible(bool(meaning))
+
+    def _gray_unset(self, value: float) -> None:
+        """Unset, the field shows its text in gray, like the placeholder of a text field."""
+        show_unset(self.spin, self.option.default is None and value == self._unset)
 
     def _edit_number(self, value: float) -> None:
         self._edit(None if self.option.default is None and value == self._unset else value)

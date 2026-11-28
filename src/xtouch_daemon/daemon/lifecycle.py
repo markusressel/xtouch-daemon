@@ -69,6 +69,7 @@ from xtouch_daemon.slots.model import DEFAULT
 from xtouch_daemon.slots.outcomes import Situation
 from xtouch_daemon.slots.recording import Observer
 from xtouch_daemon.slots.resolver import Result
+from xtouch_daemon.slots.sounding import sounding
 from xtouch_daemon.slots.world import Names
 from xtouch_daemon.system import instance, systemd
 from xtouch_daemon.system.commands import Commands, SimulatedCommands
@@ -929,6 +930,11 @@ class Daemon(Rig):
             test=self.testing,
             device_plugged=self.device_plugged,
             homeassistant=homeassistant_state(self.hass),
+            sounding=sounding(
+                self.slots.scene,
+                self.mixer.state,
+                (participant.name for participant in self.voip.participants if participant.talking),
+            ),
         )
 
     def _status(self) -> str:

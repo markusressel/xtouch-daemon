@@ -52,6 +52,16 @@ ENCODER_MODES = Meanings(
 MeterPoint = Literal["pre_fader", "post_fader"]
 """Where the meter of a strip takes the level, see `METER_POINTS`."""
 
+MuteLed = Literal["on", "flash"]
+"""How the LED of Mute shows that the strip is muted, see `MUTE_LEDS`."""
+
+MUTE_LEDS = Meanings(
+    {
+        "on": "Lit while muted.",
+        "flash": "Flashes while muted: harder to miss, e.g. for a microphone.",
+    }
+)
+
 METER_POINTS = Meanings(
     {
         "pre_fader": "The level before the volume, like on a hardware mixer: the meter stays up while the fader is "

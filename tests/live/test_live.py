@@ -150,6 +150,12 @@ def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):
     )
     with_slots = Snapshot("abc", True, False, None, snapshot.strips, slots=slots)
     assert decode(encode(with_slots)) == with_slots
+    # with the channels that have sound; an older daemon tells none
+    sounding = Snapshot("abc", True, False, None, snapshot.strips, sounding=("out", "game"))
+    assert decode(encode(sounding)) == sounding
+    assert decode(encode(sounding).replace(b',"sounding":["out","game"]', b"")) == dataclasses.replace(
+        sounding, sounding=()
+    )
     with pytest.raises(ValueError, match="Expecting value"):
         decode(b"garbage")
 

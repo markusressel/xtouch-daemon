@@ -73,9 +73,9 @@ MODE_DELAY_OFF = 10.0
 ABSENT_AFTER = 3.0
 """Seconds a channel stays present after it had nothing to control any more, without `absent_after`."""
 
-LOOK_OPTIONS = frozenset({"label", "color", "lit_when_idle", "rec", "solo", "meter", "meter_point"})
+LOOK_OPTIONS = frozenset({"label", "color", "lit_when_idle", "rec", "solo", "meter", "meter_point", "mute_led"})
 """Options of a place that change only how a candidate looks there."""
-PEOPLE_LOOK_OPTIONS = frozenset({"color", "meter", "meter_point"})
+PEOPLE_LOOK_OPTIONS = frozenset({"color", "meter", "meter_point", "mute_led"})
 """The options of a place of `people`: the strips of people show their names and have no Rec or Solo of their own."""
 PEOPLE_POOL_OPTIONS = PEOPLE_LOOK_OPTIONS | {"talking_color", "max_volume"}
 """The look of the strips of people in `[pool.people]`: that of a place, and how they look talking and how loud."""
@@ -140,8 +140,8 @@ class ChannelConfig(_Open):
     device: str | tuple[str, ...] | None = None
     choices: tuple[dict[str, Any], ...] = ()
     person: str | tuple[str, ...] | None = None
-    absent_after: float | None = None
-    """Seconds the channel stays present after it had nothing to control any more; by default 3."""
+    absent_after: float = ABSENT_AFTER
+    """Seconds the channel stays present after it had nothing to control any more."""
 
     @model_validator(mode="before")
     @classmethod

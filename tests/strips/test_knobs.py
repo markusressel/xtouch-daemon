@@ -14,7 +14,16 @@ from xtouch_daemon.strips import base
 from xtouch_daemon.strips.apps import AppGroupStrip
 from xtouch_daemon.strips.base import Look, StripEnv
 from xtouch_daemon.strips.device import DeviceStrip
-from xtouch_daemon.strips.knobs import BalanceKnob, Knob, MediaKnob, VolumeKnob, balance_text, clock, ring_position
+from xtouch_daemon.strips.knobs import (
+    BalanceKnob,
+    Knob,
+    MediaKnob,
+    VolumeKnob,
+    balance_ring,
+    balance_text,
+    clock,
+    ring_position,
+)
 
 
 def device(surface: RecordingSurface, env: StripEnv, direction: Direction = Direction.OUTPUT) -> DeviceStrip:
@@ -146,10 +155,10 @@ async def test_applications_get_the_balance_of_all_their_streams(
 ) -> None:
     strip = AppGroupStrip(surface.strips[0], env, ID, ("brave",), Look("Browser"), encoder="balance")
     strip.update(AudioState(streams=(stream(2, balance=0.5), stream(1, balance=-0.5))))
-    # the first stream shows the balance; halves round away from the center
-    assert surface.strips[0].ring == (3, RingMode.BOOST_CUT)
+    # the first stream shows the balance: half way left is the second of the four steps before the side
+    assert surface.strips[0].ring == (4, RingMode.BOOST_CUT)
     strip.update(AudioState(streams=(stream(1, balance=0.5),)))
-    assert surface.strips[0].ring == (9, RingMode.BOOST_CUT)
+    assert surface.strips[0].ring == (8, RingMode.BOOST_CUT)
 
     strip.on_encoder(-2)
     await settle()
@@ -202,3 +211,28 @@ def test_the_encoder_of_a_strip_by_default_and_configured(
 ) -> None:
     strip = build(config, surface.strips[0], env, {})
     assert type(strip.knob) is knob  # type: ignore[attr-defined]
+
+
+def test_the_ring_of_the_balance_ends_only_all_the_way_over():
+    assert balance_ring(0.0) == (6, False)
+    # a hair off the center is a step
+    assert balance_ring(0.01) == (7, False)
+    assert balance_ring(0.25) == (7, False)
+    assert balance_ring(-0.5) == (4, False)
+    # almost all the way: one short of the end, so it doesn't look done
+    assert balance_ring(0.95) == (10, False)
+    # all the way: the last position, and the LEDs at the ends
+    assert balance_ring(1.0) == (11, True)
+    assert balance_ring(-1.0) == (1, True)
+
+
+async def test_the_balance_all_the_way_lights_the_ends(surface: RecordingSurface, env: StripEnv) -> None:
+    strip = AppGroupStrip(surface.strips[0], env, ID, ("brave",), Look("Browser"), encoder="balance")
+    strip.update(AudioState(streams=(stream(1, balance=0.95),)))
+    assert (surface.strips[0].ring, surface.strips[0].ring_center) == ((10, RingMode.BOOST_CUT), False)
+    # a step further: 100 %
+    strip.on_encoder(1)
+    assert (surface.strips[0].ring, surface.strips[0].ring_center) == ((11, RingMode.BOOST_CUT), True)
+    strip.update(AudioState(streams=(stream(1, balance=1.0),)))
+    await settle()
+    assert surface.strips[0].ring_center
