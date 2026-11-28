@@ -67,12 +67,15 @@ def _count(number: int, thing: str) -> str:
     return f"{number} {thing}{'' if number == 1 else 's'}"
 
 
+def counts(state: AudioState) -> tuple[tuple[str, int], ...]:
+    """How many outputs, inputs and applications that play the sound server has, by the word for one."""
+    applications = len({stream.app for stream in state.streams})
+    return ("output", len(state.outputs)), ("input", len(state.inputs)), ("application", applications)
+
+
 def summary(state: AudioState) -> str:
     """What the sound server has, e.g. "2 outputs, 1 input, 3 applications"."""
-    applications = len({stream.app for stream in state.streams})
-    return ", ".join(
-        (_count(len(state.outputs), "output"), _count(len(state.inputs), "input"), _count(applications, "application"))
-    )
+    return ", ".join(_count(number, thing) for thing, number in counts(state))
 
 
 def contents(state: AudioState) -> tuple[tuple[str, tuple[tuple[str, str], ...]], ...]:

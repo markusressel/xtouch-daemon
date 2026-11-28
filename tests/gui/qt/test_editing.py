@@ -41,7 +41,14 @@ def items(window: MainWindow) -> list[QListWidgetItem]:
 
 
 def test_the_window_shows_the_configuration(window: MainWindow, path: Path):
-    assert pill(window.audio_label) == "Sound server: 2 outputs, 1 input, 2 applications"
+    # the counts are icons with a number each: a speaker for the outputs, a microphone for the inputs, ...
+    assert pill(window.audio_label) == "Sound server"
+    assert window.audio_label.parts == (("speaker", "2"), ("microphone", "1"), ("play-circle-outline", "2"))
+    assert window.audio_label.accessibleName() == "Sound server: 2 outputs, 1 input, 2 applications"
+    assert "2 outputs, 1 input, 2 applications" in window.audio_label.toolTip()
+    # they take their room: the pill is wider than its text
+    words = window.audio_label.fontMetrics().horizontalAdvance(window.audio_label.text())
+    assert window.audio_label.sizeHint().width() > words + 3 * window.audio_label.fontMetrics().height()
     assert window.windowTitle() == path.name
     assert not window.save_button.isEnabled()
     assert not window.problems_button.isVisible()
@@ -67,6 +74,7 @@ def test_without_the_sound_server_names_are_typed_by_hand(make_window: MakeWindo
     window = make_window(unreachable)
 
     assert pill(window.audio_label) == "Sound server not reachable: type names by hand"
+    assert window.audio_label.parts == ()
     assert window.audio_label.toolTip().startswith("can't reach the sound server: no socket")
 
 

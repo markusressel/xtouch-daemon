@@ -90,7 +90,8 @@ _SOUNDING: Sounding | None = None
 
 def sounding() -> Sounding:
     """The sound of the channels for the whole GUI: the window tells it (see `MainWindow.refresh_preview`)."""
-    global _SOUNDING  # noqa: PLW0603: one for all, as the daemon is one
+    # one for all, as the daemon is one
+    global _SOUNDING
     if _SOUNDING is None:
         _SOUNDING = Sounding()
     return _SOUNDING

@@ -67,7 +67,7 @@ from xtouch_daemon.gui.qt import errors
 from xtouch_daemon.gui.qt.app_events import app_events
 from xtouch_daemon.gui.qt.device_test import DeviceTest
 from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, flat_button, label, refresh_help, show_status
+from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, IconPill, flat_button, label, refresh_help, show_status
 from xtouch_daemon.gui.qt.fields.entities import EntitySource
 from xtouch_daemon.gui.qt.fields.menu import MenuBar, TextMenus, attach_menu
 from xtouch_daemon.gui.qt.fields.popover import Entry, make_clickable, show_popover
@@ -123,6 +123,8 @@ from xtouch_daemon.system.systemd import (
 )
 
 SERVICE_POLL_MS = 3000
+AUDIO_ICONS = {"output": "speaker", "input": "microphone", "application": "play-circle-outline"}
+"""The icons of what the sound server has, in its pill: outputs, inputs, applications that play."""
 PLACE_TEXTS = {Place.GUI: "In the GUI", Place.DEVICE: "On the device", Place.OFF: "Off"}
 """The positions of the control "Preview", from the left."""
 PLACE_TIPS = {
@@ -376,7 +378,7 @@ class MainWindow(QMainWindow):
     def _audio_status(self, layout: QHBoxLayout) -> None:
         """The sound server, in the footer: what the GUI read from it for the suggestions, and Read again."""
         # cut with … where the footer has no room: it never makes the window wider
-        self.audio_label = ElidedLabel("Reading the sound server…", "pill")
+        self.audio_label = IconPill("Reading the sound server…", "pill")
         """What the GUI read from the sound server (for the suggestions); a click: all of it."""
         make_clickable(self.audio_label, self._show_audio)
         self.audio_error: str | None = None
@@ -1030,14 +1032,18 @@ class MainWindow(QMainWindow):
 
     def load_audio(self) -> None:
         self.audio_label.setText("Reading the sound server…")
+        self.audio_label.set_parts(())
         self.audio_label.setToolTip("")
         self.loader.load()
 
     def _audio_loaded(self, state: AudioState) -> None:
         self.audio = state
         self.audio_error = None
-        tip = "What the GUI read from the sound server: the names the forms suggest."
-        show_status(self.audio_label, Status(f"Sound server: {sources.summary(state)}", Tone.NEUTRAL, tip), more=True)
+        summary = sources.summary(state)
+        tip = f"What the GUI read from the sound server: {summary}, the names the forms suggest."
+        show_status(self.audio_label, Status("Sound server", Tone.NEUTRAL, tip), more=True)
+        self.audio_label.set_parts((AUDIO_ICONS[thing], str(number)) for thing, number in sources.counts(state))
+        self.audio_label.setAccessibleName(f"Sound server: {summary}")
         self._audio_changed()
         self._audio_read()
 
@@ -1045,6 +1051,8 @@ class MainWindow(QMainWindow):
         self.audio = DISCONNECTED
         self.audio_error = message
         status = Status("Sound server not reachable: type names by hand", Tone.WARN, message)
+        self.audio_label.set_parts(())
+        self.audio_label.setAccessibleName("")
         show_status(self.audio_label, status, more=True)
         self._audio_changed()
         self._audio_read()

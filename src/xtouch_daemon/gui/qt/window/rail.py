@@ -4,18 +4,26 @@ The navigation of the window Configuration: the rail of its pages on the left, a
 
 from collections.abc import Mapping
 
-from PyQt6.QtCore import QSize, Qt, pyqtSignal
+from PyQt6.QtCore import QSize, Qt, QTimer, pyqtSignal
 from PyQt6.QtWidgets import (
     QButtonGroup,
     QHBoxLayout,
     QPushButton,
+    QScrollArea,
     QStackedWidget,
     QToolButton,
     QVBoxLayout,
     QWidget,
 )
 
-from xtouch_daemon.gui.qt.pages.base import SETTINGS_PAGES, Page, page_title, scrolled
+from xtouch_daemon.gui.qt.pages.base import (
+    SETTINGS_GROUPS,
+    SETTINGS_NAV,
+    Page,
+    page_title,
+    scrolled,
+    settings_entry,
+)
 from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.settings import load_rail_labels, save_rail_labels
 from xtouch_daemon.gui.qt.theme.style import set_role
@@ -91,13 +99,17 @@ class Rail(QWidget):
 
 
 class SettingsPages(QWidget):
-    """The sections with options of their own (`SETTINGS_PAGES`), one at a time, with a navigation on the left."""
+    """
+    The sections with options of their own (`SETTINGS_PAGES`), one entry of the navigation on the left at a time;
+    the sections of a group (`SETTINGS_GROUPS`) share one, one below the other.
+    """
 
     picked = pyqtSignal(str, arguments=["page"])
     """A section of the navigation was clicked."""
 
     def __init__(self, pages: Mapping[str, Page]):
         super().__init__()
+        self.pages = pages
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, Space.M, 0, 0)
         layout.setSpacing(16)
@@ -106,16 +118,21 @@ class SettingsPages(QWidget):
         self.group = QButtonGroup(self)
         self.stack = QStackedWidget()
         self.buttons: dict[str, QPushButton] = {}
-        for name in SETTINGS_PAGES:
+        self.scrolls: dict[str, QScrollArea] = {}
+        self.section = SETTINGS_NAV[0]
+        """The section shown last: the first of its entry, or the one `show_page` scrolled to."""
+        for name in SETTINGS_NAV:
+            sections = SETTINGS_GROUPS.get(name, (name,))
             nav_button = QPushButton(page_title(name))
             set_role(nav_button, "nav", "variant")
             nav_button.setCheckable(True)
-            nav_button.setToolTip(f"[{name}] in the file")
+            nav_button.setToolTip(" and ".join(f"[{section}]" for section in sections) + " in the file")
             nav_button.clicked.connect(lambda _=False, name=name: self.picked.emit(name))
             self.group.addButton(nav_button)
             self.buttons[name] = nav_button
             nav.addWidget(nav_button)
-            self.stack.addWidget(scrolled(pages[name]))
+            self.scrolls[name] = scrolled(pages[name] if len(sections) == 1 else self._together(sections))
+            self.stack.addWidget(self.scrolls[name])
         nav.addStretch()
         holder = QWidget()
         holder.setLayout(nav)
@@ -124,13 +141,34 @@ class SettingsPages(QWidget):
         holder.setMinimumWidth(max(nav_button.sizeHint().width() for nav_button in self.buttons.values()) + 40)
         layout.addWidget(holder)
         layout.addWidget(self.stack, 1)
-        self.buttons[SETTINGS_PAGES[0]].setChecked(True)
+        self.buttons[SETTINGS_NAV[0]].setChecked(True)
+
+    def _together(self, sections: tuple[str, ...]) -> QWidget:
+        """The pages of `sections`, one below the other."""
+        widget = QWidget()
+        layout = QVBoxLayout(widget)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(Space.XL)
+        for section in sections:
+            layout.addWidget(self.pages[section])
+        layout.addStretch()
+        return widget
 
     def show_page(self, name: str) -> None:
-        """Shows the section `name`."""
-        self.buttons[name].setChecked(True)
-        self.stack.setCurrentIndex(SETTINGS_PAGES.index(name))
+        """Shows the section `name`: its entry, scrolled to it if it shares the page."""
+        entry = settings_entry(name)
+        self.section = name
+        self.buttons[entry].setChecked(True)
+        self.stack.setCurrentIndex(SETTINGS_NAV.index(entry))
+        self._scroll_to(name)
+        # a page shown for the first time has its place only once the event loop laid it out
+        QTimer.singleShot(0, lambda: self._scroll_to(name))
+
+    def _scroll_to(self, name: str) -> None:
+        scroll = self.scrolls[settings_entry(name)].verticalScrollBar()
+        if scroll is not None and self.section == name:
+            scroll.setValue(0 if name == settings_entry(name) else self.pages[name].y())
 
     @property
     def current_page(self) -> str:
-        return SETTINGS_PAGES[self.stack.currentIndex()]
+        return self.section

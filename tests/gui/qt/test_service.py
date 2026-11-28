@@ -579,7 +579,6 @@ def test_the_rail_shows_one_page_at_a_time(qtbot: QtBot, window: MainWindow):
         "Behavior",
         "Aliases",
         "Home Assistant",
-        "Home Assistant API",
         "Modes and chord",
         "Voice chat",
         "Extender",
@@ -589,6 +588,17 @@ def test_the_rail_shows_one_page_at_a_time(qtbot: QtBot, window: MainWindow):
     click(qtbot, window.rail_buttons["states"])
     assert window.current_page == "states"
 
+    # the broker and the API of Home Assistant share a page, the broker first
+    click(qtbot, window.nav_buttons["mqtt"])
+    assert window.current_page == "mqtt"
+    window.show_page("homeassistant")
+    assert window.current_page == "homeassistant"
+    assert window.nav_buttons["mqtt"].isChecked()
+    # scrolled to the API, below the broker
+    scroll = window.settings.scrolls["mqtt"].verticalScrollBar()
+    assert scroll is not None
+    qtbot.waitUntil(lambda: scroll.value() == min(scroll.maximum(), window.pages["homeassistant"].y()))
+    assert window.pages["homeassistant"].y() > 0
     click(qtbot, window.nav_buttons["device"])
     assert window.current_page == "device"
     # the page stays when the pages are built again

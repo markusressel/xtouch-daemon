@@ -431,8 +431,8 @@ A button's press, hold and LED
     A candidate with options of its own in a slot (a "place", see [Slots](../configuration/slots.md#places)) and a pool
     take only entries you pick from the lists (such as `recording`), not the typed ones.
 
-The pages `[mqtt]` (which can be added and removed there) and "Home Assistant API" (`[homeassistant]`) show how the
-daemon's connection is doing. "Test connection" tries the settings as they are in the editor, saved or not, and says
+The settings page "Home Assistant" has two sections, one below the other: "MQTT broker" (`[mqtt]`, which can be added
+and removed there) and "API" (`[homeassistant]`). Each shows how the daemon's connection is doing. "Test connection" tries the settings as they are in the editor, saved or not, and says
 what is wrong if that fails (for the API: the version of Home Assistant and how many entities it has).
 
 ## Suggestions from Home Assistant
@@ -468,8 +468,8 @@ value matches, e.g. "Matches 2: ..." for `bluez_output.*`, or "Matches nothing k
   play. `[aliases]` gets the names of the applications.
 - `person` of a `person` channel: the people in the voice chat now, as the running daemon tells them.
 
-The pill "Sound server: ..." at the left of the footer says how much the GUI read. A click lists the outputs, inputs
-and applications, with "Read again", e.g. after you started an application. Without a sound server, or without a daemon for the people of the
+The pill "Sound server" at the left of the footer says how much the GUI read: a speaker with the number of outputs, a
+microphone with the number of inputs, and a play icon with the number of applications that play. A click lists them, with "Read again", e.g. after you started an application. Without a sound server, or without a daemon for the people of the
 voice chat, type the names by hand.
 
 ## Undo

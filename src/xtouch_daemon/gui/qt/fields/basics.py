@@ -6,9 +6,9 @@ buttons.
 import html
 import math
 import re
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterable, Mapping
 
-from PyQt6.QtCore import QPointF, QSize, Qt
+from PyQt6.QtCore import QPointF, QRect, QSize, Qt
 from PyQt6.QtGui import QBrush, QColor, QIcon, QPainter, QPaintEvent, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QAbstractSpinBox,
@@ -23,7 +23,7 @@ from PyQt6.QtWidgets import (
 from xtouch_daemon.config.presets import Kind as PresetKind
 from xtouch_daemon.gui.domain.sources import Suggestion, preset_suggestions
 from xtouch_daemon.gui.domain.status import Status
-from xtouch_daemon.gui.qt.theme.icons import set_icon
+from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Radius, Space
 
@@ -104,6 +104,78 @@ class ElidedLabel(QLabel):
         )
 
 
+MORE = "  ▾"
+"""The end of the text of a pill that opens a popover (see `show_status`)."""
+
+
+class IconPill(ElidedLabel):
+    """
+    A pill whose text goes on in icons, each with a short text after it, e.g. the sound server: a speaker and "2", a
+    microphone and "1". The text (`text()`) comes first, the ▾ of a pill that opens a popover last.
+    """
+
+    ICON_GAP = Space.XS
+    """Pixels between an icon and its text."""
+
+    def __init__(self, text: str = "", role: str = "") -> None:
+        super().__init__(text, role)
+        self.parts: tuple[tuple[str, str], ...] = ()
+        """The icons (names, see `icon`) and their texts."""
+
+    def set_parts(self, parts: Iterable[tuple[str, str]]) -> None:
+        self.parts = tuple(parts)
+        self.updateGeometry()
+        self.update()
+
+    def _icon_size(self) -> int:
+        return self.fontMetrics().height()
+
+    def _part_width(self, text: str) -> int:
+        return Space.S + self._icon_size() + self.ICON_GAP + self.fontMetrics().horizontalAdvance(text)
+
+    def sizeHint(self) -> QSize:
+        hint = super().sizeHint()
+        return QSize(hint.width() + sum(self._part_width(text) for _, text in self.parts), hint.height())
+
+    def paintEvent(self, event: QPaintEvent | None) -> None:
+        if not self.parts:
+            super().paintEvent(event)
+            return
+        style = self.style()
+        assert style is not None
+        painter = QPainter(self)
+        option = QStyleOption()
+        option.initFrom(self)
+        style.drawPrimitive(QStyle.PrimitiveElement.PE_Widget, option, painter, self)
+        rect = self.contentsRect()
+        metrics = self.fontMetrics()
+        text = self.text()
+        head, tail = (text.removesuffix(MORE), MORE) if text.endswith(MORE) else (text, "")
+        color = self.palette().color(self.foregroundRole())
+        x = rect.left()
+
+        def write(words: str) -> None:
+            nonlocal x
+            width = metrics.horizontalAdvance(words)
+            box = QRect(x, rect.top(), width, rect.height())
+            flags = int(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            style.drawItemText(painter, box, flags, self.palette(), self.isEnabled(), words, self.foregroundRole())
+            x += width
+
+        write(head)
+        size = self._icon_size()
+        for name, words in self.parts:
+            x += Space.S
+            pixmap = icon(name, color.name(QColor.NameFormat.HexArgb)).pixmap(
+                QSize(size, size), self.devicePixelRatioF()
+            )
+            painter.drawPixmap(QRect(x, rect.top() + (rect.height() - size) // 2, size, size), pixmap)
+            x += size + self.ICON_GAP
+            write(words)
+        write(tail)
+        painter.end()
+
+
 def entity_label(text: str, entity: Entity, chip: bool = False) -> QLabel:
     """A state, a channel or a slot (or what stands for one) in its color; as a chip, on a tint of it."""
     widget = label(text, "chip" if chip else "")
@@ -126,7 +198,7 @@ def show_status(pill: QLabel, status: Status, more: bool = False) -> None:
     A status in a pill: its text, its tone as the color, and its tip. `more`: a click opens what it means in full (a
     popover, see `fields.popover`), which ▾ tells; its tip then says only that.
     """
-    pill.setText(f"{status.text}  ▾" if more else status.text)
+    pill.setText(f"{status.text}{MORE}" if more else status.text)
     # the first paragraph shows in the footer while the mouse is on it (see `HoverTips`)
     pill.setToolTip(f"{status.tip.split(chr(10) * 2)[0]}\n\nClick for details." if more else status.tip)
     set_role(pill, status.tone.value, "tone")

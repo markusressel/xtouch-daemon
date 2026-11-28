@@ -41,7 +41,7 @@ from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, help_label, help_tail, label, set_help, show_status
 from xtouch_daemon.gui.qt.fields.entities import EntitySource
 from xtouch_daemon.gui.qt.fields.option_row import add_rows, align_titles
-from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, page_title, row, set_text
+from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, row, section_title, set_text
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
 from xtouch_daemon.live.messages import Snapshot
@@ -58,7 +58,7 @@ class SectionPage(Page):
         self.section = SECTIONS[section]
         name = self.section.name
         header = QHBoxLayout()
-        header.addWidget(label(page_title(name), "section"))
+        header.addWidget(label(section_title(name), "section"))
         header.addWidget(label(f"[{name}]", "hint"))
         header.addStretch()
         self.remove_button = button("delete-outline", f"Remove [{name}]", "error", "danger")

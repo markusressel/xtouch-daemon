@@ -37,19 +37,37 @@ type Audio = Callable[[], AudioState]
 PAGE_TITLES = {
     "device": "Extender",
     "mqtt": "Home Assistant",
-    "homeassistant": "Home Assistant API",
     "switching": "Modes and chord",
     "voip": "Voice chat",
 }
+"""The names of the settings for people, in the navigation."""
+SECTION_TITLES = {"mqtt": "MQTT broker", "homeassistant": "API"}
 """
-The names of the settings for people: the MQTT broker is how Home Assistant is reached, its API how the entities are.
+The headings of sections that share a page (see `SETTINGS_GROUPS`): the MQTT broker is how Home Assistant is reached,
+its API how the entities are.
 """
 SETTINGS_PAGES = ("behavior", "aliases", "mqtt", "homeassistant", "switching", "voip", "device")
 """The settings, the ones changed most often first: `[device]` is set once, if ever."""
+SETTINGS_GROUPS = {"mqtt": ("mqtt", "homeassistant")}
+"""Sections that share an entry of the navigation and a page, one below the other, by the first of them."""
 
 
 def page_title(name: str) -> str:
     return PAGE_TITLES.get(name, name.capitalize())
+
+
+def section_title(name: str) -> str:
+    """The heading of a section on its page."""
+    return SECTION_TITLES.get(name, page_title(name))
+
+
+def settings_entry(name: str) -> str:
+    """The entry of the navigation that shows the section `name`: its own, or the first of its group."""
+    return next((first for first, group in SETTINGS_GROUPS.items() if name in group), name)
+
+
+SETTINGS_NAV = tuple(name for name in SETTINGS_PAGES if settings_entry(name) == name)
+"""The entries of the navigation of the settings."""
 
 
 def card() -> tuple[QFrame, QVBoxLayout]:
