@@ -147,9 +147,12 @@ crumbs, the "why" steps) and `qml/XTouch/Pages/Slot*.qml`. The Python types of t
 - **Simulate** shows a panel (`SlotWhatIf`) under the bar; Esc ends it (a `Shortcut` of the page).
 - **Edit menu**: `PageBackend.editable` calls the overridable `editable_actions()` (new, `[]` by default); the page
   answers by the card that has the focus.
-- **Placeholders for the forms**: `SlotPlaceForm.qml` (input: `optionPath`, `strip`, `allowed`, `pick`) is the
-  option rows of the place of a candidate; `SlotControlParts.qml` (input: the entry's `path` and `parts`) is the rows
-  of the parts of a control entry. Both write through `SlotsPage.setPlaceOption` and `SlotControls.setOption`.
+- **Joins with the forms**: `SlotPlaceForm.qml` shows `slots.placeForm`, a `Form` (`forms/places.py` makes its rows
+  from `look_options`: all optional, placeholders and help say what an unset option takes from the channel or pool,
+  meter as one choice, buttons with their LED). `SlotControlParts.qml` shows `controls.entryForm(index)`, a `Form` per
+  entry (rows by part, `id` only for Home Assistant; a part reset is removed and the entry refreshes). Both write
+  through the form's `put` and the Editor; the old `setPlaceOption`/`setOption` slots are gone. The place form and the
+  entry forms are made on first use, so the `FormContext` is created after the pages (it must be deleted after them).
 - The share between the cards and the inspector is not remembered yet.
 
 ## The forms
@@ -180,7 +183,11 @@ form.retarget(("channel", "out"))              # the channel it shows now: the r
 **In QML.** `FormView { form: theForm }` shows a form. Rows come and go with `Reveal`, problems and help fade and
 expand. `UsedBy` (`context.usedBy(where, none)`) and `HistoryBars` (`context.historyBars(history)`) are the small
 pictures of a channel and a state. `PartPreviewPlaceholder` stands where the preview of a group of parts (display,
-encoder, buttons) belongs: the part of the drawing of the device replaces it with its `PartPreview`.
+encoder, buttons) belongs: now `FormPartPreview` (the `PartPreview` of `XTouch.Device`, its model from
+`form.previewModel(part)`, replayed with `demos.scene` whenever the form refreshes). `FormView` puts it left of the
+options of its group while it is wide (`form.previewWidth` + room), above them while narrow; the last row of the group
+makes room for what the preview is taller by. `RowSpec` got `title` and `reset_tip`; `Form.strip` is set by
+`channel_form`/`pool_form`.
 
 **Settings.** `SettingsPage` has `entries` (the navigation), `sections` (a backend per section: `form`, `present`,
 `add()`, `remove()`, `live`), `aliases`, `current`, `showSection(name)` and `reveal(path)`. The shell calls

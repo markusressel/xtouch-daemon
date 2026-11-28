@@ -16,6 +16,6 @@ TypedChoice 1.0 TypedChoice.qml
 SuggestionList 1.0 SuggestionList.qml
 HelpLabel 1.0 HelpLabel.qml
 ProblemText 1.0 ProblemText.qml
-PartPreviewPlaceholder 1.0 PartPreviewPlaceholder.qml
 UsedBy 1.0 UsedBy.qml
 HistoryBars 1.0 HistoryBars.qml
+FormPartPreview 1.0 FormPartPreview.qml

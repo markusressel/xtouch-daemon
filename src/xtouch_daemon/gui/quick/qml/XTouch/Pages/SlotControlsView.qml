@@ -1,5 +1,5 @@
 // The controls of the slot picked (`[controls].<n>`): a box per entry with its When, the parts it sets and a way to
-// add one, and a way to add an entry. The fields of the parts are the option rows of the forms (a placeholder here).
+// add one, and a way to add an entry. The fields of the parts are the option rows of the forms (`SlotControlParts`).
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
@@ -111,9 +111,6 @@ Column {
                     Layout.fillWidth: true
                     controls: view.controls
                     entryIndex: box.row.index
-                    optionPath: box.row.path
-                    parts: box.row.parts
-                    hasId: box.row.hasId
                 }
                 SlotChoice {
                     objectName: "add_part_" + box.row.index

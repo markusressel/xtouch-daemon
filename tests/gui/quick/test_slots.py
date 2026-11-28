@@ -11,6 +11,7 @@ from PyQt6.QtCore import QPointF, Qt
 from tests.gui.quick.slots_helpers import click_row, model_rows, page, polish, press, snapshot, tell, texts
 from tests.support.quick import Ui
 from xtouch_daemon.gui.domain.status import Reason
+from xtouch_daemon.gui.quick.forms.form import Form
 from xtouch_daemon.live.messages import SetMode, SetOverride
 
 
@@ -21,6 +22,18 @@ def info(ui: Ui) -> dict[str, object]:
 def plain(markup: object) -> str:
     """Rich text as the words it shows."""
     return re.sub(r"<[^>]*>", "", str(markup)).replace("&amp;", "&")
+
+
+def place_form(ui: Ui) -> Form:
+    form = page(ui).placeForm
+    assert isinstance(form, Form)
+    return form
+
+
+def place_rows(ui: Ui) -> dict[str, dict[str, Any]]:
+    """The rows of the form of the place by option name: their `spec` and their `info`."""
+    model: Any = place_form(ui).rows
+    return {spec["name"]: {"spec": spec, "info": info} for _key, spec, info in model.rows}
 
 
 def tall(ui: Ui) -> None:
@@ -79,11 +92,11 @@ def test_a_strip_of_the_drawing_picks_its_card_and_the_inspector_shows_the_candi
     assert isinstance(place, dict)
     assert place["button"] == "Edit the pool"
     assert "encoder" in place["allowed"]
-    assert place["path"] == ["slots", "2", 1]
-    # the form of the place is the forms' part: a placeholder takes what it needs
-    placeholder = ui.item("place_form_placeholder")
-    assert placeholder.property("strip") == place["strip"]
-    assert placeholder.property("optionPath") == ["slots", "2", 1]
+    # the form of the place is the option rows of the forms, for this candidate
+    assert ui.shows("place_form")
+    assert list(place_form(ui).basePath) == ["slots", "2", "1"]
+    assert place_form(ui).stripType == place["strip"]
+    assert {"color", "encoder"} <= set(place_rows(ui))
 
 
 def test_the_overview_has_a_line_for_each_slot(ui: Ui):
@@ -203,7 +216,7 @@ def test_candidates_are_added_changed_and_removed(ui: Ui):
     slots.pickRow(3, 0)
 
     # an option of the place, kept with the candidate, and dropped when it shows something that has no use for it
-    slots.setPlaceOption("encoder", "pick")
+    place_form(ui).setValue("encoder", "pick")
     (first, _) = document.get(("slots", "3"))
     assert first["show"] == "auto"
     assert first["encoder"] == "pick"
@@ -217,10 +230,10 @@ def test_candidates_are_added_changed_and_removed(ui: Ui):
     place: Any = info(ui)["place"]
     assert not place.get("form")
     slots.setShows("browser")
-    slots.setPlaceOption("label", "Apps")
+    place_form(ui).setValue("label", "Apps")
     assert document.get(("slots", "3", 0)) == {"show": "browser", "label": "Apps"}
-    assert slots.placeOption("label") == "Apps"
-    slots.setPlaceOption("label", None)
+    assert place_form(ui).valueOf("label") == "Apps"
+    place_form(ui).reset("label")
     assert document.get(("slots", "3")) == ["browser", "out if call"]
     slots.setShows("out")
 
@@ -370,3 +383,124 @@ def test_edit_actions_follow_the_focus(ui: Ui):
     assert slots.editable == ["paste"]
     ui.focus("when_field")
     assert slots.editable == []
+
+
+def led_of(ui: Ui, name: str) -> str:
+    """The placeholder of the LED of a button of the place."""
+    form = place_form(ui)
+    loaded = form.buttonLoad(name, None)
+    parts = form.buttonView(name, loaded["texts"], loaded["kept"])["parts"]
+    return next(part["placeholder"] for part in parts if part["name"] == "led")
+
+
+def place_info(ui: Ui) -> dict[str, Any]:
+    place: Any = info(ui)["place"]
+    return place
+
+
+def test_a_place_shows_what_it_takes_from_its_channel_or_pool(ui: Ui):
+    document = ui.app.editor.document
+    document.set(("channel", "out", "rec"), "muted")
+    document.set(("channel", "out", "lit_when_idle"), True)
+    document.set(("pool", "auto", "color"), "green")
+    document.set(("pool", "auto", "max_volume"), 110)
+    document.set(("pool", "outs"), {"channels": ["out"]})
+    document.set(("slots", "3"), ["outs", "devices", "-"])
+    ui.app.editor.edited()
+    slots = page(ui)
+    form = place_form(ui)
+
+    slots.pickRow(1, 0)
+    assert place_info(ui)["title"] == "Look in slot 1"
+    assert plain(place_info(ui)["parts"]).startswith("What the parts of out do is set on the channel.")
+    assert place_info(ui)["button"] == "Edit the channel"
+    rows = place_rows(ui)
+    assert rows["label"]["info"]["placeholder"] == "As on the channel: Speaker"
+    assert rows["color"]["info"]["shown"] == "cyan"
+    assert rows["lit_when_idle"]["info"]["shown"] is True
+    assert led_of(ui, "rec") == "As on the channel: muted"
+    assert led_of(ui, "solo") == "As on the channel: off"
+    assert rows["meter"]["info"]["placeholder"] == "As on the channel: pre_fader"
+    assert (
+        plain(rows["rec"]["spec"]["help"])
+        .replace("`", "")
+        .startswith("What the LED of Rec shows while slot 1 shows out. Unset: as on the channel.")
+    )
+    assert (
+        plain(rows["color"]["spec"]["help"])
+        .replace("`", "")
+        .startswith("The backlight of the LCD while slot 1 shows out. Unset: as on the channel: cyan.")
+    )
+    assert not rows["color"]["info"]["resettable"]
+    assert rows["color"]["info"]["resetTip"] == "Unset: as on the channel"
+    # set at the place, and back to the channel's
+    form.setValue("color", "red")
+    assert document.get(("slots", "1", 0)) == {"show": "out", "color": "red"}
+    assert place_rows(ui)["color"]["info"]["shown"] == "red"
+    assert place_rows(ui)["color"]["info"]["resettable"]
+    form.reset("color")
+    assert document.get(("slots", "1")) == "out"
+    assert place_rows(ui)["color"]["info"]["shown"] == "cyan"
+
+    # a pool: its own options, else those of the strip type
+    slots.pickRow(2, 1)
+    assert plain(place_info(ui)["parts"]).startswith("What the parts of auto do is set in the pool.")
+    rows = place_rows(ui)
+    assert rows["encoder"]["info"]["placeholder"] == "As in the pool: pick"
+    assert rows["color"]["info"]["shown"] == "green"
+    assert rows["lit_when_idle"]["info"]["shown"] is False
+    assert led_of(ui, "rec") == "As in the pool: recording"
+    assert rows["min_volume"]["info"]["placeholder"] == "As in the pool: 0 %"
+    assert rows["max_volume"]["info"]["placeholder"] == "As in the pool: 110 %"
+    assert (
+        plain(rows["encoder"]["spec"]["help"])
+        .replace("`", "")
+        .startswith(
+            "What the encoder does while slot 2 shows an application of auto without a channel. "
+            "Unset: as in [pool.auto]."
+        )
+    )
+    assert rows["color"]["info"]["resetTip"] == "Unset: as in pool auto"
+
+    # a pool of channels: its channels bring their look, the place has none
+    slots.pickRow(3, 0)
+    assert place_info(ui)["form"] is False
+    assert place_rows(ui) == {}
+    assert plain(place_info(ui)["parts"]).startswith("Each channel of outs brings its own look")
+    assert place_info(ui)["button"] == "Edit the pool"
+
+    slots.pickRow(3, 1)
+    rows = place_rows(ui)
+    assert rows["encoder"]["info"]["placeholder"] == "As in the pool: balance"
+    assert (
+        plain(rows["encoder"]["spec"]["help"])
+        .replace("`", "")
+        .startswith("What the encoder does while slot 3 shows a device of devices. Unset: as in [pool.devices].")
+    )
+
+    # nothing: no look
+    slots.pickRow(3, 2)
+    assert not place_info(ui)
+    assert place_rows(ui) == {}
+
+
+def test_the_rows_of_the_place_are_the_rows_of_the_forms(ui: Ui):
+    tall(ui)
+    slots = page(ui)
+    slots.pickRow(1, 0)
+    polish(ui)
+    assert ui.shows("row_color")
+    assert ui.shows("row_label")
+    slots.pickRow(2, 1)
+    polish(ui)
+    # the encoder without `homeassistant`: that is a control of the slot
+    assert "homeassistant" not in place_rows(ui)["encoder"]["spec"]["choices"]
+    assert "pick" in place_rows(ui)["encoder"]["spec"]["choices"]
+    # no preview of a part at a place
+    assert not ui.shows("partPreview")
+    # an application of your own pool takes no `pick` for the encoder
+    ui.app.editor.document.set(("pool", "mine"), {"kind": "apps", "match": ["x"]})
+    ui.app.editor.document.set(("slots", "4"), ["mine"])
+    ui.app.editor.edited()
+    slots.pickRow(4, 0)
+    assert "pick" not in place_rows(ui)["encoder"]["spec"]["choices"]
