@@ -79,6 +79,8 @@ class Ui:
         """Clicks the middle of an item (or `at`, in its coordinates) with the mouse, as a user does."""
         item = self.item(target) if isinstance(target, str) else target
         assert item.isVisible(), f"{item.objectName()!r} does not show"
+        # the window lays out what changed when it draws: before that, an item may not be where the click goes
+        self.grab()
         self.bring_into_view(item)
         point = self.center(item) if at is None else item.mapToScene(at).toPoint()
         MOUSE.mouseClick(self.window, button, Qt.KeyboardModifier.NoModifier, point)

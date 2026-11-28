@@ -252,11 +252,16 @@ def test_a_trial_daemon_starts_restarts_and_ends_with_the_window(make_ui: MakeUi
 
 def test_a_trial_daemon_that_ends_by_itself_is_told(make_ui: MakeUi):
     process = QProcess()
-    process.start("sh", ["-c", "sleep 0.5; exit 3"])
-    ui = make_ui(extra={"launch_trial": lambda path: process})
+
+    def launch(path: object) -> QProcess:
+        # started as the shell starts it: under load, one started before the window could end before it listens
+        process.start("sh", ["-c", "sleep 0.5; exit 3"])
+        return process
+
+    ui = make_ui(extra={"launch_trial": launch})
     ui.app.shell.try_without_device()
 
-    ui.wait_until(lambda: ui.app.shell.trying is None)
+    ui.wait_until(lambda: ui.app.shell.trying is None, timeout=10000)
 
     assert ui.app.shell.statusText == messages.trial_ended(3)
 

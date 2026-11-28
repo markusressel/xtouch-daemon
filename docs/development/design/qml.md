@@ -170,8 +170,8 @@ forms the same way.
 **In Python.** A `Form` is a list of rows over one place of the document:
 
 ```python
-form = channel_form(forms_of(app), "output")   # the options of a channel of the type; `pool_form(...)` for a pool
-form.retarget(("channel", "out"))              # the channel it shows now: the rows change in place
+form = channel_form(forms_of(app), "output")  # the options of a channel of the type; `pool_form(...)` for a pool
+form.retarget(("channel", "out"))  # the channel it shows now: the rows change in place
 ```
 
 - `forms_of(app)` is the `FormContext` of the window: the sound server (`set_audio(state)`), the daemon's state
