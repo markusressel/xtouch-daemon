@@ -39,7 +39,7 @@ from xtouch_daemon.system.systemd import Service
 MakeUi = Callable[..., Ui]
 
 # The style of the controls is chosen once per process, by the first QML that imports them. A worker that ran the
-# prototype of the cards (tests/gui/qt/quick) first would have Qt's own style: set ours for the whole process.
+# widgets first would have Qt's own style: set ours for the whole process.
 os.environ.setdefault("QT_QUICK_CONTROLS_STYLE", STYLE)
 os.environ.setdefault("QML_IMPORT_PATH", str(QML))
 

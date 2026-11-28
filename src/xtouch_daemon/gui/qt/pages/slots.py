@@ -78,8 +78,6 @@ from xtouch_daemon.gui.qt.motion import fading, reveal
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, edged, row, scrolled, set_text
 from xtouch_daemon.gui.qt.pages.slot_cards import NODE_ICON, StackList, node_icon
 from xtouch_daemon.gui.qt.pages.slot_controls import SlotControls
-from xtouch_daemon.gui.qt.quick import cards as quick_cards
-from xtouch_daemon.gui.qt.quick.cards import QuickCards
 from xtouch_daemon.gui.qt.theme.style import current_colors, current_mode, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
@@ -319,16 +317,6 @@ class SlotsPanel(Page):
         self.right.add(self.inspector_scroll)
         self.right.add(self.overview_scroll)
         left: QWidget = self.card_scroll
-        self.quick: QuickCards | None = None
-        if quick_cards.enabled():
-            # a prototype: the cards in Qt Quick show, the widget cards behind them keep the picking and the editing
-            self.quick = QuickCards(protocol.STRIPS, self._quick_pick, self.pick_slot)
-            left = QWidget()
-            both = QVBoxLayout(left)
-            both.setContentsMargins(self.cards.contentsMargins())
-            both.addWidget(self.quick)
-            both.addWidget(self.card_scroll)
-            self.card_scroll.hide()
         self.splitter = PaneSplitter("slots", left, self.right)
         panel = QFrame()
         set_role(panel, "card")
@@ -451,14 +439,6 @@ class SlotsPanel(Page):
             set_role(self.card_frames[slot - 1], bool(problems), "problem")
             set_role(self.card_frames[slot - 1], slot == self.slot, "picked")
             self.card_frames[slot - 1].setToolTip("\n".join(str(problem) for problem in problems))
-            if self.quick is not None:
-                contents = quick_cards.CardContents(
-                    quick_cards.card_rows(candidates, shown_candidate, why, self.document.values, dark, member),
-                    stack.currentRow(),
-                    slot == self.slot,
-                    "\n".join(str(problem) for problem in problems),
-                )
-                self.quick.show_card(slot, contents)
 
     def _show_inspector(self) -> None:
         if self.slot is None:
@@ -1052,10 +1032,6 @@ class SlotsPanel(Page):
         self.card_scroll.ensureWidgetVisible(self.card_frames[slot - 1])
         # up and down only: a card wider than the pane would scroll to its right end, cutting off its conditions
         self.card_scroll.horizontalScrollBar().setValue(0)  # pyright: ignore[reportOptionalMemberAccess]
-
-    def _quick_pick(self, slot: int, row: int) -> None:
-        """A row of a card in Qt Quick was clicked: as on its widget card."""
-        self.lists[slot - 1].setCurrentRow(row)
 
     def pick_slot(self, slot: int) -> None:
         """The card of a slot was clicked beside its candidates: the slot alone, with no candidate."""

@@ -19,7 +19,7 @@ def _without_gui_modules(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_the_gui_starts_with_the_configuration(config_home: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    import xtouch_daemon.gui.qt
+    import xtouch_daemon.gui.quick.app
 
     paths: list[Path] = []
 
@@ -27,7 +27,7 @@ def test_the_gui_starts_with_the_configuration(config_home: Path, monkeypatch: p
         paths.append(path)
         return 0
 
-    monkeypatch.setattr(xtouch_daemon.gui.qt, "run_gui", run_gui)
+    monkeypatch.setattr(xtouch_daemon.gui.quick.app, "run_quick", run_gui)
 
     assert invoke("gui").exit_code == 0
     assert invoke("gui", "-c", "/tmp/other.toml").exit_code == 0
@@ -62,9 +62,9 @@ def test_without_the_gui_extra_it_says_how_to_install_it(monkeypatch: pytest.Mon
 
 def test_a_broken_gui_module_is_not_hidden_behind_the_extra(monkeypatch: pytest.MonkeyPatch) -> None:
     _without_gui_modules(monkeypatch)
-    monkeypatch.setitem(sys.modules, "xtouch_daemon.gui.qt.window", None)
+    monkeypatch.setitem(sys.modules, "xtouch_daemon.gui.quick.window", None)
 
-    with pytest.raises(ImportError, match=r"xtouch_daemon\.gui\.qt\.window"):
+    with pytest.raises(ImportError, match=r"xtouch_daemon\.gui\.quick\.window"):
         invoke("gui")
 
 
