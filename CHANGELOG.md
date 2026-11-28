@@ -252,6 +252,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- GUI, Simulate: a click on a what-if no longer scrolls the cards when they are scrolled to the bottom, and the
+  what-if keeps the focus. A fade ends when its widget changes its size, so a card that grows no longer shows its old
+  rows over the new ones.
 - A paused media player keeps its application on its slot again: a browser ends the stream of a paused video a few
   seconds after the pause, and the slot let go of the channel or the application. Now the application counts as
   playing while its player stays paused, until it is stopped or closed. The daemon reads which players are paused

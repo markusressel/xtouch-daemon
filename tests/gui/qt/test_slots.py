@@ -747,3 +747,34 @@ def test_simulate_starts_from_reality_and_frames_what_differs(
     QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
     (out,) = (button for button in page.what_if_row.findChildren(QPushButton) if button.text() == "out")
     assert out.isChecked()
+
+
+def test_a_what_if_clicked_at_the_bottom_of_the_cards_keeps_their_scroll_and_its_focus(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon
+):
+    window = make_window(live_socket=live_daemon.path)
+    window.resize(1280, 700)
+    window.show_page("slots")
+    page = panel(window)
+    window.document.set(("slots", "4"), ["out if present", "apps"])
+    window.editor.edited()
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    live_daemon.send(dataclasses.replace(device_snapshot(window, strip_state(("Real", "1%"))), features=("on_device",)))
+    qtbot.waitUntil(lambda: page.simulate_button.isEnabled())
+    page.simulate(WhatIf())
+    QApplication.processEvents()
+    bar = page.card_scroll.verticalScrollBar()
+    assert bar is not None
+    bar.setValue(bar.maximum())
+    bottom = bar.value()
+    assert bottom > 0
+    (out,) = (button for button in page.what_if_row.findChildren(QPushButton) if button.text() == "out")
+    out.setFocus()
+    out.click()
+    QApplication.processEvents()
+    # the bar was made anew without getting shorter for a moment, and the new out has the focus
+    assert bar.value() == bottom
+    focused = QApplication.focusWidget()
+    assert isinstance(focused, QPushButton)
+    assert focused.text() == "out"
+    assert focused is not out

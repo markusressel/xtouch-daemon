@@ -184,3 +184,15 @@ def test_a_reveal_keeps_an_effect_of_the_widget(column: tuple[QWidget, QLabel, Q
     animation.setCurrentTime(Motion.RESIZE)
     assert second.isHidden()
     assert second.graphicsEffect() is own
+
+
+def test_a_fade_ends_when_its_widget_changes_its_size(column: tuple[QWidget, QLabel, QLabel]):
+    # what it shows moves: the old picture would show it twice
+    _, first, _ = column
+    with fading(first):
+        first.setText("changed")
+    (fade,) = fades(first)
+    first.setFixedHeight(first.height() + 20)
+    assert fade.isHidden()
+    gone()
+    assert fades(first) == []

@@ -7,7 +7,7 @@ happen at once (in tests and screenshots).
 import contextlib
 from collections.abc import Iterator
 
-from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, Qt, QVariantAnimation
+from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, QEvent, QObject, Qt, QVariantAnimation
 from PyQt6.QtGui import QPainter, QPaintEvent, QPixmap
 from PyQt6.QtWidgets import QGraphicsOpacityEffect, QWidget
 
@@ -37,7 +37,7 @@ def moving(widget: QWidget) -> bool:
 class Fade(QWidget):
     """The old picture of a widget over its new look, fading out; gone at the end."""
 
-    def __init__(self, over: QWidget | None, picture: QPixmap):
+    def __init__(self, over: QWidget, picture: QPixmap):
         super().__init__(over)  # pyright: ignore[reportArgumentType]  (PyQt6 types the parent as Self)
         self.picture = picture
         self.opacity = 1.0
@@ -51,9 +51,22 @@ class Fade(QWidget):
         self.animation.setEndValue(0.0)
         self.animation.valueChanged.connect(self._fade)
         self.animation.finished.connect(self.deleteLater)
+        # a widget that changes its size moves what it shows: the old picture would show twice, apart
+        over.installEventFilter(self)
         self.show()
         self.raise_()
         self.animation.start()
+
+    def eventFilter(self, a0: QObject | None, a1: QEvent | None) -> bool:
+        if (
+            a1 is not None
+            and a1.type() == QEvent.Type.Resize
+            and self.animation.state() == QAbstractAnimation.State.Running
+        ):
+            self.animation.stop()
+            self.hide()
+            self.deleteLater()
+        return False
 
     def _fade(self, opacity: float) -> None:
         self.opacity = opacity

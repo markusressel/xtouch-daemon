@@ -12,6 +12,7 @@ from typing import Any
 from PyQt6.QtCore import QEvent, QObject, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QKeySequence, QMouseEvent, QPainter, QPen, QPixmap, QShortcut, QStandardItemModel
 from PyQt6.QtWidgets import (
+    QApplication,
     QComboBox,
     QFrame,
     QGridLayout,
@@ -103,9 +104,11 @@ def _lay_out(window: QWidget) -> None:
             layout.activate()
 
 
-def _clear(bar: QLayout) -> None:
-    """Removes the widgets of a bar (it has nothing else)."""
-    while (item := bar.takeAt(0)) is not None:
+def _clear(bar: QLayout, count: int | None = None) -> None:
+    """Removes the widgets of a bar (it has nothing else), or its first `count`."""
+    for _ in range(bar.count() if count is None else count):
+        item = bar.takeAt(0)
+        assert item is not None
         widget = item.widget()
         assert widget is not None
         # off the screen at once: deleted later, it would stay where it was until then
@@ -316,6 +319,8 @@ class SlotsPanel(Page):
         panel = QFrame()
         set_role(panel, "card")
         self.what_if_panel = panel
+        # keeps the focus while its what-ifs are made anew (see `_show_what_if_bar`)
+        panel.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         self.what_if_bar = FlowLayout(panel, Space.L)
         self.what_if_bar.setContentsMargins(Space.M, Space.S, Space.M, Space.S)
         self.what_if_row = QWidget()
@@ -881,8 +886,18 @@ class SlotsPanel(Page):
         self.simulated.emit()
 
     def _show_what_if_bar(self, inputs: Inputs, what_if: WhatIf) -> None:
-        _clear(self.what_if_bar)
+        # the focus stays on the what-if clicked: a focused widget that goes would pass it on, and the area of the
+        # cards would scroll to where it lands
+        focused = QApplication.focusWidget()
+        inside = focused is not None and self.what_if_panel.isAncestorOf(focused)  # pyright: ignore[reportArgumentType]
+        name = focused.objectName() if focused is not None and inside else None
+        if name is not None:
+            self.what_if_panel.setFocus()
+        # the new ones first, then the old ones go: in between the bar is taller, never shorter, so the area of the
+        # cards below it never gets shorter for a moment (at the bottom, it would scroll up and stay there)
+        old = self.what_if_bar.count()
         mode = Choice()
+        mode.setObjectName("what-if mode")
         # as wide as its longest mode
         set_role(mode, "true", "narrow")
         mode.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
@@ -905,6 +920,12 @@ class SlotsPanel(Page):
         pools: list[QWidget] = [self._count(name, *counts[name]) for name in counts]
         pools += [self._toggle(what_if, name, True) for name in inputs.presence if name in inputs.pools - counts.keys()]
         self._what_if_group("Pools", pools)
+        _clear(self.what_if_bar, old)
+        # the new one: the old one is hidden, deleted later
+        panel = self.what_if_panel
+        again = [widget for widget in panel.findChildren(QWidget, name) if widget.isVisibleTo(panel)]
+        if name and again:
+            again[0].setFocus()
 
     def _what_if_group(self, title: str, widgets: list[QWidget]) -> None:
         """A group of the what-ifs: its title over its controls."""
@@ -935,6 +956,7 @@ class SlotsPanel(Page):
         line.addWidget(dot)
         line.addWidget(label(name))
         count = QSpinBox()
+        count.setObjectName(f"what-if count {name}")
         indent_text(count)
         count.setRange(0, 2 * protocol.STRIPS)
         count.setValue(value)
@@ -955,6 +977,7 @@ class SlotsPanel(Page):
         flipped = name in (what_if.flipped if flip else what_if.on)
         lit = is_present(name, flipped) if flip else flipped
         toggle = QPushButton(name)
+        toggle.setObjectName(f"what-if {name}")
         set_role(toggle, "what-if", "variant")
         toggle.setCheckable(True)
         toggle.setChecked(what_if.differs(self.what_if_start or WhatIf(), name, flip))
