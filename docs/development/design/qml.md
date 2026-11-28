@@ -186,3 +186,24 @@ encoder, buttons) belongs: the part of the drawing of the device replaces it wit
 `add()`, `remove()`, `live`), `aliases`, `current`, `showSection(name)` and `reveal(path)`. The shell calls
 `show_live(snapshot)` with the daemon's snapshots. The broker test and the plugin installers run in threads
 (`pages/settings_support.py`), and only the latest result of a test shows.
+
+## The window
+
+`window/shell.py` (`Shell`, `app.shell` in QML) holds everything around the pages. The decisions that are not obvious:
+
+- **Menus are data.** `window/menus.py` describes File, Edit, View and Help (text, keys, description, check state) and
+  `AppMenu.qml` builds them. The same data gives the shortcuts (`Shortcut`s of the application, so they work in a text
+  field too) and the popover of the keys. The window's undo wins over the undo of a text field through a
+  `ShortcutOverride` filter (`window/keys.py`).
+- **Dialogs are in the window.** `Dialogs.ask()` shows `DialogHost.qml` and waits in a nested event loop, as
+  `QMessageBox.exec` did, so a flow such as save, ask about overwriting, save again stays one function. Tests give the
+  window a `FakeDialogs` that answers at once.
+- **Panels.** The device and the log each have a `Host` per side of the configuration; a host shows while its panel is
+  there. A split does not follow items that are reparented in and out, so the panels are built once and move between
+  hosts, the window of their own (`PanelWindow`, a QML window, never a popup) and a parking item. Place, visibility
+  and size are in `QSettings` (`panels/<name>/...`); the View menu moves them.
+- **Zoom** keeps the widget design: Qt scales a whole application at its start, so `run_quick` loops, one application
+  per zoom, and a `Session` carries the document with its history, the page, the geometry and the trial daemon.
+- **Pill popovers** are `Details` (Python rows) shown by `DetailsPopover.qml`; they rebuild while open.
+- **The log** fills the `QTextDocument` of a `TextArea` from Python and asks the daemon only while the panel shows.
+- **Hover tips** come from one event filter on the window: the first paragraph of the `tip` of the item under the mouse.

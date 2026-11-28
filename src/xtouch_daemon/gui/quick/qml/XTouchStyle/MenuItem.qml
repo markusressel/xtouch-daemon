@@ -8,7 +8,7 @@ import XTouch
 T.MenuItem {
     id: control
     property string description: ""
-    readonly property string shortcutText: action && action.shortcut ? String(action.shortcut) : ""
+    property string shortcutText: action && action.shortcut ? String(action.shortcut) : ""
 
     implicitWidth: Math.max(implicitBackgroundWidth + leftInset + rightInset,
                             implicitContentWidth + leftPadding + rightPadding)
@@ -38,11 +38,13 @@ T.MenuItem {
             spacing: 0
             Layout.fillWidth: true
             Text {
+                Layout.alignment: Qt.AlignLeft
                 text: control.text
                 font: control.font
                 color: control.enabled ? Theme.colors.text : Theme.colors.text_muted
             }
             Text {
+                Layout.alignment: Qt.AlignLeft
                 visible: control.description !== ""
                 text: control.description
                 font.pointSize: Theme.fontSize.caption

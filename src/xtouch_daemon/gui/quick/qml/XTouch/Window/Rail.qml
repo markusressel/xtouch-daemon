@@ -7,7 +7,7 @@ import XTouch
 Rectangle {
     id: rail
     required property QtObject app
-    property bool labels: false
+    property bool labels: app.shell.railLabels
 
     objectName: "rail"
     implicitWidth: column.implicitWidth + 2 * Theme.space.xs
@@ -53,5 +53,19 @@ Rectangle {
                 onClicked: rail.app.showPage(modelData.name)
             }
         }
+    }
+
+    // shows or hides the names of the pages under their icons
+    ToolButton {
+        id: toggle
+        objectName: "rail_labels"
+        anchors { bottom: parent.bottom; bottomMargin: Theme.space.s; horizontalCenter: parent.horizontalCenter }
+        icon.source: "image://icon/" + (rail.labels ? "chevron-double-left" : "chevron-double-right")
+        icon.width: 18
+        icon.height: 18
+        property string tip: rail.labels ? "Hide the names of the pages" : "Show the names of the pages"
+        ToolTip.visible: hovered
+        ToolTip.text: tip
+        onClicked: rail.app.shell.setRailLabels(!rail.labels)
     }
 }
