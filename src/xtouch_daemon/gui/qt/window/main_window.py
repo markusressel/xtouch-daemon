@@ -385,10 +385,8 @@ class MainWindow(QMainWindow):
         self.audio_popover: QFrame | None = None
         self.reopen_audio = False
         """Whether the popover asked to read again: it shows the result."""
+        # reading again is in its popover ("Read again")
         layout.addWidget(self.audio_label, 0, Qt.AlignmentFlag.AlignVCenter)
-        self.refresh_audio = flat_button("refresh", "Read the devices and applications of the sound server again")
-        self.refresh_audio.clicked.connect(self.load_audio)
-        layout.addWidget(self.refresh_audio)
 
     def _pages(self) -> QStackedWidget:
         def audio() -> AudioState:

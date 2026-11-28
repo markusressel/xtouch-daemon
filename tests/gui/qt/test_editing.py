@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QLabel, QListWidgetItem
+from PyQt6.QtWidgets import QLabel, QListWidgetItem, QPushButton, QToolButton
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import (
@@ -62,7 +62,12 @@ def test_the_window_shows_the_configuration(window: MainWindow, path: Path):
         label for label in popover.findChildren(QLabel) if label.pixmap() is not None and not label.pixmap().isNull()
     ]
     assert len(marks) == 3
+    # reading again is there, and only there: no button beside the pill
+    assert "Read again" in [button.text() for button in popover.findChildren(QPushButton)]
     popover.close()
+    footer = window.audio_label.parentWidget()
+    assert footer is not None
+    assert not [button for button in footer.findChildren(QToolButton) if "sound server again" in button.toolTip()]
     assert window.windowTitle() == path.name
     assert not window.save_button.isEnabled()
     assert not window.problems_button.isVisible()
