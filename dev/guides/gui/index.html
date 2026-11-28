@@ -29,7 +29,7 @@
       
       
       <link rel="icon" href="../../images/icon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.4">
     
     
       
@@ -40,7 +40,7 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.5cb9f1ba.min.css">
       
         
           
@@ -634,10 +634,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#header-footer-and-help" class="md-nav__link">
+  <a href="#menu-bar-footer-and-help" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Header, footer and help
+        Menu bar, footer and help
       </span>
     </span>
   </a>
@@ -3087,10 +3087,10 @@
 </li>
         
           <li class="md-nav__item">
-  <a href="#header-footer-and-help" class="md-nav__link">
+  <a href="#menu-bar-footer-and-help" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Header, footer and help
+        Menu bar, footer and help
       </span>
     </span>
   </a>
@@ -3490,7 +3490,10 @@
   
     <a href="https://github.com/markusressel/xtouch-daemon/edit/main/docs/guides/gui.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+      <span aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+      </span>
+      <span class="md-visually-hidden">Edit this page</span>
     </a>
   
   
@@ -3525,6 +3528,16 @@ that plays, to every slot that names it): the built-in <code>[pool.apps]</code>,
 <code>[pool.devices]</code>. A <em>candidate</em> is one entry of the list of a slot (what it may show).</p>
 <p>Add (by type, or a pool of channels of your own), Duplicate and Remove. Renaming an id updates the slots, conditions,
 pools and controls that name it. Each channel says where it is used (<code>slot 2</code>, <code>pool games</code>, <code>state call</code>).</p>
+<p>While the daemon runs, a channel with sound has a small animation after its name. Play something, and the
+channels that take it move, also those that no slot shows yet:</p>
+<ul>
+<li>An output and applications have three bars: something plays to the output, or the application plays and is not
+  paused.</li>
+<li>An input has a ring that spreads from a dot: an application records from it.</li>
+<li>A person has a dot that breathes while they talk.</li>
+</ul>
+<p>Home Assistant and custom channels have no sound, so they never move. The animation tells that sound flows, not
+how loud it is: the meters of the drawing show that.</p>
 </div>
 <div class="tabbed-block">
 <p>The modes first, then the other states. The form asks in order:</p>
@@ -3563,10 +3576,10 @@ either side more room; each page keeps its share.</p>
 <a href="../../configuration/strip/leds/">LEDs</a> (Mackie Control lights the middle 11), the LCD with its backlight, the meter
 next to Rec, Solo, Mute and Select, and the fader with its dB scale (-∞ at the bottom, 0 dB at 77 % of the travel, the
 option <code>unity_at</code> of <code>[behavior]</code>). What each slot shows is printed under its LCD.</p>
-<h3 id="header-footer-and-help">Header, footer and help<a class="headerlink" href="#header-footer-and-help" title="Permanent link">&para;</a></h3>
+<h3 id="menu-bar-footer-and-help">Menu bar, footer and help<a class="headerlink" href="#menu-bar-footer-and-help" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Header:</strong> the state of the service (see <a href="#the-service">The service</a>), and what the sound server has.</li>
-<li><strong>Footer:</strong> the problems, whether the control surface runs the file, the <a href="#preview">Preview</a> control, and the buttons Undo,
+<li><strong>Menu bar:</strong> the menus, and on its right the state of the service (see <a href="#the-service">The service</a>).</li>
+<li><strong>Footer:</strong> the problems, what the sound server has, whether the control surface runs the file, the <a href="#preview">Preview</a> control, and the buttons Undo,
   Redo, Revert and "Save and apply". The title has • while there are unsaved changes.</li>
 <li>A <em>pill</em> is a small status label (e.g. "running"). One with ▾ opens a popover, a small panel inside the window, on a
   click. It says what the pill means in full, with what you can do about it. A problem is tinted, and its fix is the
@@ -3582,7 +3595,7 @@ presence (<code>present</code>) yellow, in the whole window and in the help. The
 theme and the <a href="#zoom">zoom</a>; Help has this documentation and the keyboard shortcuts. The menus open inside the window:
 <span class="keys"><kbd class="key-alt">Alt</kbd></span> and the underlined letter open one, and the arrows, <span class="keys"><kbd class="key-enter">Enter</kbd></span> and <span class="keys"><kbd class="key-escape">Esc</kbd></span> work in it.</p>
 <h2 id="the-service">The service<a class="headerlink" href="#the-service" title="Permanent link">&para;</a></h2>
-<p>The pill of the service in the header tells its state: "running", "stopped", "not installed", or the worst problem of
+<p>The pill of the service, on the right of the menu bar, tells its state: "running", "stopped", "not installed", or the worst problem of
 a connection of the daemon. A click opens the service with Install and start, Start, Restart or Stop, the unit systemd uses, and the connections of
 the daemon (see <a href="#live-view">Live view</a>). The button that the service needs also sits next to the pill. Installing and
 starting ask first.</p>
@@ -3655,7 +3668,7 @@ window Device says what it shows:</p>
 </tr>
 </tbody>
 </table>
-<p>Next to it, a pill shows the <a href="../../configuration/slots/#states-and-modes">mode</a>: "Mode: gaming", "No mode" while no
+<p>Over the middle of the drawing, a pill shows the <a href="../../configuration/slots/#states-and-modes">mode</a>: "Mode: gaming", "No mode" while no
 mode is on, "· by hand" when it was picked by hand. A click lists the states, with what turned each on, and picks a
 mode by hand ("Pick gaming", "Pick no mode", "Back to the rules").</p>
 <p>The pill of the service also tells what the daemon is connected to: "running" while all is well, else the worst problem,
@@ -3667,7 +3680,8 @@ to its settings.</p>
 <div class="tabbed-set tabbed-alternate" data-tabs="2:2"><input checked="checked" id="__tabbed_2_1" name="__tabbed_2" type="radio" /><input id="__tabbed_2_2" name="__tabbed_2" type="radio" /><div class="tabbed-labels"><label for="__tabbed_2_1">Select</label><label for="__tabbed_2_2">Play</label></div>
 <div class="tabbed-content">
 <div class="tabbed-block">
-<p>A click picks a strip, and with it its <a href="../../configuration/slots/">slot</a> on the page Slots.</p>
+<p>A click picks a strip, and with it its <a href="../../configuration/slots/">slot</a> on the page Slots. A click beside the
+strips, on the panel around them, picks nothing: no strip is selected, and no slot on the page Slots.</p>
 <p>Dragging a strip moves its slot, with its candidates (<code>[slots]</code>) and controls (<code>[controls]</code>); <span class="keys"><kbd class="key-escape">Esc</kbd></span> puts it back,
 and so does <span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-z">Z</kbd></span> afterwards. <span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-arrow-left">Left</kbd></span> / <span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-arrow-right">Right</kbd></span> and the context menu do the same.</p>
 </div>
@@ -3691,10 +3705,16 @@ and so does <span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span>
 </tr>
 <tr>
 <td><img alt="Encoder" class="xt-icon" src="../../images/controls/encoder.png" /> Encoder</td>
-<td>The wheel turns it, and so does a drag on the knob (up or right is clockwise). A click pushes it; holding the knob still holds it down.</td>
+<td>The wheel turns it, and so does a drag on the knob or the ring (up or right is clockwise). A click on the knob pushes it; holding the knob still holds it down.</td>
+</tr>
+<tr>
+<td><img alt="Encoder" class="xt-icon" src="../../images/controls/encoder.png" /> LED of the ring</td>
+<td>A click turns the encoder step by step until the ring lights that LED. The LEDs at the two ends mean "all the way": it turns until they light, e.g. the balance at 100 %, or as far as it goes. Holding an LED still turns the encoder with the mouse; a drag that starts on an LED turns it like a drag on the knob.</td>
 </tr>
 </tbody>
 </table>
+<p>What the mouse can take glows under it, and its tooltip says what a click, a drag and a hold do. While a drag
+turns the encoder, ticks around the knob show its steps, and a pointer on the knob passes one tick per step.</p>
 </div>
 </div>
 </div>
@@ -3718,10 +3738,20 @@ Follow, which keeps the latest records in view until you scroll up.</p>
 <p>The window gets the last 1000 records when it opens, then every new one, and keeps the latest 5000. A daemon of an
 older version has no log for the window: restart it.</p>
 <h2 id="the-virtual-device">The virtual device<a class="headerlink" href="#the-virtual-device" title="Permanent link">&para;</a></h2>
-<p>While the window hosts the virtual device, Play is on. A bar above the drawing unplugs and plugs it, switches it off
-and on, breaks the touch sensor of faders ("Broken touch", to try
-<a href="../../configuration/behavior/#faders-without-a-touch-sensor"><code>touchless_faders</code></a>), and closes it ("Close", or closing
-the window: for the daemon it is unplugged).</p>
+<p>While the window hosts the virtual device, Play is on, and a pill next to "Live" says whether the daemon
+drives it. A click on the pill opens what the mouse can't do on the drawing:</p>
+<ul>
+<li><strong>Connection:</strong> "Unplug" and "Plug in" take it away from the daemon and give it back. "Switch off and on" also makes
+  it forget what it showed, like the control surface after a power cut. "Close" closes it; closing the window does
+  too. For the daemon, it is unplugged.</li>
+<li><strong>Daemon:</strong> "Restart" stops the daemon and starts it again, so you see its
+  <a href="../../configuration/behavior/#startup-and-shutdown-sequences">startup and shutdown sequences</a> on the virtual device.
+  It restarts the service, or the daemon of "Try without a device". A daemon started in a terminal or an IDE is
+  restarted where it runs.</li>
+<li><strong>Broken touch:</strong> a switch per fader breaks its touch sensor, to try
+  <a href="../../configuration/behavior/#faders-without-a-touch-sensor"><code>touchless_faders</code></a>. The popover stays open, so you can
+  break several.</li>
+</ul>
 <p>When the control surface (<code>[device] name</code>) is plugged in while the daemon drives the virtual one, a bar says so. Its button:</p>
 <table>
 <thead>
@@ -3747,6 +3777,15 @@ the window: for the daemon it is unplugged).</p>
 </table>
 <h2 id="the-slots">The slots<a class="headerlink" href="#the-slots" title="Permanent link">&para;</a></h2>
 <p>The page Slots has the state bar at the top, a card per slot, and the inspector of the slot picked.</p>
+<p>You can pick a whole slot or one of its candidates:</p>
+<ul>
+<li>A click on a candidate picks it, and its slot.</li>
+<li>A click on a card beside its candidates, e.g. on its title, picks the slot alone.</li>
+<li>A click below the cards picks nothing.</li>
+</ul>
+<p>The card of the slot picked has an outline, and the drawing selects its strip. When the window opens, nothing is
+picked. Then an overview takes the place of the inspector: a line for each slot with what it shows now, how many
+candidates it has and its problems. A click on a line picks its slot.</p>
 <h3 id="state-bar">State bar<a class="headerlink" href="#state-bar" title="Permanent link">&para;</a></h3>
 <p>The state bar lists the states and modes: ● on, ○ off, with the override in brackets. A click on one shows what turned
 it on, its override (<code>auto</code>, <code>on</code> or <code>off</code>; for a mode, "pick it" and "back to the rules"), and a button to Simulate
@@ -3779,26 +3818,31 @@ condition holds wins.</p>
 <p><strong>The rail</strong> on the left joins the candidates, with "else" between two. The node is green on the candidate that the
 control surface shows (or that Simulate would show). Above it, candidates are dimmed with why they did not win (<code>✗ browser
 doesn't play</code>, <code>✗ browser is on slot 3</code>); below it, they are dimmed more: not reached. When none has anything to show,
-the rail ends in "nothing to show: the strip is dark".</p>
+the rail ends in "nothing to show: the strip is dark". A click on that row picks the slot and says why the strip is
+dark; so does a click on a dark strip of the drawing.</p>
 <p><strong>The chips:</strong></p>
 <ul>
 <li>What the slot shows is a filled teal chip. On the one shown, the chip of a pool names what it hands out
-  (<code>apps · firefox</code>, <code>people · Alice</code>).</li>
+  (<code>apps · firefox</code>, <code>people · Alice</code>). A small square at the start of the chip has the backlight color the LCD gets
+  with this candidate, e.g. blue for <code>browser</code> (see below).</li>
 <li>Conditions are outlined chips; the states are violet.</li>
 <li><code>present</code> is spelled out in an olive chip (green in the light theme), by the type of the channel: <code>mic if present</code>
   reads <code>mic is connected</code>, <code>mum if present</code> reads <code>mum is in the voice chat</code>, <code>present(people)</code> reads <code>someone is in
   the voice chat</code>.</li>
 </ul>
-<p><img alt="An LCD with a blue backlight" class="xt-part" src="../../images/controls/lcd.png" width="96" /></p>
-<p><strong>A tiny LCD</strong> after a row has the color of the strip: the candidate's own <code>color</code>, else the channel's or the pool's,
-else white. A candidate that can show several colors (<code>auto</code>: applications and people) has several. Its tooltip says
-where the color comes from.</p>
+<p><strong>The color square</strong> in the chip of what the slot shows is the backlight of the LCD: the candidate's own <code>color</code>,
+else the channel's or the pool's, else white. A candidate that can show several colors (<code>auto</code>: applications and
+people) has a square for each. The tooltip of the chip says where each color comes from. A dark strip (<code>-</code>) has a
+tiny dark LCD after it instead.</p>
+<p><strong>The sound:</strong> a channel with sound has the animation of the page Channels after its chip (see
+<a href="#the-window">The window</a>).</p>
 <p><strong>Editing:</strong> + adds <code>auto</code> at the end; the bin (or <span class="keys"><kbd class="key-delete">Del</kbd></span>) removes the candidate picked; drag a candidate, or move it
 with <span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-arrow-up">Up</kbd></span> and <span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-arrow-down">Down</kbd></span>.</p>
 <h3 id="inspector">Inspector<a class="headerlink" href="#inspector" title="Permanent link">&para;</a></h3>
 <p>The inspector starts with the path of the slot's candidates, e.g. <code>Slot 3 › 1 games › 2 apps</code>: the slot tried
 candidate 1 and then went on to candidate 2. ● marks the candidate that the slot shows, ○ one the slot came to but that
-had nothing left to show. A click picks a candidate.</p>
+had nothing left to show. While the strip is dark, the path ends in <code>● dark</code>. A click picks a candidate; a click on
+the one picked picks the slot alone.</p>
 <p>Below it, a box says why the slot shows what it shows, the same as
 <a href="../../reference/commands/#why"><code>xtouch-daemon why 3</code></a>, and what a pool hands out. Then it edits the candidate picked:</p>
 <dl>
@@ -3905,7 +3949,8 @@ do in a few steps (‹ and › go through them), and follows the values in the f
 </tr>
 </tbody>
 </table>
-<p>Each field has the help of the option under it, with its default and a "Learn more" link; a button that sets the option
+<p>Each field has the help of the option under it, and on a line of its own under the help its default (DEFAULT and the
+value) and a "Learn more" link; a button that sets the option
 back to its default; and its errors next to it, with the messages of <code>xtouch-daemon check-config</code>. The problems button
 in the footer lists them all. The mouse wheel never changes a value.</p>
 <dl>
@@ -3972,8 +4017,8 @@ value matches, e.g. "Matches 2: ..." for <code>bluez_output.*</code>, or "Matche
   play. <code>[aliases]</code> gets the names of the applications.</li>
 <li><code>person</code> of a <code>person</code> channel: the people in the voice chat now, as the running daemon tells them.</li>
 </ul>
-<p>The pill "Sound server: ..." says how much the GUI read. A click lists the outputs, inputs and applications, with
-"Read again", e.g. after you started an application. Without a sound server, or without a daemon for the people of the
+<p>The pill "Sound server: ..." at the left of the footer says how much the GUI read. A click lists the outputs, inputs
+and applications, with "Read again", e.g. after you started an application. Without a sound server, or without a daemon for the people of the
 voice chat, type the names by hand.</p>
 <h2 id="undo">Undo<a class="headerlink" href="#undo" title="Permanent link">&para;</a></h2>
 <p>Every edit can be undone: <span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-z">Z</kbd></span> undoes, <span class="keys"><kbd class="key-control">Ctrl</kbd><span>+</span><kbd class="key-shift">Shift</kbd><span>+</span><kbd class="key-z">Z</kbd></span> redoes, also while a text field has the focus. That
@@ -4235,7 +4280,7 @@ did not show: if the file changed since the window read it, it asks first (Overw
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.action.edit","content.code.copy","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
+      <script src="../../assets/javascripts/bundle.ef37db6d.min.js"></script>
       
       
         <script src="../../javascripts/entities.js"></script>

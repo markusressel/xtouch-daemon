@@ -29,7 +29,7 @@
       
       
       <link rel="icon" href="../../images/icon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.4">
     
     
       
@@ -40,7 +40,7 @@
       
         
       
-      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.5cb9f1ba.min.css">
       
         
           
@@ -2910,7 +2910,10 @@
   
     <a href="https://github.com/markusressel/xtouch-daemon/edit/main/docs/configuration/channels/index.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+      <span aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+      </span>
+      <span class="md-visually-hidden">Edit this page</span>
     </a>
   
   
@@ -3025,6 +3028,11 @@
 <td>The same for the Solo button.</td>
 </tr>
 <tr>
+<td><code>mute_led</code></td>
+<td><code>"on"</code></td>
+<td>The LED of Mute while the strip is muted: <code>"on"</code> lit, <code>"flash"</code> flashing, which is harder to miss, e.g. on a microphone.</td>
+</tr>
+<tr>
 <td><code>select</code></td>
 <td>What the type does</td>
 <td>The same for the Select button, see <a href="#elements-of-a-strip">Elements of a strip</a> and <a href="../strip/leds/#buttons">Buttons</a>.</td>
@@ -3051,7 +3059,7 @@
 </tr>
 <tr>
 <td><code>lcd</code></td>
-<td>What the type shows</td>
+<td>The volume (<code>46%</code>) or <code>muted</code>; while there is nothing to control, <code>off</code> on <code>output</code> and <code>input</code> channels, <code>idle</code> on <code>apps</code> channels</td>
 <td>The second line of the LCD: <code>"homeassistant"</code>, <code>{ watch }</code> or <code>{ poll }</code>, see <a href="../strip/bindings/">Bindings</a>.</td>
 </tr>
 </tbody>
@@ -3059,7 +3067,7 @@
 <p>The <code>behavior.*</code> defaults come from the <a href="../behavior/#behavior"><code>[behavior]</code> section</a>.</p>
 <h3 id="where-else-the-options-work">Where else the options work<a class="headerlink" href="#where-else-the-options-work" title="Permanent link">&para;</a></h3>
 <ul>
-<li><strong>Pools and places.</strong> The look options (<code>color</code>, <code>lit_when_idle</code>, <code>meter</code>, <code>meter_point</code>, <code>rec</code>, <code>solo</code>) also
+<li><strong>Pools and places.</strong> The look options (<code>color</code>, <code>lit_when_idle</code>, <code>meter</code>, <code>meter_point</code>, <code>rec</code>, <code>solo</code>, <code>mute_led</code>) also
   work in the built-in pools (<code>[pool.apps]</code>, <code>[pool.auto]</code>, <code>[pool.devices]</code>) for every strip they fill, and in a
   place of a slot for that slot only: <code>{ show = "mic", color = "blue" }</code> (see <a href="../slots/#places">Places</a>). A place
   of <code>apps</code>, <code>auto</code> or <code>devices</code> also takes <code>encoder</code>, <code>min_volume</code> and <code>max_volume</code>. <code>label</code>, <code>select</code>, <code>fader</code> and
@@ -3204,11 +3212,11 @@ a peak at full scale also lights the red LED for half a second.</p>
 <p><code>meter_point</code> says where the level is taken, like the pre-fader and post-fader meters of a hardware mixer.
 <code>"pre_fader"</code> (the default) takes it before the strip's volume and Mute, so the meter keeps showing the audio while
 the fader is down. <code>"post_fader"</code> takes it after them: what you hear, dark while muted.</p>
-<p>What each strip type shows:</p>
+<p>What each type of channel shows:</p>
 <table>
 <thead>
 <tr>
-<th>Strip</th>
+<th>Type</th>
 <th><code>"pre_fader"</code></th>
 <th><code>"post_fader"</code></th>
 </tr>
@@ -3360,7 +3368,7 @@ highest volume of that time and shows too low for a moment instead.</p>
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["content.action.edit","content.code.copy","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.9e76c64c.min.js"></script>
+      <script src="../../assets/javascripts/bundle.ef37db6d.min.js"></script>
       
       
         <script src="../../javascripts/entities.js"></script>

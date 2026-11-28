@@ -29,7 +29,7 @@
       
       
       <link rel="icon" href="../../../images/icon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.4">
     
     
       
@@ -40,7 +40,7 @@
       
         
       
-      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.5cb9f1ba.min.css">
       
         
           
@@ -2946,7 +2946,10 @@
   
     <a href="https://github.com/markusressel/xtouch-daemon/edit/main/docs/configuration/channels/applications.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+      <span aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+      </span>
+      <span class="md-visually-hidden">Edit this page</span>
     </a>
   
   
@@ -3091,7 +3094,8 @@ the voice chat: the people fill its slots from the right, the applications from 
 <ul>
 <li>An application qualifies while at least one of its streams plays (is not paused).</li>
 <li>Applications of an <code>apps</code> channel that has a slot never go to <code>apps</code> or <code>auto</code>. Neither do those of <code>exclude</code>.</li>
-<li>An <code>apps</code> channel without a slot goes in as a whole, on one strip. <code>in_pool = false</code> keeps it out.</li>
+<li>An <code>apps</code> channel without a slot goes in as a whole, on one strip. <code>in_pool = false</code> keeps it out. After its
+  applications stopped, it stays for its own <code>absent_after</code>, not for <code>hold</code>.</li>
 <li>Free slots take new applications from the side of <code>from</code>, in the order the applications started.</li>
 <li>When the pool has no application for a slot, the slot shows its next candidate.</li>
 <li>An application keeps its slot while it plays and for <code>hold</code> seconds after it stopped, so a music player does not
@@ -3263,7 +3267,7 @@ shows. Here Select on strip 7 starts Mumble while the <a href="../../slots/#stat
       <script id="__config" type="application/json">{"annotate":null,"base":"../../..","features":["content.action.edit","content.code.copy","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.9e76c64c.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.ef37db6d.min.js"></script>
       
       
         <script src="../../../javascripts/entities.js"></script>

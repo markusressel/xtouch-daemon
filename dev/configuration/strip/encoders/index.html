@@ -29,7 +29,7 @@
       
       
       <link rel="icon" href="../../../images/icon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.4">
     
     
       
@@ -40,7 +40,7 @@
       
         
       
-      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.5cb9f1ba.min.css">
       
         
           
@@ -2994,7 +2994,10 @@
   
     <a href="https://github.com/markusressel/xtouch-daemon/edit/main/docs/configuration/strip/encoders.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+      <span aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+      </span>
+      <span class="md-visually-hidden">Edit this page</span>
     </a>
   
   
@@ -3116,8 +3119,9 @@ fader follows. The ring is lit from the left. A push sets <code>behavior.reset_v
 the <a href="../../channels/#volume-range">volume range</a> of the channel.</p>
 <h2 id="balance"><code>balance</code><a class="headerlink" href="#balance" title="Permanent link">&para;</a></h2>
 <p>The balance between the left and the right channel. One step moves it 5 %, so 20 steps go from the center to one side.
-A push centers it. The ring lights from its center towards the side the balance leans to. The LCD shows the exact
-balance, e.g. <code>L 15%</code> (15 % of the way to the full left) or <code>center</code>. On a mono output or stream the encoder does
+A push centers it. The ring lights from its center towards the side the balance leans to: four LEDs split the way to
+the side, and the fifth lights only all the way over, together with the two LEDs at the ends of the ring. So a ring
+that reaches the end is at 100 %, not at 95 %. The LCD shows the exact balance, e.g. <code>L 15%</code> (15 % of the way to the full left) or <code>center</code>. On a mono output or stream the encoder does
 nothing.</p>
 <h2 id="pick"><code>pick</code><a class="headerlink" href="#pick" title="Permanent link">&para;</a></h2>
 <p>For slots that show <code>auto</code>, or the pool <code>apps</code>. A turn picks the slot's application among the <strong>candidates</strong>: the
@@ -3278,7 +3282,7 @@ an entity of Home Assistant, e.g. <code>encoder = { entity = "media_player.kitch
       <script id="__config" type="application/json">{"annotate":null,"base":"../../..","features":["content.action.edit","content.code.copy","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.9e76c64c.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.ef37db6d.min.js"></script>
       
       
         <script src="../../../javascripts/entities.js"></script>

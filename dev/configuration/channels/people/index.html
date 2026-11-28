@@ -29,7 +29,7 @@
       
       
       <link rel="icon" href="../../../images/icon.svg">
-      <meta name="generator" content="zensical-0.1.3">
+      <meta name="generator" content="zensical-0.1.4">
     
     
       
@@ -40,7 +40,7 @@
       
         
       
-      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.e2cf241e.min.css">
+      <link rel="stylesheet" href="../../../assets/stylesheets/modern/main.5cb9f1ba.min.css">
       
         
           
@@ -2934,7 +2934,10 @@
   
     <a href="https://github.com/markusressel/xtouch-daemon/edit/main/docs/configuration/channels/people.md" title="Edit this page" class="md-content__button md-icon" rel="edit">
       
-      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+      <span aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-file-pen" viewBox="0 0 24 24"><path d="M12.659 22H18a2 2 0 0 0 2-2V8a2.4 2.4 0 0 0-.706-1.706l-3.588-3.588A2.4 2.4 0 0 0 14 2H6a2 2 0 0 0-2 2v9.34"/><path d="M14 2v5a1 1 0 0 0 1 1h5M10.378 12.622a1 1 0 0 1 3 3.003L8.36 20.637a2 2 0 0 1-.854.506l-2.867.837a.5.5 0 0 1-.62-.62l.836-2.869a2 2 0 0 1 .506-.853z"/></svg>
+      </span>
+      <span class="md-visually-hidden">Edit this page</span>
     </a>
   
   
@@ -3006,6 +3009,11 @@ person, else an application. <code>mum</code> is a <code>person</code> channel, 
 <td><code>"pre_fader"</code>: their voice before the volume of their fader; <code>"post_fader"</code>: after it, see <a href="../#meters">Meters</a>.</td>
 </tr>
 <tr>
+<td><code>mute_led</code></td>
+<td><code>"on"</code></td>
+<td>The LED of Mute while you muted the person: <code>"on"</code> lit, <code>"flash"</code> flashing.</td>
+</tr>
+<tr>
 <td><code>max_volume</code></td>
 <td><code>behavior.max_volume</code></td>
 <td>The volume of a person with the fader at the top, 1..200 percent; 100 % is at the 0 dB mark as on the other strips. Above 100 % the voice is louder than the voice chat client plays it, and may clip.</td>
@@ -3014,7 +3022,7 @@ person, else an application. <code>mum</code> is a <code>person</code> channel, 
 </table>
 <p>The strips of people have no <code>launch</code>. To start the voice chat client, use a control, see
 <a href="../applications/#launching-the-application">Launching the application</a>. A place of <code>people</code> in a slot takes
-<code>color</code>, <code>meter</code> and <code>meter_point</code>: <code>{ show = "people", color = "orange" }</code>.</p>
+<code>color</code>, <code>meter</code>, <code>meter_point</code> and <code>mute_led</code>: <code>{ show = "people", color = "orange" }</code>.</p>
 <h2 id="where-people-sit">Where people sit<a class="headerlink" href="#where-people-sit" title="Permanent link">&para;</a></h2>
 <table>
 <thead>
@@ -3202,7 +3210,7 @@ another client speaks the <a href="../../../reference/voice-chat-bridge/">bridge
       <script id="__config" type="application/json">{"annotate":null,"base":"../../..","features":["content.action.edit","content.code.copy","navigation.footer","navigation.indexes","navigation.instant","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"redirect":null,"search":"../../../assets/javascripts/workers/search.719e0d91.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","clipboard.error":"Could not copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"alias":true,"provider":"mike"}}</script>
     
     
-      <script src="../../../assets/javascripts/bundle.9e76c64c.min.js"></script>
+      <script src="../../../assets/javascripts/bundle.ef37db6d.min.js"></script>
       
       
         <script src="../../../javascripts/entities.js"></script>
