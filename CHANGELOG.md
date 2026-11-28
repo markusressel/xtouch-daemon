@@ -129,11 +129,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: the window is new, built in Qt Quick, and everything in it moves. A value, a color or a text that changes
+  animates to its new one; a row that comes or goes (a candidate, a problem, a field) grows or shrinks while the rows
+  around it slide along; a page fades into the next; the cards of the slots and the forms keep their place while you
+  edit. What it does stays as it was. What is different: the windows Device and Log move through View → Device at and
+  View → Log at (above, under, left, right or a window of their own) instead of by their title bars, and the
+  dependency on qt-themes is gone. The window now
+  logs what Qt warns about to the log of the GUI instead of printing it, and closes without errors.
 - GUI, page Slots: the rail of a slot card always ends in "nothing to show", the dark strip, as its last option
   (dimmed while a candidate above shows something), so a card keeps its rows when its strip goes dark or lights up.
   A stack that ends in `-` has none: `-` is nothing itself.
-- GUI, prototype: `XTOUCH_QML_CARDS=1` draws the slot cards in Qt Quick, where a change of a row animates its node, its
-  dimming and its texts, and rows that come and go slide in and out (see the design "Motion in the GUI").
 - The daemon looks for the virtual device every 0.1 seconds instead of every 2 (the X-Touch Extender: still every 2
   seconds). Play in the GUI, which opens the virtual device, starts right away instead of after up to 2 seconds.
 - GUI: changes move instead of jumping. A pill, button or row that changes its color fades to it, the pages of the

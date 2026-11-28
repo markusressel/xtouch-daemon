@@ -1,6 +1,6 @@
 /*
  * The words of the configuration in their colors, as the GUI's help shows them (`help_text` in
- * src/xtouch_daemon/gui/qt/fields/basics.py; keep the two in line): states and modes violet, channels and what else a
+ * src/xtouch_daemon/gui/quick/window/rich.py; keep the two in line): states and modes violet, channels and what else a
  * slot can show (pools, people, applications) teal, slots orange, `present` (presence) yellow, the controls of the
  * device (Select, Mute, the fader, ...) in the color of the text. Their sections and the pools in `code` too
  * (`[state.gaming]`, `channel.out`, `apps`); not `auto`, which is also the value of an override. Code blocks, links

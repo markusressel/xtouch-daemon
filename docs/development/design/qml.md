@@ -1,12 +1,14 @@
 # Design: the GUI in Qt Quick
 
-The GUI moves from Qt Widgets (`gui/qt`) to Qt Quick (`gui/quick`): QML draws the window, and Python keeps deciding.
-With QML, everything that changes can move. A value animates to its new one, a row that comes grows in while the rows
-under it slide along, and a page fades through to the next. Qt Widgets can only fake that with pictures of widgets
-(see [Motion](motion.md)).
+Status: done (2026-11-28). The window is Qt Quick (`gui/quick`) and the Qt Widgets window (`gui/qt`) is gone.
 
-While the migration runs, `XTOUCH_GUI=quick xtouch-daemon gui` starts the new window, and the widgets stay the
-default. When every part is done, the window in Qt Quick becomes the only one and `gui/qt` goes.
+QML draws the window, and Python keeps deciding. With QML, everything that changes can move. A value animates to its
+new one, a row that comes grows in while the rows under it slide along, and a page fades through to the next. Qt
+Widgets could only fake that with pictures of widgets (see [Motion](motion.md) and the
+[history of its technique](../history/motion-widgets.md)).
+
+This page is the record of the design: the layers, the rules for QML, and why the parts are as they are. How the
+window is built today is in [the architecture of the GUI](../architecture/gui.md).
 
 ## Layers
 
@@ -78,34 +80,33 @@ The parts meet at a few places, which the foundation fixes:
 systemctl, a fake sound server and the configuration of `tests/support/gui.py`; `make_ui(**dependencies)` makes
 one with others. A test of a backend that needs no window builds the backend alone.
 
-The tests of the widgets (`tests/gui/qt/`) say what the window does. Each part ports the tests of its widgets to
-its QML: the same behavior, checked through the window in Qt Quick. When the widgets go, their tests go with them.
+The tests of the earlier widgets were ported part by part to the window in Qt Quick (the same behavior, checked
+through the window), and went with the widgets.
 
 ## The parts of the migration
 
-Each part works in its own files (the table above), so the parts can be done side by side:
+The window was built in parts that worked in their own files (the table above), so they could be done side by side:
 
 1. **Foundation**: the engine, the theme, the style, the controls, the window with its rail and empty pages, the
    test harness.
-2. **The window**: the menus and their shortcuts, the footer (problems, sound server, status, pills, the preview,
-   undo, redo, revert, save and apply), dialogs, the service and the file on disk, the zoom, the theme, the log,
-   where the panels are and what the window remembers.
-3. **The drawing of the device**: the strips painted by `QQuickPaintedItem`s with the painting of `gui/qt/preview`,
-   the panel with the virtual device, hands, previews of the controls.
+2. **The window**: the menus and their shortcuts, the footer, dialogs, the service and the file on disk, the zoom, the
+   theme, the log, where the panels are and what the window remembers.
+3. **The drawing of the device**: the strips painted by `QQuickPaintedItem`s, the panel with the virtual device,
+   hands, previews of the controls.
 4. **The forms**: a row per option, its field by the kind of the option, the help, the problems.
 5. **The pages**: Slots (the cards, the inspector, Simulate), Channels, States, Settings.
-6. **The end**: the window in Qt Quick is the default, `gui/qt` goes, the screenshots and the docs follow.
+6. **The end**: the window in Qt Quick became the only one, `gui/qt` and its tests went, the screenshots and the docs
+   followed. The switches `XTOUCH_GUI` and `XTOUCH_QML_CARDS` went with it.
 
 ## The drawing of the device
 
-The drawing of the 8 strips is `gui/quick/device/`; its QML is `qml/XTouch/Device/`. The painting is the one of the
-widgets (`gui/qt/preview/painting.py` with its pixmap caches), so the strips look the same in both toolkits.
+The drawing of the 8 strips is `gui/quick/device/`; its QML is `qml/XTouch/Device/`. The painting keeps the look of the
+widgets it replaced (pixmap caches in `painting.py`).
 
-- **Strips as items.** `StripItem` is a `QQuickPaintedItem` that paints a `PaintedStrip`, a `StripView` of the
-  widgets that gets its font, focus, hover and pixel ratio from the item instead of from a widget. The mouse, hover,
-  wheel, keys, cursor and tooltip arrive in the event methods of the item and go to the same code as before. A hidden
-  `HostWidget` is the parent that `StripView` needs, so the application must be a `QApplication`. The painting still
-  reads the theme mode from a global of the widgets (`style._current_mode`); every item sets it before it paints.
+- **Strips as items.** `StripItem` is a `QQuickPaintedItem` that paints a `StripPainter` (`device/strip.py`): plain
+  `QPainter` code, no widget. The item tells it the theme mode, the pixel ratio, the focus and the hover. The mouse,
+  hover, wheel, keys, cursor and tooltip arrive in the event methods of the item and go to the same code as before.
+  The accent comes from `THEMES[mode].accent`, so no global of a toolkit is read.
 - **`Drawing`** is the model of the whole drawing: where the strips sit (`positions`, `places()`), the size and scale,
   selection, Play and Select, drag to move a slot, the blink, the faces and the hand. `DrawingStage.qml` binds eight
   `StripItem`s to it. The strips glide aside while one is dragged with a `Behavior` of `Theme.resize`; the right-hand
@@ -128,7 +129,7 @@ widgets (`gui/qt/preview/painting.py` with its pixmap caches), so the strips loo
 - **Screenshots.** `gui/quick/device/render.py` draws the strips without a window: `Scene` (one drawing at a scale,
   pixel ratio and theme), `render_drawing` and `render_strip` return a `QImage`.
 - **Not done here.** Esc ends Simulate only while a strip has the focus; the slots part owns Simulate and its Esc.
-- **No daemon.** The strips show what the widgets show: `device_faces(None)`, dark strips with the "No type" badge,
+- **No daemon.** The strips show `device_faces(None)`, dark strips with the "No type" badge,
   fainter. The strips do not show the file's looks until a daemon tells.
 
 ## The page Slots
@@ -222,7 +223,7 @@ its one `EntitySource` (`context.entity_source`). The broker test and the plugin
   there. A split does not follow items that are reparented in and out, so the panels are built once and move between
   hosts, the window of their own (`PanelWindow`, a QML window, never a popup) and a parking item. Place, visibility
   and size are in `QSettings` (`panels/<name>/...`); the View menu moves them.
-- **Zoom** keeps the widget design: Qt scales a whole application at its start, so `run_quick` loops, one application
+- **Zoom** needs a new application: Qt scales a whole application at its start, so `run_quick` loops, one application
   per zoom, and a `Session` carries the document with its history, the page, the geometry and the trial daemon.
 - **Pill popovers** are `Details` (Python rows) shown by `DetailsPopover.qml`; they rebuild while open.
 - **The log** fills the `QTextDocument` of a `TextArea` from Python and asks the daemon only while the panel shows.

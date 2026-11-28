@@ -102,6 +102,7 @@ nav = [
       { "Refactoring, November 2026" = "development/history/refactoring-2026-11.md" },
       { "Try changes and situations" = "development/history/try-and-simulate.md" },
       { "The virtual twin" = "development/history/virtual-twin.md" },
+      { "Motion in the Qt Widgets GUI" = "development/history/motion-widgets.md" },
     ] },
   ] },
   { "Changelog" = "https://github.com/markusressel/xtouch-daemon/blob/main/CHANGELOG.md" },

@@ -1,5 +1,5 @@
 /*
- * The colors of the GUI (src/xtouch_daemon/gui/qt/theme.py): One Dark for the dark scheme, GitHub's light colors for
+ * The colors of the GUI (src/xtouch_daemon/gui/domain/tokens.py): One Dark for the dark scheme, GitHub's light colors for
  * the light one. The body text is a little softer than the GUI's, for long reading: about 9:1 in the dark scheme and
  * 12:1 in the light one (WCAG AA asks for 4.5:1), instead of the 15..20:1 of pure white on black or black on white.
  */
@@ -102,7 +102,7 @@
 }
 
 /*
- * The words of the configuration in the colors the GUI gives them (src/xtouch_daemon/gui/qt/theme/tokens.py), marked
+ * The words of the configuration in the colors the GUI gives them (src/xtouch_daemon/gui/domain/tokens.py), marked
  * by javascripts/entities.js: states and modes, channels (and pools, people, applications), slots, presence, and the
  * controls of the device in the color of the text, a little bolder.
  */

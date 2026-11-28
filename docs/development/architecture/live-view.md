@@ -101,7 +101,7 @@ the real mode and states (`Daemon._situation_now()`), and follows them. Its view
 ## Live preview
 
 The GUI can make the daemon run the configuration of its editor before it is saved, and a situation of Simulate, on
-the device or on a twin of its own (`gui/qt/live_preview.py`; the daemon's side is `Daemon.preview()` and
+the device or on a twin of its own (`gui/quick/live_preview.py`; the daemon's side is `Daemon.preview()` and
 `Daemon.preview_on_twin()`). The design: [Previews, in the GUI or on the device](../design/previews.md).
 
 - **The whole text.** `StartPreview` carries the TOML text the GUI would save (`SlotsDocument.render()`). The daemon

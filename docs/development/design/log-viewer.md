@@ -35,7 +35,7 @@ none of it.
 
 ## The window
 
-- A dock like the window Device, hidden at first: View → Log (Ctrl+L). It can be a window of its own.
+- A panel like the window Device, hidden at first: View → Log (Ctrl+L). It can be a window of its own.
 - Colors of the theme by level: debug muted, warning and error in their colors, critical bold; the time muted.
 - The level filter shows a level and above, Debug at first: the daemon decides how much it logs.
 - The search marks every match (ignoring case) and counts them; Enter selects the next one. At most 1000 are marked.

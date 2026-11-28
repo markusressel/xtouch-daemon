@@ -18,7 +18,9 @@ It edits [channels, states and slots](../configuration/slots.md): what each stri
 ## The window
 
 The GUI has two panels, which it calls windows: **Configuration**, where you edit, and **Device**, which draws the
-control surface (see [The window Device](#the-window-device)). Without hardware it draws the *virtual device*, a control surface made
+control surface (see [The window Device](#the-window-device)). Everything in the window moves: a pill that changes
+turns to its new color, a row that comes or goes grows or shrinks while the rows around it slide along, and a page
+fades into the next. Without hardware it draws the *virtual device*, a control surface made
 of software. The window Configuration has a rail of four pages on its left, icons only. » at its foot shows their
 names, « hides them again.
 
@@ -75,8 +77,8 @@ either side more room; each page keeps its share.
 
 The window **Device** shows the control surface on every page, above the window Configuration at first.
 
-- The title bar of either window moves it to another side, or out as a window of its own (e.g. on another screen). The
-  GUI keeps where they are.
+- View → Device at moves it above or under the window Configuration, to its left or its right, or out as a window of
+  its own (e.g. on another screen). The GUI keeps where it is and how large.
 - View → Device hides and shows the window Device. Configuration always stays open.
 - Clicking a strip (or ++left++, ++right++, ++home++, ++end++) shows its slot on the page Slots.
 
@@ -210,7 +212,7 @@ preview "On the device", or the control surface going away); the footer says why
 
 View → Log (++ctrl+l++) opens the window **Log**: the log of the daemon that runs, at the level the daemon runs with
 (`-l debug` for more). It works for the service and for a daemon started in a terminal or an IDE. Like the window
-Device, it can go to any side or be a window of its own.
+Device, it goes to any side (View → Log at) or into a window of its own.
 
 It has a Level filter (that level and above), a Search that marks and counts matches (++enter++ selects the next), and
 Follow, which keeps the latest records in view until you scroll up.

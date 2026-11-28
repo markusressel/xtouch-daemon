@@ -23,12 +23,12 @@ One word for one thing, in the code, the docs and here.
 | Term | What it is | Where |
 |---|---|---|
 | **device** | The X-Touch Extender the daemon drives. It is the real one over USB MIDI, or the virtual device. Below, "the device" means either. | `hardware/` |
-| **virtual device** | A device model behind a Unix socket, started by `xtouch-daemon virtual-device` or by the GUI ("Try without a device"). The daemon speaks the same MIDI bytes to it as to the real one (`SocketPort`). | `simulator/server.py`, `gui/qt/virtual_device.py` |
+| **virtual device** | A device model behind a Unix socket, started by `xtouch-daemon virtual-device` or by the GUI ("Try without a device"). The daemon speaks the same MIDI bytes to it as to the real one (`SocketPort`). | `simulator/server.py`, `gui/quick/device/virtual_device.py` |
 | **device model** | `SimulatedDevice`: what a device shows (LCD texts and colors, LEDs, rings, meters, faders, touches), pure Python, without IO or Qt. It is the one model of a device. | `simulator/device.py` |
 | **mirror** | The device model in each `Surface`, fed with every byte the surface sends and receives. It shows what the device shows, or will show once it is connected. | `Surface.mirror` |
 | **rig** | The strips of a configuration on one surface: the hands on them (`Desk`), the slots (`SlotEngine`), the controllers (`SlotMixer`) and the loop that steps them. | `daemon/rig.py` |
 | **twin** | A second rig in the daemon, one per GUI window that asks for it. Its surface has no device, and its sound server and voice chat are made up. Its mirror is all there is of it. | `daemon/twin.py` |
-| **drawing** | What the window Device of the GUI paints: always a mirror that the daemon sends, of the device or of the window's twin. | `gui/qt/window/device_view.py` |
+| **drawing** | What the window Device of the GUI paints: always a mirror that the daemon sends, of the device or of the window's twin. | `gui/quick/device/panel.py` |
 | **preview** | What a window shows that isn't real yet: its unsaved edits, with the situation of Simulate while it is open. Simulate always includes the edits. | |
 | **situation** | A what-if of Simulate: the mode, the states on, the channels and pools present, and how many people, applications and devices. | `slots.outcomes.Situation` |
 

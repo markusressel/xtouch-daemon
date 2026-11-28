@@ -19,7 +19,7 @@ uv, src layout. Start with [docs/development/architecture/index.md](docs/develop
 | `src/xtouch_daemon/live/` | The live view of the device for the GUI over a Unix socket: `messages`, `codec`, `server`, `log` (the log of the daemon for the GUI). |
 | `src/xtouch_daemon/cli/` | The CLI, one module per topic; `cli/__init__.py` puts the commands together. |
 | `src/xtouch_daemon/voip/`, `integrations/mumble/`, `integrations/teamspeak/` | VoIP providers (`bridge` socket for plugins, `demo`), the messages of the bridge as pydantic models (`protocol`, the source of `docs/voice-chat-bridge.schema.json`); the Mumble plugin (C, CMake, vendored `MumblePlugin.h`) and finding, building and installing its bundle (`voip/mumble.py`). `test/fake_mumble.c` is the host `tests/voip/test_mumble_plugin.py` loads it into. The TeamSpeak 3 plugin (C, CMake; the build downloads TeamSpeak's SDK headers into the git-ignored `integrations/teamspeak/sdk/`, they can't be vendored) and installing it into `~/.ts3client/plugins` (`voip/teamspeak.py`); its host is `test/fake_teamspeak.c`. |
-| `src/xtouch_daemon/gui/` | Optional `xtouch-daemon gui` (extra `gui`, PyQt6): `domain/` is toolkit-free and fully tested, `qt/` the widgets (`window/`, `preview/`, `pages/`, `fields/`, `theme/`). Forms come from the pydantic models, so new options need no GUI code. |
+| `src/xtouch_daemon/gui/` | Optional `xtouch-daemon gui` (extra `gui`, PyQt6): `domain/` is toolkit-free and fully tested; `quick/` is the Qt Quick window: backends in Python (`window/`, `device/`, `forms/`, `pages/`) and the QML in `quick/qml/`. Forms come from the pydantic models, so new options need no GUI code. |
 | `tests/` | Mirrors the source: `tests/<package>/test_<module>.py`. Fixtures in the `conftest.py` files (the guards in `tests/conftest.py`), fakes and helpers that tests import in `tests/support/` (e.g. the in-memory MQTT broker in `tests/support/mqtt.py`). |
 | `docs/`, `zensical.toml` | The documentation site (Zensical, published to GitHub Pages by `.github/workflows/docs.yml`): sections as folders, as in the navigation: `getting-started/` (install, first steps, without a device), `guides/` (GUI, Home Assistant, Mumble, troubleshooting), `configuration/` (an overview, `slots.md`, `channels/` with a page per type, `strip/` for encoders and LEDs, presets, behavior), `reference/` (commands, hardware and protocol, the voice chat bridge), `development/` (an index, `architecture/` with a page per topic, `design/` with `slots/`, `history/` for replaced designs). A new page goes into the section of its kind, and into `nav` of `zensical.toml`. Build it with `just docs`. |
 | `packaging/` | Release tarballs (`build-release.sh`), the pinned commit of haad-mqtt-autodiscovery, the GUI's `.desktop` file, the AUR packages (`aur/`, `aur/publish.sh`). See [RELEASING.md](RELEASING.md). |
@@ -29,7 +29,7 @@ uv, src layout. Start with [docs/development/architecture/index.md](docs/develop
 ```shell
 uv sync
 just test            # uv run pytest -n auto --dist worksteal (in parallel); one test: uv run pytest tests/<package>/test_x.py -k name
-just coverage        # in parallel too, fails below 90 %
+just coverage        # in parallel too, fails below 93 %, or below 98 % without gui/quick (the QML window)
 just lint            # ruff check + ruff format --check + codespell
 just typecheck       # pyright
 just check           # all of the above, like CI
@@ -42,7 +42,7 @@ just screenshot      # renders docs/images/ (README and docs) offscreen from scr
 - Update the docs (README, `docs/`, `config.example.toml`, `CHANGELOG.md`) with every behaviour change. Verify every
   documented command and option against `cli/` and `config/`. Links between pages are relative (they work on
   GitHub and on the site); links to files outside `docs/` are absolute GitHub URLs. `just docs` must pass.
-- Every behaviour change needs tests. Coverage stays ≥ 90 % (lines and branches).
+- Every behaviour change needs tests. Coverage stays ≥ 93 % (lines and branches), ≥ 98 % without `gui/quick`.
 - The C plugins are tested end to end (built with CMake, loaded into `fake_mumble` or `fake_teamspeak`, against
   `BridgeProvider`); those tests are skipped without cmake and a C compiler (the TeamSpeak ones also without its SDK).
   Never test against a real Mumble or TeamSpeak in the tests.
@@ -59,17 +59,16 @@ just screenshot      # renders docs/images/ (README and docs) offscreen from scr
   runtime directory of the machine; a test that does so on purpose is marked `host`.
 - Type hints everywhere; `ruff` and `pyright` must pass.
 - GUI: never show a popup window (`Qt.WindowType.Popup`): it grabs the keyboard and the mouse, on X11 the whole
-  display, so screenshot tools and the keys of the window manager stop working (and Alt closes a `QMenu`). Everything
-  opens inside the window: details a click away are popovers (`gui/qt/fields/popover.py`); menus are `QMenu`s that are
-  never shown, opened by `show_menu`/`attach_menu` and the `MenuBar` of `gui/qt/fields/menu.py` (`describe` gives an
-  entry a line under it); drop-down lists are `Choice` (`gui/qt/fields/choice.py`), never a plain `QComboBox`;
-  suggestions under a field are a `SuggestionList` (`gui/qt/fields/suggestions.py`, used by `NameCompleter`), never a
-  `QCompleter`. No `QMenu.exec`/`popup`, `setMenu`, `menuBar()`. `conftest.no_popups` fails a test in which a popup
-  shows.
-- GUI motion: a change of the look goes through `set_role`/`show_status` (they fade) or `with fading(widget)`; a row
-  that comes and goes uses `reveal(widget, shown)`, not `setVisible` (`gui/qt/motion.py`,
-  `docs/development/design/motion.md`). Tests run without motion (`no_motion`); `tests/gui/qt/test_motion.py` drives
-  the animations with `setCurrentTime`.
+  display, so screenshot tools and the keys of the window manager stop working. Everything opens inside the window:
+  `Popup`, `Menu`, `ComboBox` lists and `ToolTip` are items (`popupType: Popup.Item`, which our style in
+  `qml/XTouchStyle` sets); details a click away are a `Popover` of `XTouch.Controls`; a panel moved out of the window
+  is a `Window`, not a popup. `conftest.no_popups` fails a test in which a popup window shows.
+- GUI logic: QML shows and moves, a backend in `gui/quick` decides (what a row shows, what a click changes). Colors,
+  sizes and durations are `Theme.*`, never literals.
+- GUI motion: a value that changes animates with a `Behavior` of `Theme.fade` or `Theme.resize`; a row that comes and
+  goes is a `Reveal`; a text that changes is a `FadeText`; a list that changes row by row is a `KeyedListModel` with a
+  stable key per row (`gui/quick/models.py`, `docs/development/design/motion.md`). Tests run without motion
+  (`no_motion`, the durations are 0). GUI tests use `tests/support/quick.py` (`Ui`) and find items by `objectName`.
 - Git: on a branch, commit and push the finished, checked work; on `main` only when the user asks. Never force-push.
 
 ## Writing docs

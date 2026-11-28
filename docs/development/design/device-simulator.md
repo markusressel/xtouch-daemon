@@ -124,7 +124,7 @@ again, so a daemon restart sees the faders where they were, as on the real devic
   - the buttons: click (press and release), held while the mouse is down;
   - the encoder: the wheel or a drag on the knob turns it (up or right is clockwise), a click pushes it, holding
     holds it down, and holding on an LED of the ring turns it until the ring lights that LED
-    (`gui/qt/preview/encoder_hand.py`);
+    (`gui/quick/device/encoder_hand.py`);
   - a toolbar: plug in / unplug, switch off and on, broken touch per fader.
 
   What it paints still comes from the live view (the daemon's mirror), which is the hosted device's state once it got

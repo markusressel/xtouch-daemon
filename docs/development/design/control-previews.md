@@ -52,7 +52,7 @@ fast to follow.)
 
 - `gui/domain/demos.py` (no Qt): the groups (`GROUPS`), and `scene(part, strip_type, values, behavior)`, the frames
   (`Frame`: a caption and a `StripState`) from the resolved values. Tested without a window.
-- `gui/qt/preview/part_view.py`: `PartView`, a `StripView` cut to a part with ‹ and › to step through the frames.
+- `gui/quick/device/part.py` and `qml/XTouch/Device/PartPreview.qml`: a strip cut to a part, with ‹ and › to step through the frames.
 - `StripView` takes any `StripHost` (the `Preview` of the window Device, or a `PartView`).
 - `ChannelsPage` builds a card per group.
 

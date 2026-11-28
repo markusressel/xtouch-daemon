@@ -98,7 +98,7 @@ drawing of the GUI can be compared for each.
   meters of raised faders again.
 - `daemon/lifecycle.py`: the mode (start, keep, end, timeout), the Desk handing over to the bench and back, drawing the
   slots again at the end.
-- `live/`: the requests and `Snapshot.test`; `gui/qt/window/device_view.py`: the button and the bar.
+- `live/`: the requests and `Snapshot.test`; `gui/quick/device/panel.py`: the button and the bar.
 - `cli/daemon.py`: `test` asks a running daemon (`system.instance`) first.
 - Tests: the bench against the simulated device (`tests/support/simulator.py`, `MemoryPort`): an input as the device
   sends it, then what the mirror shows (LED states, ring, color, fader, LCD texts, meter), and that a temporary text
