@@ -95,3 +95,34 @@ Each part works in its own files (the table above), so the parts can be done sid
 4. **The forms**: a row per option, its field by the kind of the option, the help, the problems.
 5. **The pages**: Slots (the cards, the inspector, Simulate), Channels, States, Settings.
 6. **The end**: the window in Qt Quick is the default, `gui/qt` goes, the screenshots and the docs follow.
+
+## The drawing of the device
+
+The drawing of the 8 strips is `gui/quick/device/`; its QML is `qml/XTouch/Device/`. The painting is the one of the
+widgets (`gui/qt/preview/painting.py` with its pixmap caches), so the strips look the same in both toolkits.
+
+- **Strips as items.** `StripItem` is a `QQuickPaintedItem` that paints a `PaintedStrip`, a `StripView` of the
+  widgets that gets its font, focus, hover and pixel ratio from the item instead of from a widget. The mouse, hover,
+  wheel, keys, cursor and tooltip arrive in the event methods of the item and go to the same code as before. A hidden
+  `HostWidget` is the parent that `StripView` needs, so the application must be a `QApplication`. The painting still
+  reads the theme mode from a global of the widgets (`style._current_mode`); every item sets it before it paints.
+- **`Drawing`** is the model of the whole drawing: where the strips sit (`positions`, `places()`), the size and scale,
+  selection, Play and Select, drag to move a slot, the blink, the faces and the hand. `DrawingStage.qml` binds eight
+  `StripItem`s to it. The strips glide aside while one is dragged with a `Behavior` of `Theme.resize`; the right-hand
+  click menu is an in-window `Menu`.
+- **`DevicePanel`** (`app.device`) is the backend of the page: the bar (Select and Play, the pills of the live view,
+  the mode and the virtual device, the test), the live preview with its places (`places`, `setPlace`), the test of the
+  device, the virtual device hosted in the window and the trial without a device. The pills open `EntriesPopover.qml`,
+  which shows what `popover(kind)` returns (`live`, `modes` or `virtual`); `activate` and `toggle` run its buttons.
+- **What the shell gives it.** `say(text)` and `warn(title, text)` default to the signals `message` and `warning`; the
+  window sets them to its status line and dialogs. It tells the shell which slot was picked (`picked`, `unpicked`,
+  `slotMoved`). The window calls `shutdown()` when it closes, `refresh_service()` when it found the daemon again, and
+  `keep_trying_for_next_window()` to hand a running trial to the next window.
+- **Previews of controls.** `PartPreview.qml` takes a `model`, a `PartPreviewModel(part)` with `part` one of
+  `encoder`, `display`, `buttons` and `fader`. Call `model.play(frames)` with `gui.domain.demos.scene(...)` whenever
+  the options change; the step shown stays. `cardColor` and `edgeColor` give the colors the corners and the edge are
+  drawn in.
+- **Screenshots.** `gui/quick/device/render.py` draws the strips without a window: `Scene` (one drawing at a scale,
+  pixel ratio and theme), `render_drawing` and `render_strip` return a `QImage`.
+- **Not done here.** Esc ends Simulate only while a strip has the focus; the slots part owns Simulate and its Esc.
+  Dialogs and the process of the trial (`trying`) depend on hooks of the shell.

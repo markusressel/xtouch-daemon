@@ -1,2 +1,6 @@
 module XTouch.Device
 DevicePanel 1.0 DevicePanel.qml
+DeviceBar 1.0 DeviceBar.qml
+DrawingStage 1.0 DrawingStage.qml
+EntriesPopover 1.0 EntriesPopover.qml
+PartPreview 1.0 PartPreview.qml

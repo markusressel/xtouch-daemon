@@ -3,6 +3,7 @@ The window in Qt Quick, offscreen with Qt's software renderer, with a fake syste
 configuration in a temporary directory (see tests/gui/qt/conftest.py for the widgets). `ui` is the window of a test.
 """
 
+import tempfile
 from collections.abc import Callable, Iterator
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,15 @@ from PyQt6.QtQuick import QQuickWindow, QSGRendererInterface
 from PyQt6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
-from tests.support.gui import CONFIG, RUNNING, STATE, no_plugins, unreachable_broker, unreachable_home_assistant
+from tests.support.gui import (
+    CONFIG,
+    RUNNING,
+    STATE,
+    FakeLiveDaemon,
+    no_plugins,
+    unreachable_broker,
+    unreachable_home_assistant,
+)
 from tests.support.instance import RecordingInstance
 from tests.support.quick import Ui
 from tests.support.systemd import FakeSystemctl
@@ -120,3 +129,13 @@ def make_ui(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Recordin
 @pytest.fixture
 def ui(make_ui: MakeUi) -> Ui:
     return make_ui()
+
+
+@pytest.fixture
+def live_daemon(qapp: QApplication) -> Iterator[FakeLiveDaemon]:
+    """A fake daemon with a live view (see `FakeLiveDaemon`), in a temporary directory."""
+    # a short path: the one of a Unix socket has at most 107 bytes, which tmp_path may exceed
+    with tempfile.TemporaryDirectory(prefix="xtq-") as directory:
+        fake = FakeLiveDaemon(Path(directory) / "live.sock")
+        yield fake
+        fake.close()
