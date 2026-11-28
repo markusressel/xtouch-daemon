@@ -8,12 +8,13 @@ from pathlib import Path
 from typing import Any
 
 import pytest
-from PyQt6.QtCore import QCoreApplication, QSettings, Qt
+from PyQt6.QtCore import QCoreApplication, QEvent, QSettings, Qt
 from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtQuick import QQuickWindow, QSGRendererInterface
 from PyQt6.QtWidgets import QApplication
 from pytestqt.qtbot import QtBot
 
+from tests.support.dialogs import FakeDialogs
 from tests.support.gui import CONFIG, RUNNING, STATE, no_plugins, unreachable_broker, unreachable_home_assistant
 from tests.support.instance import RecordingInstance
 from tests.support.quick import Ui
@@ -85,7 +86,15 @@ def daemon(path: Path) -> RecordingInstance:
 
 
 @pytest.fixture
-def make_ui(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: RecordingInstance) -> Iterator[MakeUi]:
+def dialogs() -> FakeDialogs:
+    """The questions of the window, answered at once (Discard); a test sets `answer` or `pick`."""
+    return FakeDialogs()
+
+
+@pytest.fixture
+def make_ui(
+    qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: RecordingInstance, dialogs: FakeDialogs
+) -> Iterator[MakeUi]:
     made: list[Ui] = []
 
     def make(file: Path = path, mode: ThemeMode = ThemeMode.DARK, **deps: Any) -> Ui:
@@ -95,6 +104,7 @@ def make_ui(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Recordin
             "try_broker": unreachable_broker,
             "plugin_installers": no_plugins(),
             "read_entities": unreachable_home_assistant,
+            "dialogs": dialogs,
             **deps,
         }
         document = options.pop("document", None) or SlotsDocument.open(file)
@@ -115,6 +125,8 @@ def make_ui(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Recordin
         ui.window.deleteLater()
         ui.engine.deleteLater()
     QGuiApplication.processEvents()
+    # the window and the engine go before the backends they show do (QML would read what is gone)
+    QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 
 @pytest.fixture

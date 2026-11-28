@@ -4,3 +4,5 @@ Rail 1.0 Rail.qml
 AppMenuBar 1.0 AppMenuBar.qml
 Footer 1.0 Footer.qml
 LogPanel 1.0 LogPanel.qml
+AppMenu 1.0 AppMenu.qml
+DialogHost 1.0 DialogHost.qml

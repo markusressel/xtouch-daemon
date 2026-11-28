@@ -12,11 +12,16 @@ Each part of the window has a backend here and its QML in a module of its own:
 | The pages | `pages/` (`SlotsPage`, ...) | `XTouch.Pages` |
 """
 
+import gc
+import logging
+import os
 import sys
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+from PyQt6 import sip
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot  # pyright: ignore[reportUnknownVariableType]
 from PyQt6.QtQml import QQmlApplicationEngine
 from PyQt6.QtQuick import QQuickWindow
@@ -27,13 +32,20 @@ from xtouch_daemon.gui.domain import broker
 from xtouch_daemon.gui.domain.entities import Fetch
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.qt.editor import Editor
+from xtouch_daemon.gui.qt.theme.icons import app_icon
 from xtouch_daemon.gui.qt.window.audio_loader import Follow
 from xtouch_daemon.gui.qt.window.session import Session
 from xtouch_daemon.gui.quick.engine import make_engine
+from xtouch_daemon.gui.quick.window.dialogs import Asker
 from xtouch_daemon.homeassistant.client import fetch
 from xtouch_daemon.system import instance
 from xtouch_daemon.system.instance import Instance
 from xtouch_daemon.system.systemd import Service
+
+if TYPE_CHECKING:
+    from xtouch_daemon.gui.quick.window.shell import Shell
+
+log = logging.getLogger(__name__)
 
 PAGES = (
     ("slots", "Slots", "tune-vertical", "What each slot shows when"),
@@ -62,6 +74,8 @@ class Dependencies:
     """Where the virtual device waits for the daemon when the GUI hosts it."""
     read_entities: Fetch = fetch
     follow_audio: Follow | None = None
+    dialogs: Asker | None = None
+    """What asks the questions of the window; by default its own dialog (`window/dialogs.py`), tests give a fake."""
     extra: dict[str, object] = field(default_factory=dict)
 
 
@@ -91,6 +105,19 @@ class App(QObject):
         self._states = StatesPage(self)
         self._settings = SettingsPage(self)
 
+    @property
+    def rezoom(self) -> float | None:
+        """The zoom the next window gets, None while the window ends for good (see `run_quick`)."""
+        return self._shell.rezoom
+
+    @property
+    def last_session(self) -> Session | None:
+        """What the window handed to the next one when it closed for a new zoom."""
+        return self._shell.last_session
+
+    def dialogs_open(self) -> bool:
+        return self._shell.dialogs.property("isOpen") is True
+
     @staticmethod
     def page_names() -> list[str]:
         return [name for name, *_ in PAGES]
@@ -111,9 +138,14 @@ class App(QObject):
             self._page = name
             self.pageChanged.emit()
 
-    @pyqtProperty(QObject, constant=True)
-    def shell(self) -> QObject:  # pyright: ignore[reportRedeclaration]
-        return self._shell
+    if TYPE_CHECKING:
+        shell: Shell
+        """The window around the pages (QML: `app.shell`); typed as what it is, for the code and the tests."""
+    else:
+
+        @pyqtProperty(QObject, constant=True)
+        def shell(self) -> QObject:
+            return self._shell
 
     @pyqtProperty(QObject, constant=True)
     def device(self) -> QObject:  # pyright: ignore[reportRedeclaration]
@@ -155,25 +187,48 @@ def load_window(app: App, engine: QQmlApplicationEngine) -> QQuickWindow:
 
 
 def run_quick(path: Path) -> int:
-    """Shows the window until it is closed; raises `ConfigError` for a file it can't edit."""
+    """
+    Shows the window until it is closed; raises `ConfigError` for a file it can't edit. Qt scales a whole application
+    only when it starts (`QT_SCALE_FACTOR`), so a new zoom closes the window and starts the next application, which
+    goes on where this one was (`Session`: the document with its history, the page, where the window is, ...).
+    """
     from xtouch_daemon.audio.pulse import follow_state, read_state
-    from xtouch_daemon.gui.qt import SYSTEMCTL_TIMEOUT, QuitSignals, errors, name_application
+    from xtouch_daemon.gui.qt import SCALE_FACTOR, SYSTEMCTL_TIMEOUT, errors, name_application, scale_for
+    from xtouch_daemon.gui.qt.theme.settings import load_zoom
+    from xtouch_daemon.gui.quick.window.quit import QuitWindows
 
     errors.install()
-    signals = QuitSignals()
+    # before anything of Qt: Python's handler would raise KeyboardInterrupt in whatever runs
+    signals = QuitWindows()
     document = SlotsDocument.open(path)
-    name_application()
-    qapp = QApplication(sys.argv[:1])
-    qapp.setApplicationDisplayName("X-Touch Extender")
-    qapp.setDesktopFileName("xtouch-daemon-gui")
-    signals.watch(qapp)
-    deps = Dependencies(
-        document,
-        Service(wait=False, timeout=SYSTEMCTL_TIMEOUT),
-        lambda: read_state("xtouch-daemon-gui"),
-        follow_audio=lambda on_state: follow_state("xtouch-daemon-gui", on_state),
-    )
-    app = App(deps)
-    engine = make_engine()
-    load_window(app, engine)
-    return qapp.exec()
+    own = os.environ.get(SCALE_FACTOR)
+    session: Session | None = None
+    while True:
+        name_application()
+        os.environ[SCALE_FACTOR] = scale_for(load_zoom(), own)
+        qapp = QApplication(sys.argv[:1])
+        qapp.setApplicationDisplayName("X-Touch Extender")
+        qapp.setDesktopFileName("xtouch-daemon-gui")
+        qapp.setWindowIcon(app_icon())
+        deps = Dependencies(
+            document,
+            Service(wait=False, timeout=SYSTEMCTL_TIMEOUT),
+            lambda: read_state("xtouch-daemon-gui"),
+            session=session,
+            follow_audio=lambda on_state: follow_state("xtouch-daemon-gui", on_state),
+        )
+        app = App(deps)
+        signals.watch_windows(qapp, app.dialogs_open)
+        engine = make_engine()
+        engine.warnings.connect(lambda warnings: [log.warning("QML: %s", w.toString()) for w in warnings])
+        load_window(app, engine)
+        code = qapp.exec()
+        rezoom = app.rezoom
+        if rezoom is None:
+            return code
+        session = app.last_session
+        # Qt allows one application at a time: this one goes before the next one starts
+        sip.delete(engine)
+        sip.delete(app)
+        sip.delete(qapp)
+        gc.collect()

@@ -11,3 +11,4 @@ SectionHeader 1.0 SectionHeader.qml
 Divider 1.0 Divider.qml
 Banner 1.0 Banner.qml
 Swatch 1.0 Swatch.qml
+DetailsPopover 1.0 DetailsPopover.qml
