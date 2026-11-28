@@ -491,3 +491,25 @@ def test_a_long_default_wraps_rather_than_run_out_of_the_window(qtbot: QtBot):
     assert "off while the output is not there" in help_tail(
         "the volume, e.g. 46%, or muted; off while the output is not there"
     )
+
+
+def test_a_sequence_shows_only_its_own_options(qtbot: QtBot, window: MainWindow):
+    window.show_page("device")
+    page = window.pages["device"]
+
+    def shown() -> list[str]:
+        return [r.option.name for r in page.rows if not r.isHidden() and r.option.name.startswith("startup_")]
+
+    assert shown() == ["startup_sweep_delay"]
+    assert row(window, "startup_sweep_delay", "device").title.text().startswith("Delay")
+
+    row(window, "startup", "device").combo.setCurrentText("show")
+    assert window.document.get(("device", "startup")) == "show"
+    assert shown() == ["startup_show_delay", "startup_show_step", "startup_show_fader"]
+    # the shutdown has its own
+    assert [r.option.name for r in page.rows if not r.isHidden() and r.option.name.startswith("shutdown_")] == [
+        "shutdown_sweep_delay"
+    ]
+    # undo shows the options of the sequence before
+    window.editor.undo()
+    assert shown() == ["startup_sweep_delay"]

@@ -16,17 +16,22 @@ from pydantic import (
     model_validator,
 )
 
-from xtouch_daemon.config.base import ConfigError, Meanings, Model
+from xtouch_daemon.config.base import ConfigError, Meanings, Model, ShownWith
 from xtouch_daemon.config.names import WithPresets
 from xtouch_daemon.config.permissions import warn_if_readable
 from xtouch_daemon.config.values import (
+    INSTANT,
     METER_POINTS,
     SHUTDOWN_SEQUENCES,
     STARTUP_SEQUENCES,
     VOLUME_LIMIT,
     FaderNumber,
     MeterPoint,
+    Pace,
+    Percent,
     Sequence,
+    SequenceDelay,
+    ShowStep,
     Slug,
     Volume,
 )
@@ -54,8 +59,46 @@ class DeviceConfig(Model):
     """
     startup: Annotated[Sequence, STARTUP_SEQUENCES] = "sweep"
     """How the strips light up after the device connects."""
+    startup_sweep_delay: Annotated[SequenceDelay, ShownWith("startup", "sweep")] = 80
+    """Milliseconds from one strip to the next."""
+    startup_curtain_delay: Annotated[SequenceDelay, ShownWith("startup", "curtain")] = 80
+    """Milliseconds from one pair of strips to the next."""
+    startup_show_delay: Annotated[SequenceDelay, ShownWith("startup", "show")] = 60
+    """Milliseconds from one strip to the next: the speed of the wave."""
+    startup_show_step: Annotated[ShowStep, ShownWith("startup", "show")] = 30
+    """
+    Milliseconds per step of the light of a strip: its ring lights one more LED, its meter one more level. Its light
+    takes 24 steps, 12 up and 12 down.
+    """
+    startup_show_fader: Annotated[Percent, ShownWith("startup", "show")] = 60
+    """The height, in percent, that the faders rise to in the wave."""
     shutdown: Annotated[Sequence, SHUTDOWN_SEQUENCES] = "sweep"
     """How the strips go dark when the daemon stops."""
+    shutdown_sweep_delay: Annotated[SequenceDelay, ShownWith("shutdown", "sweep")] = 80
+    """Milliseconds from one strip to the next."""
+    shutdown_curtain_delay: Annotated[SequenceDelay, ShownWith("shutdown", "curtain")] = 80
+    """Milliseconds from one pair of strips to the next."""
+    shutdown_show_delay: Annotated[SequenceDelay, ShownWith("shutdown", "show")] = 60
+    """Milliseconds from one strip to the next: the speed of the wave."""
+    shutdown_show_step: Annotated[ShowStep, ShownWith("shutdown", "show")] = 30
+    """
+    Milliseconds per step of the light of a strip: its ring lights one more LED, its meter one more level. Its light
+    takes 24 steps, 12 up and 12 down.
+    """
+    shutdown_show_fader: Annotated[Percent, ShownWith("shutdown", "show")] = 60
+    """The height, in percent, that the faders rise to in the wave."""
+
+    def pace(self, startup: bool) -> Pace:
+        """The startup sequence (`startup`) or the shutdown sequence, with the options of its type."""
+        direction = "startup" if startup else "shutdown"
+        sequence: Sequence = getattr(self, direction)
+
+        def value(name: str, default: Pace) -> float:
+            return getattr(self, f"{direction}_{sequence}_{name}", getattr(default, name))
+
+        return Pace(
+            sequence, value("delay", INSTANT) / 1000, value("step", INSTANT) / 1000, value("fader", INSTANT) / 100
+        )
 
 
 class BehaviorConfig(WithPresets):

@@ -14,6 +14,7 @@ from pathlib import Path
 import pytest
 
 from tests.support.hardware import CARDS, RecordingSurface
+from xtouch_daemon.config.values import Pace
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import strip as strip_module
 from xtouch_daemon.hardware import surface as surface_module
@@ -245,9 +246,10 @@ async def test_a_fader_that_is_put_away_goes_down_slowly(
 async def test_after_a_connect_the_strips_light_up_one_after_the_other(
     device: tuple[Path, Path, int], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(surface_module, "SEQUENCE_STAGGER", 0.02)
+    monkeypatch.setattr(surface_module, "TIME_SCALE", 1.0)
     cards, dev, controller = device
     surface = Surface(proc_asound_cards=cards, dev_snd=dev)
+    surface.startup = Pace("sweep", delay=0.02)
     for strip in surface.strips:
         strip.set_text(0, f"S{strip.index}")
         strip.set_color(Color.GREEN)
@@ -373,7 +375,7 @@ def hide(surface: RecordingSurface) -> None:
 
 
 async def test_a_curtain_opens_from_the_middle_and_closes_from_the_outside(surface: RecordingSurface) -> None:
-    surface.startup = surface.shutdown = "curtain"
+    surface.startup = surface.shutdown = Pace("curtain")
     hide(surface)
     await surface._reveal()
     assert texts_in_order(surface) == [3, 4, 2, 5, 1, 6, 0, 7]
@@ -387,8 +389,8 @@ async def test_instant_sequences_take_all_strips_at_once(
     surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # a stagger would show
-    monkeypatch.setattr(surface_module, "SEQUENCE_STAGGER", 10.0)
-    surface.startup = surface.shutdown = "instant"
+    monkeypatch.setattr(surface_module, "TIME_SCALE", 1.0)
+    surface.startup = surface.shutdown = Pace("instant", delay=10.0)
     hide(surface)
     await asyncio.wait_for(surface._reveal(), 1)
     assert texts_in_order(surface) == list(range(8))
@@ -408,6 +410,10 @@ def lights(surface: RecordingSurface, index: int) -> list[tuple[str, int]]:
         elif message[0] == 0x90 and message[1] - index in Button.__members__.values() and message[1] < 0x20:
             result.append((Button(message[1] - index).name.lower(), message[2]))
     return result
+
+
+SHOW = Pace("show", delay=0.06, step=0.03, fader=0.6)
+"""The wave of `show` at its default pace."""
 
 
 WAVE = [
@@ -438,7 +444,7 @@ WAVE = [
 async def test_the_show_sends_a_wave_of_light_and_faders_before_the_strips_show_what_they_are(
     surface: RecordingSurface,
 ) -> None:
-    surface.startup = "show"
+    surface.startup = SHOW
     hide(surface)
     surface.strips[0].set_fader(0.5)
     surface.strips[1].set_fader(0.9)
@@ -455,7 +461,7 @@ async def test_the_show_sends_a_wave_of_light_and_faders_before_the_strips_show_
         assert lights(surface, index)[: len(WAVE)] == WAVE
         assert sent.index(protocol.lcd_text(index, 0, f"S{index}")) > sent.index(protocol.ring(index, 0, RingMode.WRAP))
     # the faders rise and fall with the light: to the peak and down to their value, the bottom without one
-    peak = protocol.fader_value(surface_module.SHOW_FADER_PEAK)
+    peak = protocol.fader_value(SHOW.fader)
     for index, value in [(0, protocol.fader_value(0.5)), (2, 0)]:
         faders = surface.faders(index)
         top = faders.index(max(faders))
@@ -475,9 +481,8 @@ async def test_the_show_sends_a_wave_of_light_and_faders_before_the_strips_show_
 async def test_the_wave_of_the_show_runs_from_the_left_in_about_a_second(
     surface: RecordingSurface, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(surface_module, "SHOW_STAGGER", 0.06)
-    monkeypatch.setattr(surface_module, "SHOW_STEP", 0.03)
-    surface.startup = "show"
+    monkeypatch.setattr(surface_module, "TIME_SCALE", 1.0)
+    surface.startup = Pace("show", delay=0.06, step=0.03)
     hide(surface)
     loop = asyncio.get_running_loop()
     begin = loop.time()
@@ -493,7 +498,7 @@ async def test_the_wave_of_the_show_runs_from_the_left_in_about_a_second(
 async def test_the_show_at_the_end_runs_the_wave_from_the_right_and_leaves_the_strips_dark(
     surface: RecordingSurface,
 ) -> None:
-    surface.shutdown = "show"
+    surface.shutdown = SHOW
     for strip in surface.strips:
         strip.set_color(Color.BLUE)
         strip.set_led(Button.SELECT, Led.ON)
@@ -509,7 +514,7 @@ async def test_the_show_at_the_end_runs_the_wave_from_the_right_and_leaves_the_s
     assert protocol.lcd_colors([Color.BLACK, *[Color.BLUE] * 6, Color.WHITE]) in surface.sent
     # down from the top; up to the peak and down from a value below it
     assert surface.faders(7) == sorted(surface.faders(7), reverse=True)
-    assert max(surface.faders(1)) == protocol.fader_value(surface_module.SHOW_FADER_PEAK)
+    assert max(surface.faders(1)) == protocol.fader_value(SHOW.fader)
     rings = [surface.sent.index(protocol.ring(index, 1, RingMode.WRAP)) for index in range(8)]
     assert rings == sorted(rings, reverse=True)
     assert all(strip.color == Color.BLACK and strip.position == 0 for strip in surface.strips)
@@ -521,7 +526,7 @@ async def test_the_show_at_the_end_runs_the_wave_from_the_right_and_leaves_the_s
 
 
 async def test_a_finger_on_a_fader_keeps_it_out_of_the_wave(surface: RecordingSurface) -> None:
-    surface.shutdown = "show"
+    surface.shutdown = SHOW
     strip = surface.strips[3]
     strip.set_fader(0.4)
     await surface.settled()
@@ -538,9 +543,10 @@ async def test_a_finger_on_a_fader_keeps_it_out_of_the_wave(surface: RecordingSu
 async def test_a_device_that_goes_away_ends_the_startup_sequence(
     device: tuple[Path, Path, int], monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(surface_module, "SEQUENCE_STAGGER", 1.0)
+    monkeypatch.setattr(surface_module, "TIME_SCALE", 1.0)
     cards, dev, _ = device
     surface = Surface(proc_asound_cards=cards, dev_snd=dev)
+    surface.startup = Pace("sweep", delay=1.0)
     assert surface.connect()
     revealer = surface._revealer
     assert revealer is not None

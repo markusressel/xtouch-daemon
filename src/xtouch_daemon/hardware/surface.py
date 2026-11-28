@@ -10,7 +10,7 @@ import time
 from collections.abc import Callable
 from pathlib import Path
 
-from xtouch_daemon.config.values import Sequence
+from xtouch_daemon.config.values import Pace, Sequence
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.hardware.strip import FADER_REST, FADER_TICK, Strip
@@ -24,26 +24,16 @@ SCAN_INTERVAL = 2.0
 """How often the sound cards are checked for the device while it is not connected."""
 
 
-SEQUENCE_STAGGER = 0.08
+TIME_SCALE = 1.0
 """
-Seconds between the steps of the startup and shutdown sequences (see `Surface.open()` and `Surface.put_away()`):
-one strip after the other for `sweep` and `show`, a pair for `curtain`.
-"""
-SHOW_STAGGER = 0.06
-"""Seconds between the strips of the wave of `show` (see `Surface._wave()`)."""
-SHOW_STEP = 0.03
-"""
-Seconds per step of the light of a strip in `show`: its ring lights one more LED (or one less), its meter a level, and
-every third step a button goes on (or off).
+Multiplies the times of the startup and shutdown sequences (their `Pace`): the tests set 0, so the strips are not
+staggered.
 """
 SHOW_STEPS = protocol.RING_MAX + 1
 """
 The steps up (and as many down) of a strip in `show`: the LEDs of the ring one after the other, then the two at its
 ends (the center bit).
 """
-SHOW_FADER_PEAK = 0.6
-"""How high (0..1) the faders rise in the wave of `show`: once up and down, in step with the light above them."""
-
 
 TOUCH_GRACE = 0.3
 """
@@ -111,9 +101,9 @@ class Surface:
         """
         self.port = port or AlsaPort(device_name, proc_asound_cards, dev_snd)
         self.device_name = self.port.name
-        self.startup: Sequence = "sweep"
-        self.shutdown: Sequence = "sweep"
-        """How the strips light up after a connect and go dark at the end (see `steps()`)."""
+        self.startup = Pace()
+        self.shutdown = Pace()
+        """How the strips light up after a connect and go dark at the end, and how fast (see `steps()`)."""
         self.touchless: frozenset[int] = frozenset()
         """
         The strips (from 0) whose fader has no working touch sensor: a move counts as a touch, a pause of
@@ -302,32 +292,28 @@ class Surface:
     async def put_away(self) -> None:
         """The shutdown sequence (see `shutdown`): the strips go dark and put their faders away."""
         self.end_banner()
-        show = self.shutdown == "show"
-        async with asyncio.TaskGroup() as group:
-            for number, step in enumerate(steps(self.shutdown, startup=False)):
-                if number:
-                    await asyncio.sleep(SHOW_STAGGER if show else SEQUENCE_STAGGER)
-                for index in step:
-                    if show:
-                        group.create_task(self._wave(self.strips[index], startup=False))
-                    else:
-                        self.strips[index].reset()
+        await self._sequence(self.shutdown, startup=False)
         await self.settled()
 
     async def _reveal(self) -> None:
         """The startup sequence (see `startup`)."""
-        show = self.startup == "show"
+        await self._sequence(self.startup, startup=True)
+
+    async def _sequence(self, pace: Pace, startup: bool) -> None:
+        show = pace.sequence == "show"
         async with asyncio.TaskGroup() as group:
-            for number, step in enumerate(steps(self.startup, startup=True)):
+            for number, step in enumerate(steps(pace.sequence, startup)):
                 if number:
-                    await asyncio.sleep(SHOW_STAGGER if show else SEQUENCE_STAGGER)
+                    await asyncio.sleep(pace.delay * TIME_SCALE)
                 for index in step:
                     if show:
-                        group.create_task(self._wave(self.strips[index], startup=True))
-                    else:
+                        group.create_task(self._wave(self.strips[index], pace, startup))
+                    elif startup:
                         self.strips[index].reveal()
+                    else:
+                        self.strips[index].reset()
 
-    async def _wave(self, strip: Strip, startup: bool) -> None:
+    async def _wave(self, strip: Strip, pace: Pace, startup: bool) -> None:
         """
         A strip in the wave of `show`: its LCD turns white, its ring fills up LED by LED, its meter goes up and its
         buttons light up from the top (Rec first); then all of it goes off again the same way, the buttons from the top
@@ -337,13 +323,13 @@ class Surface:
         index = strip.index
         self._gliding.discard(strip)
         self._waving.add(strip)
-        ticks_per_step = max(1, round(SHOW_STEP / FADER_TICK))
+        ticks_per_step = max(1, round(pace.step * TIME_SCALE / FADER_TICK))
         ticks = 2 * SHOW_STEPS * ticks_per_step
         # after a connect the fader is where the device leaves it (see FADER_REST); at the end where the strip put it
         start = round(FADER_REST) if startup or strip.position is None else strip.position
         # it ends at the value of the strip (one that changes meanwhile glides on from there), at the bottom at the end
         end = (strip.fader or 0) if startup else 0
-        peak = max(protocol.fader_value(SHOW_FADER_PEAK), start, end)
+        peak = max(protocol.fader_value(pace.fader), start, end)
         sent_fader = start
         lit = [False] * len(Button)
         self._lit.add(index)

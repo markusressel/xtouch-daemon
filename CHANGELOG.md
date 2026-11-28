@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- The startup and shutdown sequences have options for their pace, each for itself and separately for the startup and
+  the shutdown: the delay between the strips of `sweep` (`startup_sweep_delay`, `shutdown_sweep_delay`) and between
+  the pairs of `curtain`, and the delay, the step of the light and the height of the faders of `show`
+  (`startup_show_delay`, `startup_show_step`, `startup_show_fader`, ...). The GUI shows only those of the chosen
+  sequence, under it. See [General settings](docs/configuration/behavior.md#the-pace-of-a-sequence).
 - GUI, Play: what the mouse can take glows under it (the knob, an LED of the ring, a button, the fader), with a tooltip
   of what a click, a drag and a hold do. While a drag turns the encoder, ticks around the knob show its steps and a
   pointer passes one per step.

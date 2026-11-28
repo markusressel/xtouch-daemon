@@ -21,7 +21,7 @@ from xtouch_daemon.config.files import (
 )
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.config.sections import DeviceConfig
-from xtouch_daemon.config.values import color_of
+from xtouch_daemon.config.values import Pace, color_of
 from xtouch_daemon.hardware.protocol import Color
 
 FULL = """
@@ -341,3 +341,24 @@ def test_errors_of_people_and_switching(text: str, message: str) -> None:
 def test_an_option_of_a_binding_elsewhere_is_hinted(text: str, message: str) -> None:
     assert message in errors_of(text)
     assert "did you mean set" not in errors_of(text)
+
+
+def test_each_sequence_has_its_own_pace_at_startup_and_shutdown() -> None:
+    # without options: the defaults of each type
+    assert DeviceConfig().pace(startup=True) == Pace("sweep", delay=0.08, step=0, fader=0)
+    assert DeviceConfig(startup="show").pace(startup=True) == Pace("show", delay=0.06, step=0.03, fader=0.6)
+    assert DeviceConfig(shutdown="instant").pace(startup=False) == Pace("instant", 0, 0, 0)
+    # the options of one sequence and direction leave the others alone
+    device = DeviceConfig(
+        startup="curtain",
+        shutdown="show",
+        startup_curtain_delay=150,
+        startup_sweep_delay=10,
+        shutdown_show_delay=40,
+        shutdown_show_step=20,
+        shutdown_show_fader=100,
+    )
+    assert device.pace(startup=True) == Pace("curtain", delay=0.15, step=0, fader=0)
+    assert device.pace(startup=False) == Pace("show", delay=0.04, step=0.02, fader=1.0)
+    with pytest.raises(ValidationError):
+        DeviceConfig(startup_show_step=5)

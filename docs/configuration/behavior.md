@@ -14,6 +14,11 @@ strips show. The [GUI](../guides/gui.md) has them on the page Settings.
 | `touchless_faders` | `[]` | Faders whose touch sensor does not work, numbered from 1 on the left, see [below](#faders-without-a-touch-sensor). |
 | `startup` | `"sweep"` | How the strips light up after a connect, see [below](#startup-and-shutdown-sequences). |
 | `shutdown` | `"sweep"` | How the strips go dark when the daemon stops, see [below](#startup-and-shutdown-sequences). |
+| `startup_sweep_delay`, `shutdown_sweep_delay` | `80` | Milliseconds from one strip to the next in `sweep`, see [below](#the-pace-of-a-sequence). |
+| `startup_curtain_delay`, `shutdown_curtain_delay` | `80` | Milliseconds from one pair of strips to the next in `curtain`. |
+| `startup_show_delay`, `shutdown_show_delay` | `60` | Milliseconds from one strip to the next in `show`: the speed of the wave. |
+| `startup_show_step`, `shutdown_show_step` | `30` | Milliseconds per step of the light of a strip in `show`, from 10 to 200. |
+| `startup_show_fader`, `shutdown_show_fader` | `60` | The height, in percent, that the faders rise to in `show`. |
 
 A reload takes every option of `[device]`: with another `name` or `virtual`, the daemon connects to the other control surface without a restart, and the strips show the same on it.
 
@@ -25,14 +30,36 @@ dark and their faders go down. `startup` and `shutdown` choose how:
 | Value | Startup | Shutdown |
 |---|---|---|
 | `instant` | All strips at once. | All strips at once. |
-| `sweep` | One after the other from the left, 80 ms apart. | One after the other from the right. |
+| `sweep` | One after the other from the left. | One after the other from the right. |
 | `curtain` | From the middle outwards, pair by pair (4 and 5 first, 1 and 8 last). | From the outside in. |
-| `show` | One wave of light runs across the strips from the left, in about 1 second. As it passes a strip, the strip lights up fully and its fader rises. Then the light goes off, the fader falls to its value and the strip shows its content. | The same wave, from the right. Behind it, the strips are dark and their faders at the bottom. |
+| `show` | One wave of light runs across the strips from the left, in about 1 second at the default pace. As it passes a strip, the strip lights up fully and its fader rises. Then the light goes off, the fader falls to its value and the strip shows its content. | The same wave, from the right. Behind it, the strips are dark and their faders at the bottom. |
 
 ```toml
 [device]
 startup = "show"
 shutdown = "curtain"
+```
+
+#### The pace of a sequence
+
+Each sequence has options for its pace, separately for the startup and the shutdown. Their names start with the
+direction and the sequence, e.g. `startup_sweep_delay` for the `sweep` at startup. An option of a sequence you don't
+use changes nothing, and the GUI shows only the options of the chosen sequence.
+
+- `sweep` and `curtain` have a delay: the milliseconds from one strip, or one pair of strips, to the next.
+- `show` has a delay too, the milliseconds from one strip to the next. `step` is the milliseconds per step of the
+  light of one strip: its ring lights one more LED and its meter one more level. The light takes 24 steps, 12 up and
+  12 down, so with the default of 30 ms one strip takes about 0.7 seconds. `fader` is how high the faders rise, in
+  percent; a fader whose value is higher stays at its value.
+- `instant` has none.
+
+```toml
+[device]
+startup = "sweep"
+startup_sweep_delay = 40      # a faster sweep from the left
+shutdown = "show"
+shutdown_show_delay = 120     # a slow wave from the right
+shutdown_show_fader = 100     # the faders go all the way up first
 ```
 
 ### Faders without a touch sensor

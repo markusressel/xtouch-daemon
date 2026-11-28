@@ -13,7 +13,17 @@
         "touch_required": true,
         "touchless_faders": [],
         "startup": "sweep",
-        "shutdown": "sweep"
+        "startup_sweep_delay": 80,
+        "startup_curtain_delay": 80,
+        "startup_show_delay": 60,
+        "startup_show_step": 30,
+        "startup_show_fader": 60,
+        "shutdown": "sweep",
+        "shutdown_sweep_delay": 80,
+        "shutdown_curtain_delay": 80,
+        "shutdown_show_delay": 60,
+        "shutdown_show_step": 30,
+        "shutdown_show_fader": 60
       }
     },
     "behavior": {
@@ -1643,6 +1653,46 @@
           "title": "Startup",
           "type": "string"
         },
+        "startup_sweep_delay": {
+          "default": 80,
+          "description": "Milliseconds from one strip to the next.",
+          "maximum": 1000,
+          "minimum": 0,
+          "title": "Startup Sweep Delay",
+          "type": "integer"
+        },
+        "startup_curtain_delay": {
+          "default": 80,
+          "description": "Milliseconds from one pair of strips to the next.",
+          "maximum": 1000,
+          "minimum": 0,
+          "title": "Startup Curtain Delay",
+          "type": "integer"
+        },
+        "startup_show_delay": {
+          "default": 60,
+          "description": "Milliseconds from one strip to the next: the speed of the wave.",
+          "maximum": 1000,
+          "minimum": 0,
+          "title": "Startup Show Delay",
+          "type": "integer"
+        },
+        "startup_show_step": {
+          "default": 30,
+          "description": "Milliseconds per step of the light of a strip: its ring lights one more LED, its meter one more level. Its light\ntakes 24 steps, 12 up and 12 down.",
+          "maximum": 200,
+          "minimum": 10,
+          "title": "Startup Show Step",
+          "type": "integer"
+        },
+        "startup_show_fader": {
+          "default": 60,
+          "description": "The height, in percent, that the faders rise to in the wave.",
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Startup Show Fader",
+          "type": "integer"
+        },
         "shutdown": {
           "default": "sweep",
           "description": "How the strips go dark when the daemon stops.",
@@ -1654,6 +1704,46 @@
           ],
           "title": "Shutdown",
           "type": "string"
+        },
+        "shutdown_sweep_delay": {
+          "default": 80,
+          "description": "Milliseconds from one strip to the next.",
+          "maximum": 1000,
+          "minimum": 0,
+          "title": "Shutdown Sweep Delay",
+          "type": "integer"
+        },
+        "shutdown_curtain_delay": {
+          "default": 80,
+          "description": "Milliseconds from one pair of strips to the next.",
+          "maximum": 1000,
+          "minimum": 0,
+          "title": "Shutdown Curtain Delay",
+          "type": "integer"
+        },
+        "shutdown_show_delay": {
+          "default": 60,
+          "description": "Milliseconds from one strip to the next: the speed of the wave.",
+          "maximum": 1000,
+          "minimum": 0,
+          "title": "Shutdown Show Delay",
+          "type": "integer"
+        },
+        "shutdown_show_step": {
+          "default": 30,
+          "description": "Milliseconds per step of the light of a strip: its ring lights one more LED, its meter one more level. Its light\ntakes 24 steps, 12 up and 12 down.",
+          "maximum": 200,
+          "minimum": 10,
+          "title": "Shutdown Show Step",
+          "type": "integer"
+        },
+        "shutdown_show_fader": {
+          "default": 60,
+          "description": "The height, in percent, that the faders rise to in the wave.",
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Shutdown Show Fader",
+          "type": "integer"
         }
       },
       "title": "DeviceConfig",

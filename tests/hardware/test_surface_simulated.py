@@ -12,6 +12,7 @@ import pytest
 
 from tests.support.simulator import MemoryPort
 from tests.support.waiting import until
+from xtouch_daemon.config.values import Pace
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware import surface as surface_module
 from xtouch_daemon.hardware.protocol import Button, Color, Led
@@ -151,14 +152,13 @@ async def test_another_device_shows_everything_the_strips_show(port: MemoryPort)
 async def test_the_show_runs_a_wave_over_the_faders_of_the_device_and_back_at_the_end(
     port: MemoryPort, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(surface_module, "SHOW_STAGGER", 0.06)
-    monkeypatch.setattr(surface_module, "SHOW_STEP", 0.03)
+    monkeypatch.setattr(surface_module, "TIME_SCALE", 1.0)
     surface = Surface(port=port)
-    surface.startup = surface.shutdown = "show"
+    surface.startup = surface.shutdown = Pace("show", delay=0.06, step=0.03, fader=0.6)
     surface.strips[1].set_text(0, "Buds")
     surface.strips[1].set_fader(0.5)
     device = port.device
-    peak = protocol.fader_value(surface_module.SHOW_FADER_PEAK)
+    peak = protocol.fader_value(0.6)
     task = asyncio.create_task(surface.run())
     await until(lambda: surface.connected)
 

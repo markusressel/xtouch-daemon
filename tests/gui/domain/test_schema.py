@@ -62,12 +62,21 @@ def test_options_come_from_the_models_with_bounds_defaults_and_help():
     unity = options(BehaviorConfig)[1]
     assert (unity.default, unity.minimum, unity.maximum) == (77, 10, 95)
     assert "0 dB at about 77" in unity.help
-    name, _virtual, touch_required, touchless, startup, shutdown = options(DeviceConfig)
+    device = {option.name: option for option in options(DeviceConfig)}
+    name, touch_required, touchless = device["name"], device["touch_required"], device["touchless_faders"]
+    startup, shutdown = device["startup"], device["shutdown"]
     assert (touch_required.kind, touch_required.default) == (Kind.SWITCH, True)
     assert name.default == "X-Touch-Ext"
     assert (touchless.kind, touchless.default, touchless.minimum, touchless.maximum) == (Kind.NUMBERS, (), 1, 8)
     assert (startup.kind, startup.default) == (Kind.CHOICE, "sweep")
     assert shutdown.choices == ("instant", "sweep", "curtain", "show")
+    # the options of a sequence come with it, named without it
+    show_step = device["startup_show_step"]
+    assert (show_step.shown_with, show_step.title, show_step.minimum) == (("startup", "show"), "Step", 10)
+    assert show_step.shown({"startup": "show"})
+    assert not show_step.shown({"startup": "sweep"})
+    assert startup.shown({})
+    assert startup.title == "Startup"
 
 
 def test_the_options_of_a_strip_start_with_what_it_controls_and_go_down_the_device():

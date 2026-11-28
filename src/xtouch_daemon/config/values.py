@@ -3,6 +3,7 @@ The kinds of values of options (labels, volumes, colors, ...), and what the valu
 """
 
 import shlex
+from dataclasses import dataclass
 from typing import Annotated, Literal
 
 from pydantic import AfterValidator, BeforeValidator, Field
@@ -122,11 +123,10 @@ Sequence = Literal["instant", "sweep", "curtain", "show"]
 STARTUP_SEQUENCES = Meanings(
     {
         "instant": "All strips light up at once.",
-        "sweep": "One strip after the other from the left, 80 ms apart.",
+        "sweep": "One strip after the other from the left.",
         "curtain": "From the middle outwards, pair by pair (4 and 5 first, 1 and 8 last).",
         "show": "A wave runs across from the left: each strip turns white, its ring, meter and buttons light up and "
-        "go off again, its fader rises and falls. Behind it the strips show what they are, about 1.1 s after the "
-        "connect.",
+        "go off again, its fader rises and falls. Behind it the strips show what they are.",
     }
 )
 
@@ -138,6 +138,31 @@ SHUTDOWN_SEQUENCES = Meanings(
         "show": "The wave of the startup, from the right; behind it the strips are dark and their faders down.",
     }
 )
+
+
+SequenceDelay = Annotated[int, Field(ge=0, le=1000)]
+"""Milliseconds between the steps of a startup or shutdown sequence."""
+ShowStep = Annotated[int, Field(ge=10, le=200)]
+"""Milliseconds per step of the light of a strip in the sequence `show`."""
+Percent = Annotated[int, Field(ge=0, le=100)]
+"""A share in percent."""
+
+
+@dataclass(frozen=True)
+class Pace:
+    """A startup or shutdown sequence and how fast it goes (see `DeviceConfig.pace()`)."""
+
+    sequence: Sequence = "sweep"
+    delay: float = 0.08
+    """Seconds between its steps: from one strip (`sweep`, `show`) or pair (`curtain`) to the next."""
+    step: float = 0.03
+    """For `show`: seconds per step of the light of a strip."""
+    fader: float = 0.6
+    """For `show`: how high (0..1) the faders rise."""
+
+
+INSTANT = Pace("instant", 0, 0, 0)
+"""A sequence without options of its own."""
 
 
 Slug = Annotated[str, Field(pattern=r"^[a-z0-9_]+$", max_length=64)]

@@ -6,6 +6,7 @@ the GUI.
 
 import dataclasses
 import types
+from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
@@ -16,7 +17,7 @@ from pydantic import BaseModel, SecretStr
 from pydantic.fields import FieldInfo
 from pydantic_core import PydanticUndefined
 
-from xtouch_daemon.config.base import Meanings
+from xtouch_daemon.config.base import Meanings, ShownWith
 from xtouch_daemon.config.bindings import (
     HOME_ASSISTANT,
     VALUE_PARTS,
@@ -110,6 +111,11 @@ class Option:
     For `BINDING`: the model of its tables with an entity of Home Assistant (`{ entity = ... }`, e.g.
     `EntityLevelBinding`), None for a part that takes none.
     """
+    shown_with: tuple[str, str] | None = None
+    """
+    The option of the same section and its value while which this one matters (`ShownWith`), e.g. `("startup",
+    "sweep")`; None for one that always does.
+    """
     signed: bool = False
     """
     For a `NUMBER` of a binding (`min`, `step`, ...): a number of your own, of any sign and size (e.g. a brightness
@@ -118,8 +124,21 @@ class Option:
 
     @property
     def title(self) -> str:
-        """The name for people, e.g. "Max volume" for `max_volume`."""
-        return self.name.replace("_", " ").capitalize()
+        """
+        The name for people, e.g. "Max volume" for `max_volume`; without the option and the value it is shown with,
+        e.g. "Delay" for `startup_sweep_delay`.
+        """
+        name = self.name
+        if self.shown_with is not None:
+            name = name.removeprefix("_".join(self.shown_with) + "_")
+        return name.replace("_", " ").capitalize()
+
+    def shown(self, values: Mapping[str, Any]) -> bool:
+        """Whether the option matters with the values of the options of its section (`values`, by name)."""
+        if self.shown_with is None:
+            return True
+        option, value = self.shown_with
+        return values.get(option) == value
 
     def meaning(self, value: object) -> str:
         """What a choice means, "" for a value without a meaning (or that is no choice)."""
@@ -269,6 +288,8 @@ def _bounds(constraints: list[Any], kind: Kind) -> dict[str, Any]:
                 bounds["meanings"] = tuple((dict(bounds.get("meanings", ())) | dict(meanings)).items())
             case Presets(kind=preset_kind):
                 bounds["presets"] = preset_kind
+            case ShownWith(option=other, value=value):
+                bounds["shown_with"] = (other, value)
             case annotated_types.Ge(ge=value):
                 bounds["minimum"] = value
             case annotated_types.Le(le=value):

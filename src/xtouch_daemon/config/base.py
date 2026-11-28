@@ -30,6 +30,17 @@ class Meanings:
     meanings: Mapping[str, str]
 
 
+@dataclass(frozen=True)
+class ShownWith:
+    """
+    An option that matters only while another option of its section has a value, as metadata of it
+    (`Annotated[int, ShownWith("startup", "sweep")]`): the GUI shows it only then.
+    """
+
+    option: str
+    value: str
+
+
 class ConfigError(Exception):
     """A configuration that can't be used, with a message for the user."""
 

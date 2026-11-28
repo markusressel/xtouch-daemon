@@ -19,6 +19,7 @@ from tests.support.tasks import settle
 from tests.support.waiting import until
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.config.files import parse_config
+from xtouch_daemon.config.values import Pace
 from xtouch_daemon.daemon import lifecycle as daemon_module
 from xtouch_daemon.daemon.lifecycle import Daemon, device_surface
 from xtouch_daemon.hardware import protocol
@@ -264,9 +265,13 @@ async def test_the_options_of_the_device_apply_with_a_reload(
     assert daemon.reload()
     assert surface.touchless == set(range(8))
     # the sequences too
-    config_path.write_text('[device]\nstartup = "show"\nshutdown = "curtain"\n' + SPEAKER)
+    config_path.write_text(
+        '[device]\nstartup = "show"\nstartup_show_fader = 80\nshutdown = "curtain"\nshutdown_curtain_delay = 120\n'
+        + SPEAKER
+    )
     assert daemon.reload()
-    assert (surface.startup, surface.shutdown) == ("show", "curtain")
+    assert surface.startup == Pace("show", delay=0.06, step=0.03, fader=0.8)
+    assert surface.shutdown == Pace("curtain", delay=0.12, step=0, fader=0)
     assert "restart the daemon" not in caplog.text
 
     # another device too: the surface lets go of the one it has and connects to that one
@@ -280,7 +285,7 @@ async def test_the_options_of_the_device_apply_with_a_reload(
     assert isinstance(surface.port, SocketPort)
 
     assert surface.touchless == frozenset()
-    assert (surface.startup, surface.shutdown) == ("sweep", "sweep")
+    assert (surface.startup.sequence, surface.shutdown.sequence) == ("sweep", "sweep")
     daemon.mixer.close()
     await settle()
 

@@ -278,7 +278,10 @@ class Daemon(Rig):
 
     def _configure_surface(self, config: Config) -> None:
         super()._configure_surface(config)
-        self.surface.startup, self.surface.shutdown = config.device.startup, config.device.shutdown
+        self.surface.startup, self.surface.shutdown = (
+            config.device.pace(startup=True),
+            config.device.pace(startup=False),
+        )
 
     # -- control --------------------------------------------------------------------------------------------------
 

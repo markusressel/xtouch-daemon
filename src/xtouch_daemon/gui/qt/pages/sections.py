@@ -40,7 +40,7 @@ from xtouch_daemon.gui.domain.voip import (
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, help_label, help_tail, label, set_help, show_status
 from xtouch_daemon.gui.qt.fields.entities import EntitySource
-from xtouch_daemon.gui.qt.fields.option_row import add_rows, align_titles
+from xtouch_daemon.gui.qt.fields.option_row import align_titles, divider
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Stack, button, card, row, section_title, set_text
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
@@ -84,18 +84,17 @@ class SectionPage(Page):
         self._above_options(present)
         frame, layout = card()
         suggest: dict[str, Suggest] = {"ignore": lambda: sources.patterns(self.audio())}
-        add_rows(
-            layout,
-            [
-                self._row(
-                    option,
-                    lambda option_name: (name, option_name),
-                    suggest.get(option.name),
-                    link=docs.option_link(name, option.name),
-                )
-                for option in options(self.section.model)
-            ],
-        )
+        for option in options(self.section.model):
+            option_row = self._row(
+                option,
+                lambda option_name: (name, option_name),
+                suggest.get(option.name),
+                link=docs.option_link(name, option.name),
+            )
+            # an option shown with another one (`Option.shown_with`) sits under it, without a line between them
+            if len(self.option_rows) > 1 and option.shown_with is None:
+                layout.addWidget(divider())
+            layout.addWidget(option_row)
         align_titles(self.option_rows)
         if name == "device":
             layout.addWidget(label("A changed name takes a restart of the service.", "help"))
@@ -123,12 +122,24 @@ class SectionPage(Page):
     def show_document(self, change: Change) -> None:
         if change.touches(Scope.SECTION):
             self._show()
+        else:
+            self._show_options()
 
     def _show(self) -> None:
         present = self.document.has_section(self.section.name)
         self.remove_button.setVisible(self.section.optional and present)
         self.parts.show_part(self.present if present else self.absent)
         self._load_rows(self.rows)
+        self._show_options()
+
+    def _show_options(self) -> None:
+        """Only the options that matter with the values of the others (see `Option.shown`)."""
+        values = {}
+        for option_row in self.rows:
+            value = self._value((self.section.name, option_row.option.name))
+            values[option_row.option.name] = option_row.option.default if value is None else value
+        for option_row in self.rows:
+            option_row.setVisible(option_row.option.shown(values))
 
     def show_problems(self, validation: Validation) -> None:
         names = {option_row.option.name for option_row in self.rows}
