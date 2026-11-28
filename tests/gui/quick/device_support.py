@@ -48,7 +48,7 @@ def live_ui(make_ui: MakeUi, daemon: FakeLiveDaemon, qtbot: object, **changes: o
     ui = make_ui(live_socket=daemon.path)
     ui.wait_until(lambda: bool(daemon.clients))
     daemon.send(snapshot(ui, **changes))
-    ui.wait_until(lambda: device_of(ui).live.snapshot is not None)
+    ui.wait_until(lambda: ui.app.shell.live.snapshot is not None)
     ui.settle()
     return ui
 

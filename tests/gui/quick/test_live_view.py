@@ -17,6 +17,7 @@ from xtouch_daemon.system.instance import Instance
 def test_the_drawing_shows_the_device_live(make_ui: MakeUi, live_daemon: FakeLiveDaemon) -> None:
     ui = make_ui(live_socket=live_daemon.path)
     device = device_of(ui)
+    shell = ui.app.shell
     drawing = drawing_of(ui)
     ui.wait_until(lambda: bool(live_daemon.clients))
     first = strip_state(
@@ -47,7 +48,7 @@ def test_the_drawing_shows_the_device_live(make_ui: MakeUi, live_daemon: FakeLiv
     assert not ui.grab().isNull()
 
     # without the device there is nothing to show (the file, not the preview, as it does after a save)
-    device.setPlace("off")
+    shell.setPlace("off")
     live_daemon.send(snapshot(ui, strips=(first, *snapshot(ui).strips[1:]), device=False))
     ui.wait_until(lambda: device.liveStatus["text"] == "Live · not connected")
     assert drawing.strips[0].face.look.detail == "The device is not connected."
@@ -55,7 +56,7 @@ def test_the_drawing_shows_the_device_live(make_ui: MakeUi, live_daemon: FakeLiv
 
     # the daemon ended: dark strips
     live_daemon.close()
-    ui.wait_until(lambda: device.live.snapshot is None)
+    ui.wait_until(lambda: shell.live.snapshot is None)
     assert device.liveStatus["text"] == "No live view"
     assert not drawing.strips[0].face.live
 
@@ -64,18 +65,19 @@ def test_the_live_view_ends_with_the_daemon(make_ui: MakeUi, live_daemon: FakeLi
     running: list[Instance | None] = [RecordingInstance(1234, Path("/elsewhere.toml"), systemd=True)]
     ui = make_ui(find_daemon=lambda: running[0], live_socket=live_daemon.path)
     device = device_of(ui)
+    shell = ui.app.shell
     ui.wait_until(lambda: bool(live_daemon.clients))
     live_daemon.send(snapshot(ui))
-    ui.wait_until(lambda: device.live.snapshot is not None)
+    ui.wait_until(lambda: shell.live.snapshot is not None)
     # a line of another version means nothing
     live_daemon.send_line(b'{"version": 99}\n')
     ui.qtbot.wait(20)
-    assert device.live.snapshot is not None
+    assert shell.live.snapshot is not None
 
     running[0] = None
-    device.refresh_service()
+    shell.refresh_service()
 
-    assert device.live.snapshot is None
+    assert shell.live.snapshot is None
     assert device.liveStatus["text"] == "No daemon"
     assert not device.testVisible
 
@@ -85,8 +87,9 @@ def test_a_daemon_that_starts_is_watched_at_once_not_at_the_next_poll(make_ui: M
     with tempfile.TemporaryDirectory(prefix="xtw-") as directory:
         socket = Path(directory) / "live.sock"
         ui = make_ui(live_socket=socket)
-        device = device_of(ui)
-        assert device.live.snapshot is None
+        device_of(ui)
+        shell = ui.app.shell
+        assert shell.live.snapshot is None
         # something else changes in the directory: nothing to do
         (Path(directory) / "other").write_text("")
         qtbot.wait(50)

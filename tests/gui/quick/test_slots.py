@@ -363,6 +363,10 @@ def test_the_texts_of_the_inspector_name_the_colors_of_the_theme(ui: Ui):
 
 def test_simulate_needs_a_daemon(ui: Ui):
     slots = page(ui)
+    # the window's own live view has no daemon with a twin here: Simulate says so
+    assert not slots.simulateEnabled
+    assert "no daemon runs" in slots.simulateTip
+    tell(ui, None)
     assert slots.simulateEnabled
     tell(ui, None, simulate_unavailable=lambda: Reason("no daemon", "No daemon runs."))
     assert not slots.simulateEnabled

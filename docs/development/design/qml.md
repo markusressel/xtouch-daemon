@@ -111,13 +111,16 @@ widgets (`gui/qt/preview/painting.py` with its pixmap caches), so the strips loo
   `StripItem`s to it. The strips glide aside while one is dragged with a `Behavior` of `Theme.resize`; the right-hand
   click menu is an in-window `Menu`.
 - **`DevicePanel`** (`app.device`) is the backend of the page: the bar (Select and Play, the pills of the live view,
-  the mode and the virtual device, the test), the live preview with its places (`places`, `setPlace`), the test of the
-  device, the virtual device hosted in the window and the trial without a device. The pills open `EntriesPopover.qml`,
-  which shows what `popover(kind)` returns (`live`, `modes` or `virtual`); `activate` and `toggle` run its buttons.
-- **What the shell gives it.** `say(text)` and `warn(title, text)` default to the signals `message` and `warning`; the
-  window sets them to its status line and dialogs. It tells the shell which slot was picked (`picked`, `unpicked`,
-  `slotMoved`). The window calls `shutdown()` when it closes, `refresh_service()` when it found the daemon again, and
-  `keep_trying_for_next_window()` to hand a running trial to the next window.
+  the mode and the virtual device, the test), the strips, the hands of the mouse and the test of the device. The pills
+  open `EntriesPopover.qml`, which shows what `popover(kind)` returns (`live`, `modes` or `virtual`); `activate` and
+  `toggle` run its buttons.
+- **One owner of the live plumbing: the shell.** The panel owns no daemon, live view, preview, virtual device or
+  trial. It reads `app.shell` (`live`, `live_preview`, `daemon`, `hosted`, `trying`, `drawing_status()`,
+  `device_offer()`, `previewing()`), redraws on `shell.previewChanged` (which comes with every snapshot, edit and
+  change of the place of the preview) and calls the shell for what its buttons do (`open_virtual_device`,
+  `try_without_device`, `use_virtual_device`, `switch_to_device`, `restart_daemon`, `show_slot`, `move_slot`, `tell`).
+  `shell.virtualDeviceOpened` makes it play on the virtual device. The window's `shutdown` is the shell's; the panel
+  only ends the test of the device.
 - **Previews of controls.** `PartPreview.qml` takes a `model`, a `PartPreviewModel(part)` with `part` one of
   `encoder`, `display`, `buttons` and `fader`. Call `model.play(frames)` with `gui.domain.demos.scene(...)` whenever
   the options change; the step shown stays. `cardColor` and `edgeColor` give the colors the corners and the edge are
@@ -125,7 +128,8 @@ widgets (`gui/qt/preview/painting.py` with its pixmap caches), so the strips loo
 - **Screenshots.** `gui/quick/device/render.py` draws the strips without a window: `Scene` (one drawing at a scale,
   pixel ratio and theme), `render_drawing` and `render_strip` return a `QImage`.
 - **Not done here.** Esc ends Simulate only while a strip has the focus; the slots part owns Simulate and its Esc.
-  Dialogs and the process of the trial (`trying`) depend on hooks of the shell.
+- **No daemon.** The strips show what the widgets show: `device_faces(None)`, dark strips with the "No type" badge,
+  fainter. The strips do not show the file's looks until a daemon tells.
 
 ## The page Slots
 
@@ -134,9 +138,11 @@ crumbs, the "why" steps) and `qml/XTouch/Pages/Slot*.qml`. The Python types of t
 `SoundBadge`) are registered in `XTouch.Slots`; the page imports it.
 
 - **What the page reaches** (the daemon's snapshot, requests, the twin, the sound server) is a `Live` dataclass in
-  `SlotsPage.live` (or `deps.extra["slots_live"]`). The window sets `live`, calls `show_live(snapshot)` for each
-  snapshot (it also feeds the clock of the sound badges) and `show_place(note)`; the signal `simulated` tells the
-  window to start or end the twin. The drawing of the device picks with `selectSlot` and `slot`.
+  `SlotsPage.live` (or `deps.extra["slots_live"]`). The shell sets `live` (`Shell._wire_pages`), calls
+  `show_live(snapshot)` for each snapshot (it also feeds the clock of the sound badges) and `show_place(note)` with
+  `Shell.placeText`; the signal `simulated` is connected to `Shell.situation_changed`, which starts, changes or ends
+  the preview. The drawing of the device picks with `selectSlot` and `slot`. `Live.show_channel` and `show_pool` stay
+  empty until the page Channels can select an entry.
 - **Cards** are `SlotCard`s with a `MovableRows` (a `KeyedListModel` that can move a row). A row's key is the
   candidate as the file has it, so a state change updates a row in place and only a real change inserts or removes
   one. A drag moves the rows aside by offset, then `reorder` writes the file; Ctrl+Up/Down use `moveCandidate`.
@@ -191,13 +197,20 @@ makes room for what the preview is taller by. `RowSpec` got `title` and `reset_t
 
 **Settings.** `SettingsPage` has `entries` (the navigation), `sections` (a backend per section: `form`, `present`,
 `add()`, `remove()`, `live`), `aliases`, `current`, `showSection(name)` and `reveal(path)`. The shell calls
-`show_live(snapshot)` with the daemon's snapshots. The broker test and the plugin installers run in threads
+`show_live(snapshot)` with the daemon's snapshots. The shell also gives the context the sound server, the snapshot, the
+known devices and `send` (after the app is built, never while the pages are made), and the Home Assistant test shares
+its one `EntitySource` (`context.entity_source`). The broker test and the plugin installers run in threads
 (`pages/settings_support.py`), and only the latest result of a test shows.
 
 ## The window
 
 `window/shell.py` (`Shell`, `app.shell` in QML) holds everything around the pages. The decisions that are not obvious:
 
+- **The live plumbing is the shell's, once.** It owns the `LiveView`, the `LivePreview`, the watcher of the runtime
+  directory, the daemon found, the daemon of "Try without a device" (`trying`), the virtual device the window hosts
+  (`hosted`, `open_virtual_device`) and where the preview shows (`place`, `bar["places"]`). `refresh_preview` runs
+  with every snapshot, edit and change of place: it fills the footer, emits `previewChanged` (the drawing follows) and
+  gives the pages what the daemon tells (`_show_pages`). The drawing and the pages only read these.
 - **Menus are data.** `window/menus.py` describes File, Edit, View and Help (text, keys, description, check state) and
   `AppMenu.qml` builds them. The same data gives the shortcuts (`Shortcut`s of the application, so they work in a text
   field too) and the popover of the keys. The window's undo wins over the undo of a text field through a

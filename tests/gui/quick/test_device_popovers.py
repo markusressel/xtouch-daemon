@@ -45,11 +45,12 @@ def test_the_live_popover_explains_the_drawing(qtbot: QtBot, make_ui: MakeUi, li
 def test_the_live_popover_offers_the_virtual_device(qtbot: QtBot, make_ui: MakeUi, live_daemon: FakeLiveDaemon) -> None:
     ui = live_ui(make_ui, live_daemon, qtbot, device=False, virtual=True)
     device = device_of(ui)
+    shell = ui.app.shell
     shown = device.popover("live")
     (entry,) = shown["entries"]
     assert entry["actions"] == ["Open the virtual device"]
     device.activate(0, 0)
-    assert device.hosted is not None
+    assert shell.hosted is not None
 
 
 def test_the_modes_popover_lists_the_modes_and_the_states(

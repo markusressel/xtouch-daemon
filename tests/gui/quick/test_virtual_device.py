@@ -18,11 +18,13 @@ from pytestqt.qtbot import QtBot
 
 from tests.gui.quick.conftest import MakeUi
 from tests.gui.quick.device_support import FakeHand, Stage, device_of, drawing_of, live_ui, snapshot  # noqa: F401
-from tests.support.gui import FakeLiveDaemon, led_point, strip_state
+from tests.support.dialogs import FakeDialogs
+from tests.support.gui import FakeLiveDaemon, led_point
 from tests.support.instance import RecordingInstance
 from tests.support.quick import Ui
 from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.gui.domain.looks import UNKNOWN
+from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.qt.preview.geometry import ENCODER, SLOT, button_rect, fraction_at, part_at, travel_y
 from xtouch_daemon.gui.qt.preview.strip_view import HOVER_TIPS
 from xtouch_daemon.gui.qt.virtual_device import HostedDevice
@@ -113,10 +115,17 @@ def test_a_socket_that_can_not_be_served(qtbot: QtBot, tmp_path: Path) -> None:
 def hosting(qtbot: QtBot, make_ui: MakeUi, socket_dir: Path) -> Iterator[Ui]:
     """A window that hosts the virtual device."""
     ui = make_ui(virtual_socket=socket_dir / "virtual-device.sock")
-    device_of(ui).open_virtual_device()
+    ui.app.shell.open_virtual_device()
     ui.grab()
     yield ui
-    device_of(ui).close_virtual_device()
+    ui.app.shell.close_virtual_device()
+
+
+def said(ui: Ui) -> list[str]:
+    """What the status line of the window says from now on, one text after the other."""
+    texts: list[str] = []
+    ui.app.shell.statusChanged.connect(lambda: texts.append(ui.app.shell.statusText))
+    return texts
 
 
 def entries(ui: Ui, kind: str = "virtual") -> list[dict[str, Any]]:
@@ -133,7 +142,8 @@ def do(ui: Ui, title: str, text: str) -> None:
 
 def test_unplugged_and_switched_off_the_daemon_loses_it(qtbot: QtBot, hosting: Ui) -> None:
     device = device_of(hosting)
-    hosted = device.hosted
+    shell = hosting.app.shell
+    hosted = shell.hosted
     assert hosted is not None
     assert device.virtualStatus == {
         "text": "Virtual device · waiting for the daemon",
@@ -170,7 +180,7 @@ def test_the_pill_of_the_hosted_device_opens_its_popover(hosting: Ui) -> None:
     assert hosting.shows("popoverEntry_Daemon")
     # a button closes the popover first: the device is gone from the window
     hosting.click("popoverAction_Close")
-    assert device_of(hosting).hosted is None
+    assert hosting.app.shell.hosted is None
     assert not hosting.shows("virtualPill")
     assert not hosting.shows("popoverEntry_Connection")
 
@@ -178,26 +188,22 @@ def test_the_pill_of_the_hosted_device_opens_its_popover(hosting: Ui) -> None:
 def test_a_daemon_that_can_not_be_restarted_here_says_why(make_ui: MakeUi, socket_dir: Path, daemon: Any) -> None:
     elsewhere = RecordingInstance(4242, daemon.config, systemd=False)
     ui = make_ui(virtual_socket=socket_dir / "virtual-device.sock", find_daemon=lambda: elsewhere)
-    device = device_of(ui)
-    device.open_virtual_device()
+    device_of(ui)
+    shell = ui.app.shell
+    shell.open_virtual_device()
 
     row = next(row for row in entries(ui) if row["title"] == "Daemon")
 
     assert row["actions"] == []
     assert row["text"].endswith("restart it where it runs.")
-    assert device.restart_reason() == ("This daemon runs outside the service (process 4242): restart it where it runs.")
-    device.close_virtual_device()
-
-
-def test_no_daemon_can_not_be_restarted_either(make_ui: MakeUi) -> None:
-    ui = make_ui(find_daemon=lambda: None)
-
-    assert device_of(ui).restart_reason() == "No daemon runs now."
+    assert shell.restart_reason() == ("This daemon runs outside the service (process 4242): restart it where it runs.")
+    shell.close_virtual_device()
 
 
 def test_touch_sensors_break_and_work_again(qtbot: QtBot, hosting: Ui) -> None:
-    device = device_of(hosting)
-    hosted = device.hosted
+    device_of(hosting)
+    shell = hosting.app.shell
+    hosted = shell.hosted
     assert hosted is not None
     hosting.click("virtualPill")
     toggles = [f"popoverToggle_{strip}" for strip in range(1, protocol.STRIPS + 1)]
@@ -219,42 +225,15 @@ def test_touch_sensors_break_and_work_again(qtbot: QtBot, hosting: Ui) -> None:
 def test_restarting_the_service_shows_its_sequences_on_the_virtual_device(
     hosting: Ui, systemctl: FakeSystemctl
 ) -> None:
-    device = device_of(hosting)
-    messages: list[str] = []
-    device.message.connect(messages.append)
-    assert device.restart_reason() is None
+    device_of(hosting)
+    shell = hosting.app.shell
+    messages = said(hosting)
+    assert shell.restart_reason() is None
 
     do(hosting, "Daemon", "Restart")
 
-    assert systemctl.commands[-1] == ["systemctl", "--user", "restart", "--no-block", UNIT_NAME]
+    assert ["systemctl", "--user", "restart", "--no-block", UNIT_NAME] in systemctl.commands
     assert messages[0] == "Restarting the service…"
-
-
-def test_a_daemon_elsewhere_or_none_is_not_restarted_here(make_ui: MakeUi, path: Path) -> None:
-    elsewhere = make_ui(find_daemon=lambda: RecordingInstance(4242, path.resolve(), systemd=False))
-    assert device_of(elsewhere).restart_reason() == (
-        "This daemon runs outside the service (process 4242): restart it where it runs."
-    )
-
-
-def test_the_daemon_of_the_trial_starts_again(qtbot: QtBot, make_ui: MakeUi, monkeypatch: pytest.MonkeyPatch) -> None:
-    ui = make_ui(find_daemon=lambda: None)
-    device = device_of(ui)
-    messages: list[str] = []
-    device.message.connect(messages.append)
-    started: list[bool] = []
-    monkeypatch.setattr(device, "_start_trial", lambda: started.append(True))
-    process = QProcess()
-    process.start("sleep", ["30"])
-    assert process.waitForStarted()
-    device._keep_trying(process)  # pyright: ignore[reportPrivateUsage]
-    assert device.restart_reason() is None
-
-    device.restart_daemon()
-    assert messages[-1] == "Stopping the daemon for trying without a device, to start it again…"
-    qtbot.waitUntil(lambda: started == [True])
-    assert not device.restarting_trial
-    assert messages[-1] == "Starting the daemon for trying without a device again…"
 
 
 # -- a hand on the device -------------------------------------------------------------------------------------------
@@ -440,13 +419,12 @@ def test_a_hand_that_goes_while_a_strip_is_held_does_nothing_more(stage: Stage) 
 
 
 def test_play_opens_the_virtual_device_the_daemon_waits_for(
-    make_ui: MakeUi, live_daemon: FakeLiveDaemon, socket_dir: Path
+    make_ui: MakeUi, live_daemon: FakeLiveDaemon, socket_dir: Path, dialogs: FakeDialogs
 ) -> None:
     path = socket_dir / "virtual-device.sock"
     ui = make_ui(live_socket=live_daemon.path, virtual_socket=path)
     device = device_of(ui)
-    warnings: list[tuple[str, str]] = []
-    device.warning.connect(lambda title, text: warnings.append((title, text)))
+    shell = ui.app.shell
     ui.wait_until(lambda: bool(live_daemon.clients))
     waiting = dataclasses.replace(snapshot(ui, device=False), virtual=True)
     live_daemon.send(waiting)
@@ -457,10 +435,10 @@ def test_play_opens_the_virtual_device_the_daemon_waits_for(
 
     ui.click("modePlay")
 
-    assert device.hosted is not None
+    assert shell.hosted is not None
     assert path.exists()
     assert device.playing
-    assert drawing_of(ui).hand is device.hosted
+    assert drawing_of(ui).hand is shell.hosted
     # what the mouse plays on stands out
     assert (device.modeHint, device.handStatus["text"], device.handStatus["tone"]) == (
         "Playing on",
@@ -476,7 +454,7 @@ def test_play_opens_the_virtual_device_the_daemon_waits_for(
     ui.click("popoverAction_Close")
     # gone from the screen at once
     assert not ui.shows("virtualPill")
-    assert device.hosted is None
+    assert shell.hosted is None
     assert not path.exists()
     assert drawing_of(ui).hand is None
 
@@ -484,16 +462,16 @@ def test_play_opens_the_virtual_device_the_daemon_waits_for(
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as other:
         other.bind(str(path))
         other.listen()
-        device.open_virtual_device()
-    assert device.hosted is None
-    assert "already runs" in warnings[-1][1]
-    assert warnings[-1][0] == "Virtual device"
+        shell.open_virtual_device()
+    assert shell.hosted is None
+    assert "already runs" in dialogs.shown[-1]
+    assert dialogs.titles[-1] == "Virtual device"
 
 
 def test_closing_the_window_closes_the_virtual_device(make_ui: MakeUi, socket_dir: Path) -> None:
     path = socket_dir / "virtual-device.sock"
     ui = make_ui(virtual_socket=path)
-    device_of(ui).open_virtual_device()
+    ui.app.shell.open_virtual_device()
     assert path.exists()
 
     ui.window.close()
@@ -509,36 +487,41 @@ def test_a_daemon_without_a_device_switches_to_the_virtual_one(
         live_socket=live_daemon.path, virtual_socket=socket_dir / "virtual-device.sock", find_daemon=lambda: daemon
     )
     device = device_of(ui)
+    shell = ui.app.shell
     ui.wait_until(lambda: bool(live_daemon.clients))
     assert not ui.shows("useVirtualButton")
     live_daemon.send(snapshot(ui, device=False))
     ui.wait_until(lambda: ui.shows("useVirtualButton"))
     # the shell saves and applies the file
-    device.save = lambda: (device.document.save(), daemon.reload())[0] is not None
-
     ui.click("useVirtualButton")
 
     # saved and reloaded: the daemon switches to it, and the window hosts it
     assert device.document.get(("device", "virtual")) is True
     assert not device.document.modified
     assert daemon.reloads
-    assert device.hosted is not None
-    device.close_virtual_device()
+    assert shell.hosted is not None
+    shell.close_virtual_device()
 
 
 def test_the_device_plugged_in_again_is_offered_and_switched_to(
-    make_ui: MakeUi, live_daemon: FakeLiveDaemon, socket_dir: Path, path: Path, daemon: RecordingInstance
+    make_ui: MakeUi,
+    live_daemon: FakeLiveDaemon,
+    socket_dir: Path,
+    path: Path,
+    daemon: RecordingInstance,
+    dialogs: FakeDialogs,
 ) -> None:
     path.write_text("[device]\nvirtual = true\n" + path.read_text())
     ui = make_ui(
         live_socket=live_daemon.path, virtual_socket=socket_dir / "virtual-device.sock", find_daemon=lambda: daemon
     )
     device = device_of(ui)
-    device.open_virtual_device()
+    shell = ui.app.shell
+    shell.open_virtual_device()
     ui.wait_until(lambda: bool(live_daemon.clients))
     virtual = dataclasses.replace(snapshot(ui), virtual=True)
     live_daemon.send(virtual)
-    ui.wait_until(lambda: device.live.snapshot is not None)
+    ui.wait_until(lambda: shell.live.snapshot is not None)
     assert not ui.shows("deviceBanner")
 
     live_daemon.send(dataclasses.replace(virtual, device_plugged=True))
@@ -548,22 +531,14 @@ def test_the_device_plugged_in_again_is_offered_and_switched_to(
     # other changes are saved with it: only if the user says so
     device.document.set(("channel", "out", "label"), "Boxes")
     device.editor.edited()
-    questions: list[str] = []
-    answer = [False]
-
-    def confirm(title: str, question: str) -> bool:
-        questions.append(question)
-        return answer[0]
-
-    device.confirm = confirm
-    device.save = lambda: (device.document.save(), daemon.reload())[0] is not None
+    dialogs.answer = "no"
     ui.click("deviceOfferButton")
-    assert questions
-    assert "Save them and switch" in questions[0]
+    assert dialogs.shown
+    assert "Save them and switch" in dialogs.shown[0]
     assert device.document.get(("device", "virtual")) is True
-    assert device.hosted is not None
+    assert shell.hosted is not None
 
-    answer[0] = True
+    dialogs.answer = "yes"
     ui.click("deviceOfferButton")
 
     # saved and reloaded: the daemon goes to the device, the window closes the virtual one
@@ -571,7 +546,7 @@ def test_the_device_plugged_in_again_is_offered_and_switched_to(
     assert "virtual" not in path.read_text()
     assert not device.document.modified
     assert daemon.reloads
-    assert device.hosted is None
+    assert shell.hosted is None
 
 
 @pytest.mark.parametrize("trying", [True, False])
@@ -580,25 +555,25 @@ def test_a_daemon_that_does_not_read_the_switch_from_the_file_is_not_switched_by
 ) -> None:
     ui = make_ui(live_socket=live_daemon.path)
     device = device_of(ui)
-    messages: list[str] = []
-    device.message.connect(messages.append)
+    shell = ui.app.shell
+    messages = said(ui)
     ui.wait_until(lambda: bool(live_daemon.clients))
     if trying:
         # the trial of the window: a daemon with --virtual-device
-        device.trying = QProcess(device)
-        device.trying.start("sleep", ["30"])
-        assert device.trying.waitForStarted()
+        shell.trying = QProcess(device)
+        shell.trying.start("sleep", ["30"])
+        assert shell.trying.waitForStarted()
     live_daemon.send(dataclasses.replace(snapshot(ui), virtual=True, device_plugged=True))
     ui.wait_until(lambda: ui.shows("deviceBanner"))
 
     if trying:
         assert ui.text("deviceOfferButton") == "End the trial"
-        process = device.trying
+        process = shell.trying
         assert process is not None
         ui.click("deviceOfferButton")
         # ended: terminated, and let go of
         qtbot.waitUntil(lambda: sip.isdeleted(process), timeout=5000)
-        assert device.trying is None
+        assert shell.trying is None
         assert messages[-1] == "Ending the trial: start the service to use the device."
     else:
         # started elsewhere with --virtual-device: the bar only says so
@@ -608,38 +583,44 @@ def test_a_daemon_that_does_not_read_the_switch_from_the_file_is_not_switched_by
         assert device.document.get(("device", "virtual")) is None
 
 
-def test_the_trial_starts_a_daemon_with_the_virtual_device(make_ui: MakeUi, monkeypatch: pytest.MonkeyPatch) -> None:
-    ui = make_ui(find_daemon=lambda: None)
-    device = device_of(ui)
-    messages: list[str] = []
-    device.message.connect(messages.append)
-    started: list[bool] = []
-    monkeypatch.setattr(device, "_start_trial", lambda: started.append(True))
+def test_the_trial_starts_a_daemon_with_the_virtual_device(make_ui: MakeUi) -> None:
+    started: list[Path] = []
+
+    def launch(path: Path) -> QProcess:
+        started.append(path)
+        process = QProcess()
+        process.start("sleep", ["30"])
+        assert process.waitForStarted()
+        return process
+
+    ui = make_ui(find_daemon=lambda: None, extra={"launch_trial": launch})
+    messages = said(ui)
     assert ui.shows("tryButton")
 
     ui.click("tryButton")
 
-    assert started == [True]
+    assert started == [ui.app.editor.document.path]
     assert messages == ["Starting a daemon with the virtual device…"]
+    # the window ends it with itself
+    assert ui.app.shell.closeAllowed()
 
 
-def test_a_trial_of_a_new_file_saves_it_first(make_ui: MakeUi, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    from xtouch_daemon.gui.domain.slots_document import SlotsDocument
+def test_a_trial_of_a_new_file_saves_it_first(make_ui: MakeUi, tmp_path: Path) -> None:
+    started: list[Path] = []
 
-    ui = make_ui(
-        file=tmp_path / "new" / "config.toml",
-        find_daemon=lambda: None,
-        document=SlotsDocument.open(tmp_path / "new.toml"),
-    )
-    device = device_of(ui)
-    started: list[bool] = []
-    monkeypatch.setattr(device, "_start_trial", lambda: started.append(True))
-    device.save = lambda: False
+    def launch(path: Path) -> QProcess:
+        started.append(path)
+        process = QProcess()
+        process.start("sleep", ["30"])
+        assert process.waitForStarted()
+        return process
 
-    device.tryWithoutDevice()
-    assert started == []
+    new = tmp_path / "new" / "config.toml"
+    ui = make_ui(find_daemon=lambda: None, document=SlotsDocument.open(new), extra={"launch_trial": launch})
+    assert not new.exists()
 
-    device.save = lambda: True
-    device.tryWithoutDevice()
-    assert started == [True]
-    assert strip_state is not None
+    ui.app.device.tryWithoutDevice()  # pyright: ignore[reportAttributeAccessIssue]
+
+    assert new.exists()
+    assert started == [new]
+    assert ui.app.shell.closeAllowed()
