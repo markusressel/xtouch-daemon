@@ -79,9 +79,25 @@ class Ui:
         """Clicks the middle of an item (or `at`, in its coordinates) with the mouse, as a user does."""
         item = self.item(target) if isinstance(target, str) else target
         assert item.isVisible(), f"{item.objectName()!r} does not show"
+        self.bring_into_view(item)
         point = self.center(item) if at is None else item.mapToScene(at).toPoint()
         MOUSE.mouseClick(self.window, button, Qt.KeyboardModifier.NoModifier, point)
         self.settle()
+
+    def bring_into_view(self, item: QQuickItem) -> None:
+        """Scrolls every list or page that holds `item` (a Flickable) so it shows, as a user would before a click."""
+        parent = item.parentItem()
+        while parent is not None:
+            if parent.inherits("QQuickFlickable"):
+                top = item.mapToItem(parent, QPointF(0, 0)).y()
+                bottom = top + item.height()
+                y = float(parent.property("contentY"))
+                if top < 0:
+                    parent.setProperty("contentY", y + top)
+                elif bottom > parent.height():
+                    parent.setProperty("contentY", y + min(top, bottom - parent.height()))
+                self.settle()
+            parent = parent.parentItem()
 
     def double_click(self, target: str | QQuickItem) -> None:
         item = self.item(target) if isinstance(target, str) else target

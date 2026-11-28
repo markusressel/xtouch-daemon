@@ -98,6 +98,7 @@ def test_a_drag_reorders_the_candidates(ui: Ui):
     doc.set(("slots", "3"), ["a", "b", "c"])
     ui.app.editor.edited()
     polish(ui)
+    ui.bring_into_view(ui.item("row_3_2"))
     start = ui.center(ui.item("row_3_0"))
     end = ui.center(ui.item("row_3_2")) + QPoint(0, 10)
     ui.qtbot.mousePress(ui.window, Qt.MouseButton.LeftButton, pos=start)
