@@ -35,19 +35,28 @@ Menu {
         }
     }
 
+    // the entries the menu made: a menu (no item) can't be their parent, and without a reference the garbage collector
+    // of JavaScript would take them (e.g. while a large page loads)
+    property var made: []
+
     Component.onCompleted: {
         const submenu = Qt.createComponent("AppMenu.qml")
         for (const entry of entries) {
             if (entry.id === "-")
-                menu.addItem(separator.createObject(null))
+                menu.addItem(keep(separator.createObject(null)))
             else if (entry.entries) {
                 const sub = submenu.createObject(menu, {shell: menu.shell, entries: entry.entries,
                                                         title: entry.text.replace("&", ""), objectName: "menu_" + entry.text.replace("&", "")})
                 menu.addMenu(sub)
             }
             else
-                menu.addItem(item.createObject(null, {entry: entry}))
+                menu.addItem(keep(item.createObject(null, {entry: entry})))
         }
+    }
+
+    function keep(object) {
+        made.push(object)
+        return object
     }
 
     Component { id: separator; MenuSeparator {} }
