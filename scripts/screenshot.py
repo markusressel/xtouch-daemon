@@ -243,11 +243,24 @@ def shoot(home: Path, out: Path) -> None:
     out.mkdir(parents=True, exist_ok=True)
     whole = window.grabWindow()
     save_image(whole, out / "gui.png")
+    from PyQt6.QtCore import QRectF
+
     stage = find(window, "drawingStage")
     device: Any = app.device
     drawing = device.drawing
     save_image(
-        crop_of(whole, window, stage, drawing.origin.y() - 3, PANEL.height() * drawing.scale + 6), out / "device.png"
+        crop_of(
+            whole,
+            window,
+            stage,
+            QRectF(
+                drawing.origin.x() - 3,
+                drawing.origin.y() - 3,
+                PANEL.width() * drawing.scale + 6,
+                PANEL.height() * drawing.scale + 6,
+            ),
+        ),
+        out / "device.png",
     )
     close_window(engine, app)
     server.close()
@@ -390,20 +403,20 @@ def find(window: object, name: str) -> object:
     raise LookupError(name)
 
 
-def crop_of(whole: QImage, window: object, item: object, top: float, height: float) -> QImage:
-    """The part of a picture of the window that an item covers, from `top` of it, `height` high."""
+def crop_of(whole: QImage, window: object, item: object, rect: QRectF) -> QImage:
+    """The part `rect` (in the coordinates of `item`) of a picture of the window, without what is around it."""
     from PyQt6.QtCore import QPointF
     from PyQt6.QtQuick import QQuickItem, QQuickWindow
 
     assert isinstance(item, QQuickItem)
     assert isinstance(window, QQuickWindow)
     ratio = window.devicePixelRatio()
-    top_left = item.mapToScene(QPointF(0, top))
+    top_left = item.mapToScene(QPointF(rect.x(), rect.y()))
     cut = whole.copy(
         round(top_left.x() * ratio),
         round(top_left.y() * ratio),
-        round(item.width() * ratio),
-        round(height * ratio),
+        round(rect.width() * ratio),
+        round(rect.height() * ratio),
     )
     cut.setDevicePixelRatio(ratio)
     return cut

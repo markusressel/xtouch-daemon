@@ -32,5 +32,6 @@ class IconProvider(QQuickImageProvider):
         name = (id or "").split("?", 1)[0]
         side = max(requestedSize.width(), requestedSize.height())
         side = side if side > 0 else DEFAULT_SIZE
-        pixmap = qta.icon(f"mdi6.{name}", color="#ffffff").pixmap(side, side)
+        # in the pixels QML asks for: qtawesome would scale them by the ratio of the screen again (twice the size)
+        pixmap = qta.icon(f"mdi6.{name}", color="#ffffff").pixmap(QSize(side, side), 1.0)
         return pixmap, pixmap.size()

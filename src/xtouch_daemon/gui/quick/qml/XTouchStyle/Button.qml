@@ -18,8 +18,10 @@ T.Button {
     icon.height: 18
     hoverEnabled: true
 
+    // the one to press, filled in the accent while it can be pressed; disabled it looks like any other
+    readonly property bool filled: highlighted && enabled
     readonly property color ink: !enabled ? Theme.colors.text_muted
-        : highlighted ? Theme.colors.on_accent : flat ? Theme.colors.accent : Theme.colors.text
+        : filled ? Theme.colors.on_accent : flat ? Theme.colors.accent : Theme.colors.text
 
     contentItem: IconLabel {
         spacing: control.spacing
@@ -36,12 +38,12 @@ T.Button {
         implicitWidth: 64
         implicitHeight: Theme.controlHeight
         radius: Theme.radius.medium
-        color: control.highlighted
+        color: control.filled
             ? (control.down || control.hovered ? Theme.colors.accent_hover : Theme.colors.accent)
             : control.down ? Theme.tint(Theme.colors.text, 0.16)
             : control.hovered || control.checked ? Theme.tint(Theme.colors.text, 0.08)
             : control.flat ? "transparent" : Theme.colors.raised
-        border.width: control.visualFocus ? 2 : control.flat || control.highlighted ? 0 : 1
+        border.width: control.visualFocus ? 2 : control.flat || control.filled ? 0 : 1
         border.color: control.visualFocus ? Theme.colors.accent : Theme.colors.control_border
         opacity: control.enabled ? 1 : 0.6
         Behavior on color { ColorAnimation { duration: Theme.fade } }
