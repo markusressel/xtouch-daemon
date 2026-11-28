@@ -9,15 +9,16 @@ from pytestqt.qtbot import QtBot
 from tests.gui.quick.conftest import MakeUi
 from tests.gui.quick.device_support import device_of, live_ui, snapshot  # noqa: F401
 from tests.support.gui import FakeLiveDaemon
+from tests.support.quick import Ui
 from xtouch_daemon.gui.qt import device_test as device_test_module
 from xtouch_daemon.live.codec import encode_reply
 from xtouch_daemon.live.messages import EndTest, KeepTest, Reply, StartTest
 
 
-def messages_of(ui: object) -> list[str]:
+def messages_of(ui: Ui) -> list[str]:
     """What the panel says in the status line of the shell."""
     said: list[str] = []
-    device_of(ui).message.connect(said.append)  # pyright: ignore[reportArgumentType]
+    ui.app.shell.statusChanged.connect(lambda: said.append(ui.app.shell.statusText))
     return said
 
 

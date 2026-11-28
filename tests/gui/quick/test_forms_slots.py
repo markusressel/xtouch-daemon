@@ -48,7 +48,8 @@ def test_the_presets_of_a_list_come_first(ui: Ui):
 def test_an_entry_of_devices_tells_what_it_is(out: Form):  # noqa: F811
     summary = out.entrySummary("device", {"device": "speaker", "label": "Desk", "min_volume": 10})
     assert summary["title"] == "Desk"
-    assert "speaker" in summary["lines"]
+    # the sound server is read by the window: the line names the output by its description
+    assert any("speaker" in line for line in summary["lines"])
     assert out.entrySummary("nonsense", {}) == {"title": "New", "lines": []}
 
 

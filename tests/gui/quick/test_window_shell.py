@@ -294,12 +294,15 @@ def test_a_restart_reason_names_why_the_daemon_can_not_be_restarted(ui: Ui):
 
 def test_the_virtual_device_is_saved_into_the_file_and_opened(ui: Ui, path: Path):
     opened: list[int] = []
-    ui.app.shell.openVirtualDevice.connect(lambda: opened.append(1))
+    ui.app.shell.virtualDeviceOpened.connect(lambda: opened.append(1))
 
     ui.app.shell.use_virtual_device()
 
     assert "virtual = true" in path.read_text()
     assert opened == [1]
+    assert ui.app.shell.hosted is not None
+    ui.app.shell.close_virtual_device()
+    assert ui.app.shell.hosted is None
 
 
 def test_the_virtual_device_of_another_file_is_not_touched(ui: Ui, path: Path):

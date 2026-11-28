@@ -7,14 +7,18 @@ Save and apply is enabled, what closing asks, what happens to the file, the serv
 The parts around it use these:
 
 - `live` (the `LiveView`, `changed` with each snapshot of the daemon), `live_preview`, `daemon` (the `Instance` found,
-  or None), `audio` (the sound server as the forms see it; `audioChanged`) and `document`, `history`, `validation`.
+  or None), `trying` (the daemon of "Try without a device"), `hosted` (the virtual device in the window, with
+  `hostedChanged`), `audio` (the sound server as the forms see it; `audioChanged`) and `document`, `history`,
+  `validation`. The shell is the one owner of all of these: the drawing of the device (`DevicePanel`) only reads them.
 - `tell(text)` says something in the status line, `refresh_preview()` shows the state of the device, the preview and
   the file anew (call it after hosting a virtual device, a test, ...), `previewChanged` follows it.
-- `try_without_device()`, `restart_daemon()`, `restart_reason()`, `use_virtual_device()`, `switch_to_device()`: what
-  the buttons of the drawing of the device do. The shell does the files, the service and the daemon of the trial; the
-  virtual device itself is the drawing's: it listens to `openVirtualDevice` and `closeVirtualDevice`, and says what it
-  hosts with `hosted`.
+- `try_without_device()`, `restart_daemon()`, `restart_reason()`, `use_virtual_device()`, `switch_to_device()`,
+  `open_virtual_device()`, `close_virtual_device()`: what the buttons of the drawing of the device do. The shell
+  starts the daemon of the trial, saves the file and hosts the virtual device; `virtualDeviceOpened` tells the drawing
+  to play on it.
 - `show_slot(n)`, `go_to(problem)`, `showPage(name)` (also for a section of the settings) go to places.
+- Each snapshot of the daemon (`refresh_preview`) reaches the drawing (`previewChanged`), the page Slots
+  (`show_live`, `show_place`), the page Settings (`show_live`) and the forms (`forms_of(app)`): see `_wire_pages`.
 """
 
 import logging
@@ -77,6 +81,7 @@ from xtouch_daemon.gui.qt.theme.settings import (
     zoom_text,
 )
 from xtouch_daemon.gui.qt.theme.tokens import THEMES, ThemeMode
+from xtouch_daemon.gui.qt.virtual_device import HostedDevice
 from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
 from xtouch_daemon.gui.qt.window.session import Session, from_screen, to_screen
 from xtouch_daemon.gui.quick.details import Content, Details
@@ -100,8 +105,8 @@ from xtouch_daemon.gui.quick.window.menus import flat, menus, native
 from xtouch_daemon.gui.quick.window.panels import Panels
 from xtouch_daemon.gui.quick.window.rich import help_html, tip_html
 from xtouch_daemon.gui.quick.window.service import ServiceBackend
-from xtouch_daemon.live.messages import Snapshot
-from xtouch_daemon.simulator.server import AlreadyServed  # noqa: F401  (named for the drawing of the device)
+from xtouch_daemon.live.messages import Request, Snapshot
+from xtouch_daemon.simulator.server import AlreadyServed
 from xtouch_daemon.system import instance
 from xtouch_daemon.system.instance import Instance
 from xtouch_daemon.system.systemd import ServiceError
@@ -180,9 +185,10 @@ class Shell(QObject):
     """The state of the device, the preview or the file was shown anew (`refresh_preview`): the drawing follows."""
     audioChanged = pyqtSignal(arguments=[])
     """The sound server was read (see `audio`)."""
-    openVirtualDevice = pyqtSignal(arguments=[])
-    """The drawing of the device hosts the virtual device now (a daemon waits for it)."""
-    closeVirtualDevice = pyqtSignal(arguments=[])
+    hostedChanged = pyqtSignal(arguments=[])
+    """The window hosts a virtual device now, or no longer, or it was plugged in or out or connected."""
+    virtualDeviceOpened = pyqtSignal(arguments=[])
+    """The window began to host the virtual device (a daemon waits for it): the drawing plays on it."""
     keysRequested = pyqtSignal(arguments=[])
     """The menu Help asked for the keys: QML opens their popover."""
     closeRequested = pyqtSignal(arguments=[])
@@ -228,8 +234,9 @@ class Shell(QObject):
         self.trying: QProcess | None = None
         """The daemon started by "Try without a device"; it ends with the window."""
         self.restarting_trial = False
-        self.hosted: object | None = None
-        """The virtual device while the drawing hosts it (set by the drawing)."""
+        self.hosted: HostedDevice | None = None
+        """The virtual device while the window hosts it (see `open_virtual_device`)."""
+        self.virtual_socket = deps.virtual_socket or instance.virtual_device_socket_file()
         self.launch_trial: Callable[[Path], QProcess] = deps.extra.get("launch_trial", start_trial)  # pyright: ignore[reportAttributeAccessIssue]
         if deps.session is not None and deps.session.trying is not None:
             self._keep_trying(deps.session.trying)
@@ -337,6 +344,7 @@ class Shell(QObject):
             return
         self._started = True
         self.timer.start(SERVICE_POLL_MS)
+        self._wire_pages()
         self.load_audio()
         if self.app.deps.follow_audio is not None:
             # the pill and its popover follow the sound server
@@ -741,7 +749,7 @@ class Shell(QObject):
         snapshot = self.live.snapshot
         if self.trying is not None and offers_virtual_device(snapshot, self.hosted is not None):
             # the daemon started to try without a device waits for its device: here it is
-            self.openVirtualDevice.emit()
+            self.open_virtual_device()
         preview = self.live_preview
         device_reason = unavailable(self.daemon, snapshot, self.document.path, self.live.owned)
         gui_reason = twin_unavailable(snapshot, self.live.owned)
@@ -794,6 +802,52 @@ class Shell(QObject):
         self._set_disabled()
         self.changes_details.refresh_if_open()
         self.previewChanged.emit()
+        self._show_pages(snapshot)
+
+    def _show_pages(self, snapshot: Snapshot | None) -> None:
+        """Gives the pages what the daemon tells now (the widgets' `MainWindow.refresh_preview` did the same)."""
+        if not self._started:
+            return
+        self.app.slots.show_place(self.placeText)  # pyright: ignore[reportAttributeAccessIssue]
+        self.app.slots.show_live(snapshot)  # pyright: ignore[reportAttributeAccessIssue]
+        self.app.settings.show_live(snapshot)  # pyright: ignore[reportAttributeAccessIssue]
+        for page in (self.app.channels, self.app.states):
+            show = getattr(page, "show_live", None)
+            if show is not None:
+                show(snapshot)
+
+    def _twin_changed(self) -> None:
+        """The virtual twin of the preview shows something new: the cards show it too, while they show the twin."""
+        if self._started:
+            self.app.slots.show_live(self.live.snapshot)  # pyright: ignore[reportAttributeAccessIssue]
+
+    def _send(self, request: Request) -> None:
+        """What the forms send to the daemon."""
+        self.live.send(request)
+
+    def _wire_pages(self) -> None:
+        """Tells the pages what they reach outside of themselves: the daemon, the twin, the sound server."""
+        from xtouch_daemon.gui.quick.forms.context import forms_of
+        from xtouch_daemon.gui.quick.pages.slots import Live
+
+        context = forms_of(self.app)
+        context.snapshot = lambda: self.live.snapshot
+        context.known = lambda: self.live.known
+        context.send = self._send
+        if self.app.deps.session is not None:
+            # a new zoom goes on with what the last window read
+            context.set_audio(self.audio)
+        if not isinstance(self.app.deps.extra.get("slots_live"), Live):
+            self.app.slots.live = Live(  # pyright: ignore[reportAttributeAccessIssue]
+                snapshot=lambda: self.live.snapshot,
+                request=self.live.send,
+                twin_slots=lambda: self.live.twin.slots if self.live.twin is not None else None,
+                simulate_unavailable=lambda: twin_unavailable(self.live.snapshot, self.live.owned),
+                shows_twin=lambda: self.live_preview.in_gui,
+                audio=lambda: self.audio,
+            )
+        self.app.slots.simulated.connect(self.situation_changed)  # pyright: ignore[reportAttributeAccessIssue]
+        self.live.twin_changed.connect(lambda _view: self._twin_changed())
 
     def _show_bar(self, bar: dict[str, Any]) -> None:
         if bar != self._bar:
@@ -887,6 +941,10 @@ class Shell(QObject):
         self._audio_done()
 
     def _audio_done(self) -> None:
+        if self._started:
+            from xtouch_daemon.gui.quick.forms.context import forms_of
+
+            forms_of(self.app).set_audio(self.audio)
         self.audioChanged.emit()
         self.audio_details.refresh_if_open()
         self.refresh_preview()
@@ -1164,7 +1222,34 @@ class Shell(QObject):
         self.document.set(("device", "virtual"), True)
         self.editor.edited(Change(Scope.VALUE, ("device", "virtual")))
         if self.save():
-            self.openVirtualDevice.emit()
+            self.open_virtual_device()
+
+    def open_virtual_device(self) -> None:
+        """Hosts the virtual device, for a daemon that waits for it: the mouse on the drawing is a hand on it."""
+        if self.hosted is not None:
+            return
+        hosted = HostedDevice(self.virtual_socket, self)
+        try:
+            hosted.start()
+        except (AlreadyServed, OSError) as e:
+            hosted.deleteLater()
+            self.asker.tell("Virtual device", str(e))
+            return
+        self.hosted = hosted
+        hosted.changed.connect(self.hostedChanged)
+        self.hostedChanged.emit()
+        self.refresh_preview()
+        self.virtualDeviceOpened.emit()
+
+    def close_virtual_device(self) -> None:
+        """Unplugs the hosted virtual device and closes it."""
+        hosted, self.hosted = self.hosted, None
+        if hosted is None:
+            return
+        hosted.stop()
+        hosted.deleteLater()
+        self.hostedChanged.emit()
+        self.refresh_preview()
 
     def switch_to_device(self) -> None:
         """
@@ -1195,7 +1280,7 @@ class Shell(QObject):
                 self.document.unset(("device", "virtual"))
                 self.editor.edited(Change(Scope.VALUE, ("device", "virtual")))
                 if self.save():
-                    self.closeVirtualDevice.emit()
+                    self.close_virtual_device()
             case Switch.RESTART:
                 # nothing the window can do: the bar says so
                 return
@@ -1228,7 +1313,7 @@ class Shell(QObject):
         # back to the file (the daemon would notice the closed connection too); after a new zoom the next window
         # previews again (see `Session`)
         self.live_preview.stop()
-        self.closeVirtualDevice.emit()
+        self.close_virtual_device()
         self.timer.stop()
         self.loader.stop()
         self._save_size()
