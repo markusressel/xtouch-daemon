@@ -126,3 +126,28 @@ widgets (`gui/qt/preview/painting.py` with its pixmap caches), so the strips loo
   pixel ratio and theme), `render_drawing` and `render_strip` return a `QImage`.
 - **Not done here.** Esc ends Simulate only while a strip has the focus; the slots part owns Simulate and its Esc.
   Dialogs and the process of the trial (`trying`) depend on hooks of the shell.
+
+## The page Slots
+
+Files: `gui/quick/pages/slots*.py` (`slots.py` is the backend `SlotsPage`; `slots_data.py` is pure data: rows, chips,
+crumbs, the "why" steps) and `qml/XTouch/Pages/Slot*.qml`. The Python types of the page (`ConditionHelper`,
+`SoundBadge`) are registered in `XTouch.Slots`; the page imports it.
+
+- **What the page reaches** (the daemon's snapshot, requests, the twin, the sound server) is a `Live` dataclass in
+  `SlotsPage.live` (or `deps.extra["slots_live"]`). The window sets `live`, calls `show_live(snapshot)` for each
+  snapshot (it also feeds the clock of the sound badges) and `show_place(note)`; the signal `simulated` tells the
+  window to start or end the twin. The drawing of the device picks with `selectSlot` and `slot`.
+- **Cards** are `SlotCard`s with a `MovableRows` (a `KeyedListModel` that can move a row). A row's key is the
+  candidate as the file has it, so a state change updates a row in place and only a real change inserts or removes
+  one. A drag moves the rows aside by offset, then `reorder` writes the file; Ctrl+Up/Down use `moveCandidate`.
+- **Rich text** keeps color tokens (`@state`, `@channel`) that `SlotFadeText` resolves against `Theme.colors`, so a
+  theme change recolors it live. Links get their color from their own style (rich text ignores `linkColor`).
+- **Wheel**: `SlotScroll` takes the wheel with a `WheelHandler` (a notch is `wheelScrollLines` x 20 px) and glides
+  to the goal, so the next notch adds to it. It never flicks: rows are dragged.
+- **Simulate** shows a panel (`SlotWhatIf`) under the bar; Esc ends it (a `Shortcut` of the page).
+- **Edit menu**: `PageBackend.editable` calls the overridable `editable_actions()` (new, `[]` by default); the page
+  answers by the card that has the focus.
+- **Placeholders for the forms**: `SlotPlaceForm.qml` (input: `optionPath`, `strip`, `allowed`, `pick`) is the
+  option rows of the place of a candidate; `SlotControlParts.qml` (input: the entry's `path` and `parts`) is the rows
+  of the parts of a control entry. Both write through `SlotsPage.setPlaceOption` and `SlotControls.setOption`.
+- The share between the cards and the inspector is not remembered yet.
