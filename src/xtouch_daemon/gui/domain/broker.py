@@ -6,7 +6,7 @@ words that say what to check.
 
 import asyncio
 import uuid
-from collections.abc import Callable
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -16,6 +16,9 @@ from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.sections import MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.live.messages import MqttState, Snapshot
+
+type BrokerTest = Callable[[MqttConfig], Awaitable[Status]]
+"""Tries the settings of `[mqtt]`: `try_broker`, or a fake in tests."""
 
 TEST_TIMEOUT = 5.0
 """Seconds a test waits for the broker."""

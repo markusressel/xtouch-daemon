@@ -1,0 +1,5 @@
+module XTouch.Pages
+SlotsPage 1.0 SlotsPage.qml
+ChannelsPage 1.0 ChannelsPage.qml
+StatesPage 1.0 StatesPage.qml
+SettingsPage 1.0 SettingsPage.qml

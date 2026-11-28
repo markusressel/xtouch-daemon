@@ -1,0 +1,122 @@
+"""
+The window in Qt Quick, offscreen with Qt's software renderer, with a fake systemctl, a fake sound server and a
+configuration in a temporary directory (see tests/gui/qt/conftest.py for the widgets). `ui` is the window of a test.
+"""
+
+from collections.abc import Callable, Iterator
+from pathlib import Path
+from typing import Any
+
+import pytest
+from PyQt6.QtCore import QCoreApplication, QSettings, Qt
+from PyQt6.QtGui import QGuiApplication
+from PyQt6.QtQuick import QQuickWindow, QSGRendererInterface
+from PyQt6.QtWidgets import QApplication
+from pytestqt.qtbot import QtBot
+
+from tests.support.gui import CONFIG, RUNNING, STATE, no_plugins, unreachable_broker, unreachable_home_assistant
+from tests.support.instance import RecordingInstance
+from tests.support.quick import Ui
+from tests.support.systemd import FakeSystemctl
+from xtouch_daemon.gui.domain.slots_document import SlotsDocument
+from xtouch_daemon.gui.qt.theme.tokens import Motion, ThemeMode
+from xtouch_daemon.gui.quick.app import App, Dependencies, load_window
+from xtouch_daemon.gui.quick.engine import make_engine
+from xtouch_daemon.gui.quick.theme import Theme
+from xtouch_daemon.system.systemd import Service
+
+MakeUi = Callable[..., Ui]
+
+
+@pytest.fixture(autouse=True)
+def software(qapp: QApplication) -> None:
+    """Qt's software renderer: no GPU in the tests, and the same pixels everywhere."""
+    QQuickWindow.setGraphicsApi(QSGRendererInterface.GraphicsApi.Software)
+
+
+@pytest.fixture(autouse=True)
+def isolated(qapp: QApplication, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """QSettings, the configuration and the runtime directory in the temporary directory."""
+    QCoreApplication.setOrganizationName("xtouch-daemon-test")
+    QCoreApplication.setApplicationName("xtouch-daemon-test")
+    QSettings.setPath(QSettings.Format.NativeFormat, QSettings.Scope.UserScope, str(tmp_path / "settings"))
+    monkeypatch.setenv("XDG_CONFIG_HOME", str(tmp_path))
+    monkeypatch.setenv("XDG_RUNTIME_DIR", str(tmp_path / "runtime"))
+
+
+@pytest.fixture(autouse=True)
+def no_motion(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Every change happens at once: the durations of `Theme` are 0. The tests of motion turn it on."""
+    monkeypatch.setattr(Motion, "enabled", False)
+
+
+@pytest.fixture(autouse=True)
+def no_popups(qapp: QApplication) -> Iterator[None]:
+    """
+    Fails a test in which a popup window shows: it grabs the keyboard and the mouse (on X11 the whole display).
+    Popups of QML stay items of the window (`popupType: Popup.Item`).
+    """
+    yield
+    popups = [
+        window.objectName() or type(window).__name__
+        for window in QGuiApplication.topLevelWindows()
+        if window.isVisible() and window.type() == Qt.WindowType.Popup
+    ]
+    assert popups == [], f"popup windows showed: {popups}"
+
+
+@pytest.fixture
+def path(tmp_path: Path) -> Path:
+    """The configuration file the service reads."""
+    result = tmp_path / "xtouch-daemon" / "config.toml"
+    result.parent.mkdir()
+    result.write_text(CONFIG)
+    return result
+
+
+@pytest.fixture
+def systemctl() -> FakeSystemctl:
+    return FakeSystemctl(RUNNING)
+
+
+@pytest.fixture
+def daemon(path: Path) -> RecordingInstance:
+    return RecordingInstance(1234, path.resolve(), systemd=True)
+
+
+@pytest.fixture
+def make_ui(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: RecordingInstance) -> Iterator[MakeUi]:
+    made: list[Ui] = []
+
+    def make(file: Path = path, mode: ThemeMode = ThemeMode.DARK, **deps: Any) -> Ui:
+        options: dict[str, Any] = {
+            "read_audio": lambda: STATE,
+            "find_daemon": lambda: daemon,
+            "try_broker": unreachable_broker,
+            "plugin_installers": no_plugins(),
+            "read_entities": unreachable_home_assistant,
+            **deps,
+        }
+        document = options.pop("document", None) or SlotsDocument.open(file)
+        app = App(Dependencies(document, Service(systemctl, wait=False), **options))
+        engine = make_engine(Theme(mode))
+        window = load_window(app, engine)
+        window.resize(1280, 900)
+        window.show()
+        qtbot.waitExposed(window)
+        ui = Ui(qtbot, app, engine, window)
+        made.append(ui)
+        ui.settle()
+        return ui
+
+    yield make
+    for ui in made:
+        ui.window.close()
+        ui.window.deleteLater()
+        ui.engine.deleteLater()
+    QGuiApplication.processEvents()
+
+
+@pytest.fixture
+def ui(make_ui: MakeUi) -> Ui:
+    return make_ui()

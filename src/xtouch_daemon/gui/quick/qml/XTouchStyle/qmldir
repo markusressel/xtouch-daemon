@@ -1,0 +1,23 @@
+module XTouchStyle
+import QtQuick.Controls.Basic auto
+ApplicationWindow 6.0 ApplicationWindow.qml
+Button 6.0 Button.qml
+ToolButton 6.0 ToolButton.qml
+TextField 6.0 TextField.qml
+TextArea 6.0 TextArea.qml
+ComboBox 6.0 ComboBox.qml
+Switch 6.0 Switch.qml
+CheckBox 6.0 CheckBox.qml
+SpinBox 6.0 SpinBox.qml
+ToolTip 6.0 ToolTip.qml
+Menu 6.0 Menu.qml
+MenuItem 6.0 MenuItem.qml
+MenuSeparator 6.0 MenuSeparator.qml
+Popup 6.0 Popup.qml
+ScrollBar 6.0 ScrollBar.qml
+ItemDelegate 6.0 ItemDelegate.qml
+Label 6.0 Label.qml
+TabBar 6.0 TabBar.qml
+TabButton 6.0 TabButton.qml
+Slider 6.0 Slider.qml
+SplitView 6.0 SplitView.qml

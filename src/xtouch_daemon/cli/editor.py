@@ -2,6 +2,7 @@
 The GUI, the editor of the configuration (`gui`), which needs the extra `gui`.
 """
 
+import os
 import sys
 from pathlib import Path
 
@@ -23,7 +24,11 @@ from the checkout, install xtouch-daemon with the extra:
 def gui(config_path: Path | None) -> None:
     """Edit the configuration in a window, and apply it (needs the gui extra)."""
     try:
-        from xtouch_daemon.gui.qt import run_gui
+        if os.environ.get("XTOUCH_GUI") == "quick":
+            # the window in Qt Quick, while it replaces the widgets (docs/development/design/qml.md)
+            from xtouch_daemon.gui.quick.app import run_quick as run_gui
+        else:
+            from xtouch_daemon.gui.qt import run_gui
     except ImportError as e:
         if e.name is None or e.name.split(".")[0] not in GUI_PACKAGES:
             raise

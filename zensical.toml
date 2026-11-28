@@ -91,6 +91,7 @@ nav = [
       { "An interactive device test" = "development/design/interactive-test.md" },
       { "The log in the GUI" = "development/design/log-viewer.md" },
       { "Motion in the GUI" = "development/design/motion.md" },
+      { "The GUI in Qt Quick" = "development/design/qml.md" },
       { "Several users on one machine" = "development/design/multiple-users.md" },
       { "What the daemon remembers" = "development/design/state-files.md" },
     ] },

@@ -1,0 +1,6 @@
+module XTouch.Window
+Main 1.0 Main.qml
+Rail 1.0 Rail.qml
+AppMenuBar 1.0 AppMenuBar.qml
+Footer 1.0 Footer.qml
+LogPanel 1.0 LogPanel.qml

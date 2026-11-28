@@ -9,10 +9,10 @@ sync:
 test *ARGS:
     uv run pytest -n auto --dist worksteal {{ARGS}}
 
-# run the tests in parallel with coverage: fails below 93 %, or below 98 % without the Qt widgets (gui/qt)
+# run the tests in parallel with coverage: fails below 93 %, or below 98 % without the GUI's Qt parts (gui/qt, gui/quick)
 coverage:
     uv run pytest -n auto --dist worksteal --cov --cov-report=term-missing
-    uv run coverage report --omit="*/gui/qt/*" --fail-under=98 --format=total
+    uv run coverage report --omit="*/gui/qt/*,*/gui/quick/*" --fail-under=98 --format=total
 
 # check style and formatting
 lint:
