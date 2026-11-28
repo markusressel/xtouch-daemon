@@ -31,7 +31,7 @@ from tests.support.quick import Ui
 from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.domain.tokens import Motion, ThemeMode
-from xtouch_daemon.gui.quick.app import App, Dependencies, load_window
+from xtouch_daemon.gui.quick.app import App, Dependencies, close_window, load_window
 from xtouch_daemon.gui.quick.engine import QML, STYLE, make_engine
 from xtouch_daemon.gui.quick.theme import Theme
 from xtouch_daemon.system.systemd import Service
@@ -136,11 +136,9 @@ def make_ui(
 
     yield make
     for ui in made:
-        ui.window.close()
-        ui.window.deleteLater()
-        ui.engine.deleteLater()
+        # the QML goes before the backends it binds to (as in `run_quick`)
+        close_window(ui.engine, ui.app)
     QGuiApplication.processEvents()
-    # the window and the engine go before the backends they show do (QML would read what is gone)
     QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
 
 

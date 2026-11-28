@@ -23,9 +23,9 @@ from typing import TYPE_CHECKING
 
 from PyQt6 import sip
 from PyQt6.QtCore import QCoreApplication, QObject, pyqtProperty, pyqtSignal, pyqtSlot  # pyright: ignore[reportUnknownVariableType]
-from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtQml import QQmlApplicationEngine
 from PyQt6.QtQuick import QQuickWindow
+from PyQt6.QtWidgets import QApplication
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain import broker
@@ -211,6 +211,20 @@ def load_window(app: App, engine: QQmlApplicationEngine) -> QQuickWindow:
     return window
 
 
+def close_window(engine: QQmlApplicationEngine, app: App) -> None:
+    """
+    Ends the window: the QML (the engine with its windows) goes before the backends it binds to. A binding that
+    reads a backend that is gone logs "Cannot read property ... of null", and a call into one a conversion error.
+    """
+    if not sip.isdeleted(engine):
+        for root in engine.rootObjects():
+            if isinstance(root, QQuickWindow):
+                root.close()
+        sip.delete(engine)
+    if not sip.isdeleted(app):
+        sip.delete(app)
+
+
 def run_quick(path: Path) -> int:
     """
     Shows the window until it is closed; raises `ConfigError` for a file it can't edit. Qt scales a whole application
@@ -218,11 +232,12 @@ def run_quick(path: Path) -> int:
     goes on where this one was (`Session`: the document with its history, the page, where the window is, ...).
     """
     from xtouch_daemon.audio.pulse import follow_state, read_state
-    from xtouch_daemon.gui.quick import errors
+    from xtouch_daemon.gui.quick import errors, qtlog
     from xtouch_daemon.gui.quick.settings import load_zoom
     from xtouch_daemon.gui.quick.window.quit import QuitWindows
 
     errors.install()
+    qtlog.install()
     # before anything of Qt: Python's handler would raise KeyboardInterrupt in whatever runs
     signals = QuitWindows()
     document = SlotsDocument.open(path)
@@ -231,7 +246,7 @@ def run_quick(path: Path) -> int:
     while True:
         name_application()
         os.environ[SCALE_FACTOR] = scale_for(load_zoom(), own)
-        qapp = QGuiApplication(sys.argv[:1])
+        qapp = QApplication(sys.argv[:1])
         qapp.setApplicationDisplayName("X-Touch Extender")
         qapp.setDesktopFileName("xtouch-daemon-gui")
         qapp.setWindowIcon(app_icon())
@@ -245,15 +260,13 @@ def run_quick(path: Path) -> int:
         app = App(deps)
         signals.watch_windows(qapp, app.dialogs_open)
         engine = make_engine()
-        engine.warnings.connect(lambda warnings: [log.warning("QML: %s", w.toString()) for w in warnings])
         load_window(app, engine)
         code = qapp.exec()
         rezoom = app.rezoom
+        session = app.last_session
+        close_window(engine, app)
         if rezoom is None:
             return code
-        session = app.last_session
         # Qt allows one application at a time: this one goes before the next one starts
-        sip.delete(engine)
-        sip.delete(app)
         sip.delete(qapp)
         gc.collect()

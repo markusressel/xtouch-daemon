@@ -103,7 +103,7 @@ def test_run_quick_starts_again_for_a_new_zoom(
         sessions.append(deps.session)
 
     monkeypatch.setattr(App, "__init__", init)
-    monkeypatch.setattr(app_module, "QGuiApplication", lambda args: qapp)
+    monkeypatch.setattr(app_module, "QApplication", lambda args: qapp)
     monkeypatch.setattr(errors, "install", lambda: None)
     deleted: list[object] = []
     # the test's application stays
@@ -126,7 +126,15 @@ def test_run_quick_starts_again_for_a_new_zoom(
     assert scales == ["1", "1.1"]
     assert sessions[0] is None
     assert sessions[1] is not None
-    assert len(deleted) == 3
+    # each window ends with its QML before its backends (and the application of the first one before the next starts)
+    engines = [type(each).__name__ for each in deleted]
+    assert engines == [
+        "QQmlApplicationEngine",
+        "App",
+        type(qapp).__name__,
+        "QQmlApplicationEngine",
+        "App",
+    ]
 
 
 def test_the_trial_goes_to_the_window_of_the_new_zoom(make_ui: MakeUi, ui: Ui):

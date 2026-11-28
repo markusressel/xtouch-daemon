@@ -97,7 +97,7 @@ Column {
                 sourceComponent: view.preview
                 onLoaded: {
                     view.previewLoaded(item, line.spec.preview)
-                    line.previewHeight = Qt.binding(() => item.implicitHeight)
+                    line.previewHeight = Qt.binding(() => item ? item.implicitHeight : 0)
                 }
             }
 

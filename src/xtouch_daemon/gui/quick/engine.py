@@ -17,13 +17,18 @@ from xtouch_daemon.gui.quick.theme import Theme
 QML = Path(__file__).with_name("qml")
 """The QML of the GUI: the style, the components and the window, each a module of its own directory."""
 STYLE = "XTouchStyle"
+_style_set = False
+"""Qt allows the style to be set before the first QML of Controls only, once per process (it warns otherwise)."""
 THEME = "xtouchTheme"
 """The context property of an engine with its `Theme`, which `qml/XTouch/Theme.qml` shows to QML."""
 
 
 def make_engine(theme: Theme | None = None) -> QQmlApplicationEngine:
     """An engine that knows our style, components, theme and icons."""
-    QQuickStyle.setStyle(STYLE)
+    global _style_set
+    if not _style_set:
+        QQuickStyle.setStyle(STYLE)
+        _style_set = True
     engine = QQmlApplicationEngine()
     engine.addImportPath(str(QML))
     engine.addImageProvider(PROVIDER, IconProvider())
