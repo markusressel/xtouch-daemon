@@ -4,11 +4,23 @@ its condition as chips, what it shows (with the colors of its LCD, see `ShowChip
 one the device shows.
 """
 
+import copy
 import math
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
+from functools import partial
 from typing import Any
 
-from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, QPointF, QRectF, QSize, Qt, QVariantAnimation, pyqtSignal
+from PyQt6.QtCore import (
+    QAbstractAnimation,
+    QEasingCurve,
+    QPointF,
+    QRect,
+    QRectF,
+    QSize,
+    Qt,
+    QVariantAnimation,
+    pyqtSignal,
+)
 from PyQt6.QtGui import QColor, QDropEvent, QIcon, QKeyEvent, QPainter, QPaintEvent, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QAbstractItemView,
@@ -38,12 +50,19 @@ from xtouch_daemon.gui.domain.slot_stacks import (
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, entity_label, label
 from xtouch_daemon.gui.qt.fields.controls import LcdBadge
 from xtouch_daemon.gui.qt.fields.sound import SoundBadge, sound_of
-from xtouch_daemon.gui.qt.motion import fading, moving
+from xtouch_daemon.gui.qt.motion import Fade, moving, picture_of
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS, Entity, Motion, Space
 from xtouch_daemon.slots.model import AUTO
 
 _INDEX = Qt.ItemDataRole.UserRole
+CANDIDATE_FLAGS = (
+    Qt.ItemFlag.ItemIsSelectable
+    | Qt.ItemFlag.ItemIsUserCheckable
+    | Qt.ItemFlag.ItemIsEnabled
+    | Qt.ItemFlag.ItemIsDragEnabled
+)
+"""The flags of the row of a candidate, those of a new item: it can be picked and moved."""
 
 
 NODE = 5
@@ -94,6 +113,10 @@ class StackList(QListWidget):
         # picked on a tint: the chips of its row keep their colors; no frame of its own, the card is the frame
         set_role(self, "stack")
         self.setFrameShape(QFrame.Shape.NoFrame)
+        self.keys: list[object] = []
+        """What makes each row, as `fill` showed it: a row whose key stays is kept as it is."""
+        self.values: dict[str, Any] = {}
+        """The configuration the rows show (a copy): its names and colors are in every row, a change makes all anew."""
         self.resize_animation = QVariantAnimation(self)
         self.resize_animation.setDuration(Motion.RESIZE)
         self.resize_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
@@ -161,65 +184,125 @@ class StackList(QListWidget):
         `dark`: none of them has anything to show, so the dark strip is the one shown. `member`: what the pool of
         the one shown hands out, and who else waits for a slot (see `member_summary`).
         """
-        # the old rows fade through the card to the new ones while the list grows or shrinks at the bottom (see
-        # `gui/qt/motion.py`): a row whose text changes would show both texts at once
-        with fading(self, through_resize=True, behind=QColor(current_colors().raised)):
-            self._fill(candidates, shown, why, values, dark, member)
-
-    def _fill(
-        self,
-        candidates: list[Row],
-        shown: int | None,
-        why: dict[int, str],
-        values: Mapping[str, Any],
-        dark: bool,
-        member: tuple[str, str] | None,
-    ) -> None:
-        self.clear()
         count = len(candidates) + ends_dark(candidates)
+        rows: list[tuple[object, Callable[[QListWidgetItem], QWidget | None]]] = []
         for index, candidate in enumerate(candidates):
-            item = QListWidgetItem()
-            item.setData(_INDEX, index)
-            self.addItem(item)
             state = row_state(index, shown, dark)
-            widget = candidate_rule(
-                candidate,
-                state,
-                index,
-                count,
-                values,
-                why.get(index, ""),
-                member if state == "shown" else None,
-            )
-            self.setItemWidget(item, widget)
-            item.setSizeHint(self.itemWidget(item).sizeHint())  # pyright: ignore[reportOptionalMemberAccess]
+            reason = why.get(index, "")
+            shows = member if state == "shown" else None
+            # what makes the row: of the count only whether it is the last one ("otherwise")
+            key = ("candidate", candidate, state, index, index == count - 1, count > 1, reason, shows)
+            rows.append((key, partial(self._candidate, candidate, state, index, count, values, reason, shows)))
         if ends_dark(candidates):
-            item = QListWidgetItem()
-            # no candidate: it can be picked (its slot, with why the strip is dark), not moved or dropped on
-            item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
-            self.addItem(item)
             # always the last option, so the card keeps its rows when the strip goes dark or lights up
             state = "shown" if dark else "" if shown is None else "unreached"
-            end = CandidateRow(len(candidates), count, state, "", numbered=False)
-            text = "nothing to show: the strip is dark" if dark else "nothing to show: the strip goes dark"
-            end.rule.addWidget(label(text, "hint"))
-            end.rule.addWidget(LcdBadge("off", "off: the LCD is dark"))
-            end.rule.addStretch()
-            end.setToolTip(
-                "No candidate has anything to show now, so the strip is dark"
-                if dark
-                else "When no candidate above has anything to show, the strip goes dark"
+            rows.append(
+                (("end", len(candidates), dark, state), partial(self._end, len(candidates), count, dark, state))
             )
-            self.setItemWidget(item, end)
-            item.setSizeHint(end.sizeHint())
-        if self.count() == 0:
-            item = QListWidgetItem(f"{AUTO} (no entry)")
-            # picks the slot, with what it shows without candidates
-            item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
-            self.addItem(item)
+        if not rows:
+            rows.append((("auto",), self._no_entry))
+        if values != self.values:
+            # the names, colors and channels of the rows: every row is made anew (the document changes in place)
+            self.values = copy.deepcopy(dict(values))
+            self.keys = [None] * len(self.keys)
+        self._show_rows(rows)
         rows_height = sum(self.sizeHintForRow(index) for index in range(self.count()))
         self.grow_to(rows_height)
         self.setMinimumWidth(self.sizeHintForColumn(0) + 2 * self.frameWidth())
+
+    def _show_rows(self, rows: list[tuple[object, Callable[[QListWidgetItem], QWidget | None]]]) -> None:
+        """
+        The rows of `rows` (a key, and what makes the row for its item): a row whose key is the one it had stays as it
+        is; one that changes fades through the card to its new look, one that comes fades in, one that goes fades out
+        (see `gui/qt/motion.py`), so a change of one row moves only that row.
+        """
+        moves = moving(self) and bool(self.keys)
+        behind = QColor(current_colors().raised)
+        going: list[tuple[QRect, QPixmap]] = []
+        while self.count() > len(rows):
+            item = self.item(self.count() - 1)
+            assert item is not None
+            widget = self.itemWidget(item)
+            if moves and widget is not None:
+                going.append((self.visualItemRect(item), picture_of(widget)))
+            self.takeItem(self.count() - 1)
+        fades: list[tuple[QListWidgetItem, QPixmap]] = []
+        for index, (key, make) in enumerate(rows):
+            if index < len(self.keys) and index < self.count() and self.keys[index] == key:
+                continue
+            item = self.item(index)
+            if item is None:
+                item = QListWidgetItem()
+                self.addItem(item)
+                before = self._blank() if moves else None
+            else:
+                widget = self.itemWidget(item)
+                before = picture_of(widget) if moves and widget is not None else None
+                self.removeItemWidget(item)
+            widget = make(item)
+            if widget is not None:
+                self.setItemWidget(item, widget)
+                item.setSizeHint(widget.sizeHint())
+            if before is not None:
+                fades.append((item, before))
+        self.keys = [key for key, _ in rows]
+        if not fades and not going:
+            return
+        # where the rows are now
+        self.executeDelayedItemsLayout()
+        viewport = self.viewport()
+        assert viewport is not None
+        for item, before in fades:
+            Fade(viewport, before, behind=behind, at=self.visualItemRect(item))
+        for rect, before in going:
+            Fade(viewport, before, at=rect)
+
+    def _blank(self) -> QPixmap:
+        """A picture of nothing: a row that comes fades in from it."""
+        blank = QPixmap(1, 1)
+        blank.fill(Qt.GlobalColor.transparent)
+        return blank
+
+    def _candidate(
+        self,
+        candidate: Row,
+        state: RowState,
+        index: int,
+        count: int,
+        values: Mapping[str, Any],
+        reason: str,
+        member: tuple[str, str] | None,
+        item: QListWidgetItem,
+    ) -> QWidget:
+        item.setText("")
+        item.setData(_INDEX, index)
+        item.setFlags(CANDIDATE_FLAGS)
+        return candidate_rule(candidate, state, index, count, values, reason, member)
+
+    def _end(self, index: int, count: int, dark: bool, state: RowState, item: QListWidgetItem) -> QWidget:
+        """The dark strip at the end of the rail."""
+        item.setText("")
+        item.setData(_INDEX, None)
+        # no candidate: it can be picked (its slot, with why the strip is dark), not moved or dropped on
+        item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
+        end = CandidateRow(index, count, state, "", numbered=False)
+        text = "nothing to show: the strip is dark" if dark else "nothing to show: the strip goes dark"
+        end.rule.addWidget(label(text, "hint"))
+        end.rule.addWidget(LcdBadge("off", "off: the LCD is dark"))
+        end.rule.addStretch()
+        end.setToolTip(
+            "No candidate has anything to show now, so the strip is dark"
+            if dark
+            else "When no candidate above has anything to show, the strip goes dark"
+        )
+        return end
+
+    def _no_entry(self, item: QListWidgetItem) -> None:
+        """A slot without candidates: `auto`. It picks the slot, with what it shows without candidates."""
+        item.setText(f"{AUTO} (no entry)")
+        item.setData(_INDEX, None)
+        item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
+        item.setSizeHint(QSize())
 
 
 RAIL = 24

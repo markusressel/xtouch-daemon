@@ -7,8 +7,8 @@ happen at once (in tests and screenshots).
 import contextlib
 from collections.abc import Iterator
 
-from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, QEvent, QObject, Qt, QVariantAnimation
-from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPixmap
+from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, QEvent, QObject, QPoint, QRect, Qt, QVariantAnimation
+from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPixmap, QRegion
 from PyQt6.QtWidgets import QGraphicsOpacityEffect, QWidget
 
 from xtouch_daemon.gui.qt.theme.tokens import Motion
@@ -26,15 +26,32 @@ _fading: list[QWidget] = []
 
 
 def moving(widget: QWidget) -> bool:
-    """Whether a change of `widget` moves: motion is on, and it shows, in a window that shows."""
+    """
+    Whether a change of `widget` moves: motion is on, and it shows, in a window that shows and draws (a widget with
+    its updates off draws nothing, so its picture would be empty).
+    """
     window = widget.window()
     return (
         Motion.enabled
         and widget.isVisible()
+        and widget.updatesEnabled()
         and not widget.size().isEmpty()
         and window is not None
         and not window.isMinimized()
     )
+
+
+def picture_of(widget: QWidget) -> QPixmap:
+    """
+    What `widget` shows, with its children, on nothing: `grab()` would paint the background of the window behind it,
+    a box around a pill with round corners.
+    """
+    ratio = widget.devicePixelRatioF()
+    picture = QPixmap(max(1, round(widget.width() * ratio)), max(1, round(widget.height() * ratio)))
+    picture.setDevicePixelRatio(ratio)
+    picture.fill(Qt.GlobalColor.transparent)
+    widget.render(picture, QPoint(), QRegion(), QWidget.RenderFlag.DrawChildren)
+    return picture
 
 
 class Fade(QWidget):
@@ -45,8 +62,14 @@ class Fade(QWidget):
     """
 
     def __init__(
-        self, over: QWidget, picture: QPixmap, through_resize: bool = False, behind: QColor | None = None
+        self,
+        over: QWidget,
+        picture: QPixmap,
+        through_resize: bool = False,
+        behind: QColor | None = None,
+        at: QRect | None = None,
     ) -> None:
+        """`at`: a part of `over` (e.g. a row of a list) it covers, where it stays whatever `over` does."""
         super().__init__(over)  # pyright: ignore[reportArgumentType]  (PyQt6 types the parent as Self)
         self.picture = picture
         self.behind = behind
@@ -54,7 +77,9 @@ class Fade(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         size = picture.deviceIndependentSize().toSize()
         self.setGeometry(0, 0, size.width(), size.height())
-        if through_resize:
+        if at is not None:
+            self.setGeometry(at)
+        elif through_resize:
             self.resize(over.size().expandedTo(size))
         self.animation = QVariantAnimation(self)
         self.animation.setDuration(Motion.FADE if behind is None else Motion.RESIZE)
@@ -66,7 +91,8 @@ class Fade(QWidget):
         # a widget that changes its size moves what it shows: the old picture would show twice, apart (unless what
         # it shows stays where it is, e.g. rows from the top)
         self.through_resize = through_resize
-        over.installEventFilter(self)
+        if at is None:
+            over.installEventFilter(self)
         self.show()
         self.raise_()
         self.animation.start()
@@ -121,7 +147,7 @@ def fading(widget: QWidget, through_resize: bool = False, behind: QColor | None 
     if not moving(widget) or any(outer is widget or outer.isAncestorOf(widget) for outer in _fading):
         yield
         return
-    picture = widget.grab()
+    picture = picture_of(widget)
     _fading.append(widget)
     try:
         yield

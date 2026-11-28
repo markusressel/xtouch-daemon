@@ -892,20 +892,21 @@ class SlotsPanel(Page):
         # nothing drawn until all is in its place: else the rows would show for a moment at their old heights, and the
         # what-ifs before they wrap
         window = self.window()
-        window.setUpdatesEnabled(False)
-        try:
-            if config is not None and what_if is not None:
-                # a change of a what-if fades; the bar that opens grows (see `gui/qt/motion.py`)
-                with fading(self.what_if_panel):
+        # a change of a what-if fades, from the picture before (taken while the window still draws); the bar that
+        # opens grows (see `gui/qt/motion.py`)
+        with fading(self.what_if_panel):
+            window.setUpdatesEnabled(False)
+            try:
+                if config is not None and what_if is not None:
                     self._show_what_if_bar(Inputs.of(config.slots), what_if)
-            reveal(self.state_bar_row, what_if is None)
-            reveal(self.what_if_row, what_if is not None)
-            reveal(self.device_note, what_if is not None)
-            self.shown_live = None
-            self.show_live(self.snapshot())
-            _lay_out(window)
-        finally:
-            window.setUpdatesEnabled(True)
+                reveal(self.state_bar_row, what_if is None)
+                reveal(self.what_if_row, what_if is not None)
+                reveal(self.device_note, what_if is not None)
+                self.shown_live = None
+                self.show_live(self.snapshot())
+                _lay_out(window)
+            finally:
+                window.setUpdatesEnabled(True)
         self.simulated.emit()
 
     def _show_what_if_bar(self, inputs: Inputs, what_if: WhatIf) -> None:

@@ -28,7 +28,12 @@ change, so a page needs no animation code of its own.
 - **Fade through where texts change.** A crossfade shows the old and the new picture at once: a row whose text
   changes shows both texts on top of each other. Given the color behind the widget (`behind`), `fading` fades
   through instead, as Material's "fade through": the old picture fades out on that color in the first 35 %, then the
-  color fades away to the new look. The rows of a slot card do (`StackList.fill`).
+  color fades away to the new look.
+- **A list fades only the rows that change.** A slot card keeps a key for each row (what makes it: the candidate,
+  where it stands against the one shown, why it did not win). `StackList.fill` keeps a row whose key stays as it
+  is; a row that changes fades through the card at its place (`Fade(..., at=rect)`), a row that comes fades in, a
+  row that goes fades out where it was. A fade over the whole card would blink rows that did not change. A change of
+  the configuration (a name, a color) makes every row anew.
 - **A fade ends when its widget changes its size**: what it shows moves, and the old picture would show it twice,
   apart. Unless what it shows stays where it was (`through_resize`): the rows of a card grow or shrink at the bottom,
   and the color behind grows with the card.
@@ -40,7 +45,11 @@ change, so a page needs no animation code of its own.
   (or shrinks to none, then hides), and fades in or out while it does. The layout around it moves along, as with
   Compose's `AnimatedVisibility`.
 - **Nothing moves while it isn't shown.** A widget that isn't visible changes at once; so does everything while the
-  window is minimized or offscreen.
+  window is minimized or offscreen, and while its updates are off (`setUpdatesEnabled(False)`): its picture would be
+  empty, and the fade would blank the widget. Take the picture before the updates go off (`with fading(panel):`
+  around them, as Simulate does).
+- **Pictures without the window.** `picture_of(widget)` renders the widget and its children on nothing; `grab()`
+  would paint the background of the window behind it, a box around a pill with round corners.
 - **Off in tests and screenshots.** `Motion.enabled = False` (the fixture `no_motion` of `tests/gui/conftest.py`,
   and `scripts/screenshot.py`) makes every building block change at once, so a test sees the end at once and stays
   independent of time. The tests of `motion.py` turn it on and drive the animations to a time of their choosing
@@ -55,6 +64,7 @@ change, so a page needs no animation code of its own.
 | `fading(widget)` | `with fading(pill): ...` around any change of the look | `Crossfade` |
 | `reveal(widget, shown)` | A row that comes and goes in a layout | `AnimatedVisibility` |
 | `fading(widget, through_resize=True, behind=color)` | Content that changes while it grows or shrinks | `AnimatedContent` |
+| `Fade(viewport, picture, at=rect)` | A row of a list that changes, appears or goes | `animateItem` |
 | `StackList.grow_to` | A card that gets a line more or less (`Motion.RESIZE`) | `animateContentSize` |
 
 ## Where it is used
