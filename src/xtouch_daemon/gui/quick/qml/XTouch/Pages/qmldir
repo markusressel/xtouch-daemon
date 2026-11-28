@@ -28,3 +28,6 @@ SectionBlock 1.0 SectionBlock.qml
 ConnectionBox 1.0 ConnectionBox.qml
 PluginBox 1.0 PluginBox.qml
 AliasesPane 1.0 AliasesPane.qml
+ChannelInspector 1.0 ChannelInspector.qml
+EntryList 1.0 EntryList.qml
+StateInspector 1.0 StateInspector.qml

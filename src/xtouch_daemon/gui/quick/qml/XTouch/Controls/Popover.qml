@@ -18,7 +18,11 @@ Popup {
     padding: Theme.space.m
     width: Math.min(preferredWidth, parent ? parent.width - 2 * Theme.space.s : preferredWidth)
 
-    readonly property point where: anchor && parent ? anchor.mapToItem(parent, 0, 0) : Qt.point(0, 0)
+    // where the anchor is when the popover opens: `mapToItem` doesn't tell when the anchor moves, `visible` does
+    readonly property point where: {
+        const shown = popover.visible
+        return anchor && parent ? anchor.mapToItem(parent, 0, 0) : Qt.point(0, 0)
+    }
     readonly property bool below: !parent || !anchor || where.y + anchor.height + implicitHeight + Theme.space.s <= parent.height
     x: parent ? Math.max(Theme.space.s, Math.min(where.x, parent.width - width - Theme.space.s)) : 0
     y: !anchor ? 0 : below ? where.y + anchor.height + Theme.space.xs : Math.max(Theme.space.s, where.y - implicitHeight - Theme.space.xs)

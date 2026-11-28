@@ -120,7 +120,7 @@ Item {
                 objectName: "reset_" + (option.spec.name ?? "")
                 x: loader.x + loader.width + Theme.space.xs
                 y: option.tall || option.narrow ? loader.y : loader.y + Math.max(0, (loader.height - height) / 2)
-                name: "restore"
+                name: option.info.resetIcon ?? "restore"
                 tip: option.info.resetTip ?? "Back to the default"
                 opacity: option.info.resettable ? 1 : 0
                 enabled: option.info.resettable === true
