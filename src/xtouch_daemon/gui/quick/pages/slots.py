@@ -566,7 +566,7 @@ class SlotsPage(PageBackend):
         # the end of the rail while the strip is dark: it shows that
         end = self._dark(slot) and self._end_row(slot) >= 0
         self._pick(slot, None if end else candidate, end)
-        self.focusRequested.emit(slot)
+        # the focus stays where it is (on the drawing, whose arrow keys pick the next strip)
         self.scrollRequested.emit(slot)
 
     @pyqtSlot(int, int)
