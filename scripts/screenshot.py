@@ -110,12 +110,12 @@ def shoot(home: Path, out: Path) -> None:
     from PyQt6.QtCore import QCoreApplication, QSettings
     from PyQt6.QtNetwork import QLocalServer
     from PyQt6.QtWidgets import QApplication
+    from xtouch_daemon.gui.qt.theme.style import apply_theme
+    from xtouch_daemon.gui.qt.window.main_window import MainWindow
 
     from xtouch_daemon.audio.model import AudioState, Card, Device, Direction, Profile, Stream
     from xtouch_daemon.gui.domain.slots_document import SlotsDocument
-    from xtouch_daemon.gui.qt.theme.style import apply_theme
-    from xtouch_daemon.gui.qt.theme.tokens import Motion, ThemeMode
-    from xtouch_daemon.gui.qt.window.main_window import MainWindow
+    from xtouch_daemon.gui.domain.tokens import Motion, ThemeMode
     from xtouch_daemon.live.codec import encode
     from xtouch_daemon.live.messages import (
         FEATURES,
@@ -275,7 +275,7 @@ def shoot_controls(out: Path) -> None:
 
     from PyQt6.QtCore import QRectF
 
-    from xtouch_daemon.gui.qt.preview.geometry import (
+    from xtouch_daemon.gui.quick.device.geometry import (
         BUTTON_TOP,
         BUTTON_X,
         BUTTONS_BOTTOM,
@@ -337,10 +337,10 @@ def render_part(state: StripState, crop: QRectF, scale: float) -> QImage:
     from PyQt6.QtCore import QPoint, QPointF, QRectF, Qt
     from PyQt6.QtGui import QImage, QKeyEvent, QPainter, QPainterPath, QRegion
     from PyQt6.QtWidgets import QWidget
+    from xtouch_daemon.gui.qt.preview.strip_view import StripView
 
     from xtouch_daemon.gui.domain.looks import StripFace, StripLook
-    from xtouch_daemon.gui.qt.preview.geometry import HEIGHT, WIDTH
-    from xtouch_daemon.gui.qt.preview.strip_view import StripView
+    from xtouch_daemon.gui.quick.device.geometry import HEIGHT, WIDTH
 
     class Host(QWidget):
         """What a strip asks of the drawing it is in: a fixed scale, nothing that moves, no mouse."""

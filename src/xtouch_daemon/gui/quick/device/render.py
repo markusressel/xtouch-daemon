@@ -10,8 +10,8 @@ from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QColor, QImage, QPainter
 
 from xtouch_daemon.gui.domain.looks import StripFace
-from xtouch_daemon.gui.qt.preview.geometry import PANEL
 from xtouch_daemon.gui.quick.device.drawing import Drawing
+from xtouch_daemon.gui.quick.device.geometry import PANEL
 from xtouch_daemon.gui.quick.device.items import PanelItem, StripItem
 from xtouch_daemon.hardware import protocol
 

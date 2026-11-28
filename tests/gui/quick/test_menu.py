@@ -11,9 +11,9 @@ from PyQt6.QtTest import QTest
 from tests.support.dialogs import FakeDialogs
 from tests.support.quick import Ui
 from xtouch_daemon.gui.domain import docs
-from xtouch_daemon.gui.qt.fields.popover import Entry
-from xtouch_daemon.gui.qt.theme.settings import ZOOM_LEVELS
-from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
+from xtouch_daemon.gui.domain.tokens import ThemeMode
+from xtouch_daemon.gui.quick.details import Entry
+from xtouch_daemon.gui.quick.settings import ZOOM_LEVELS
 from xtouch_daemon.gui.quick.theme import load_mode
 from xtouch_daemon.gui.quick.window.menus import flat, menus, mnemonic, native, plain
 

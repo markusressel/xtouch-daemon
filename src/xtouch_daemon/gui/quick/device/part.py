@@ -1,21 +1,41 @@
 """
 The model of the preview of a part of a strip (see `PartPreview.qml`): the strip cut to the encoder, the display, the
 buttons or the fader with its meter, and the steps of a scene of `gui.domain.demos` to go through like pictures, each
-with a caption: what the options of a form do on the device. It is `PartPreview` of the widgets
-(`gui/qt/preview/part_view.py`) without its toolkit, with the same crops and size.
+with a caption: what the options of a form do on the device. The crops and the size are in logical units of a strip.
 """
 
 from math import ceil
 
-from PyQt6.QtCore import QObject, QPointF, pyqtProperty, pyqtSignal, pyqtSlot  # pyright: ignore[reportUnknownVariableType]
+from PyQt6.QtCore import QObject, QPointF, QRectF, pyqtProperty, pyqtSignal, pyqtSlot  # pyright: ignore[reportUnknownVariableType]
 from PyQt6.QtGui import QKeyEvent
 
 from xtouch_daemon.gui.domain.demos import Frame, Part
 from xtouch_daemon.gui.domain.looks import StripFace, StripLook
-from xtouch_daemon.gui.qt.preview.panel import Hand
-from xtouch_daemon.gui.qt.preview.part_view import CAPTION_WIDTH, CROPS, SIZE
-from xtouch_daemon.gui.qt.preview.strip_view import Mover
-from xtouch_daemon.gui.quick.device.strips import HostWidget, PaintedStrip
+from xtouch_daemon.gui.quick.device.geometry import (
+    BUTTON_TOP,
+    BUTTON_X,
+    BUTTONS_BOTTOM,
+    ENCODER,
+    HEIGHT,
+    LCD,
+    METER,
+    RING_RADII,
+    WIDTH,
+)
+from xtouch_daemon.gui.quick.device.strip import Hand, Mover, StripPainter
+
+_RING = RING_RADII[1] + 6
+CROPS: dict[Part, QRectF] = {
+    "encoder": QRectF(ENCODER.x() - _RING, ENCODER.y() - _RING, 2 * _RING, 2 * _RING),
+    "display": LCD.adjusted(-4, -4, 4, 4),
+    "buttons": QRectF(BUTTON_X - 26, BUTTON_TOP - 6, 52, BUTTONS_BOTTOM - BUTTON_TOP + 12),
+    "fader": QRectF(METER.left() - 8, METER.top() - 6, WIDTH - METER.left() + 8, HEIGHT - METER.top() + 2),
+}
+"""What of the strip each part shows, in logical units."""
+SIZE = (120, 220)
+"""The most room the drawing of a part takes, in pixels at 100 %."""
+CAPTION_WIDTH = SIZE[0]
+"""The least width of the caption under it (the drawing's where it is wider): a few words a line."""
 
 
 class PartPreviewModel(QObject):
@@ -36,8 +56,7 @@ class PartPreviewModel(QObject):
         self.pixel_height = ceil(crop.height() * self.scale)
         self.offset = QPointF(round(-crop.left() * self.scale), round(-crop.top() * self.scale))
         """Where the strip starts in the cut, in pixels."""
-        self.host = HostWidget(self)
-        self.view = PaintedStrip(self.host, 0)
+        self.view = StripPainter(self, 0)
         self.frames: tuple[Frame, ...] = ()
         self.index = 0
         """The frame shown."""
@@ -120,7 +139,7 @@ class PartPreviewModel(QObject):
         frame = self.frames[self.index]
         look = StripLook("preview", frame.state.text[0], "", frame.state.color, printed=" ")
         self.view.show_face(StripFace(look, frame.state, live=True, dimmed=frame.state.color == "off"), False)
-        self.view.setToolTip("")
+        self.view.set_tip("")
         self.counter = f"{self.index + 1} / {len(self.frames)}"
         self.caption = frame.caption
         self.changed.emit()

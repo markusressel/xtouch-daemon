@@ -1,4 +1,4 @@
-<p align="center"><img src="src/xtouch_daemon/gui/qt/theme/images/icon.svg" width="128" alt="The icon of xtouch-daemon: four strips of the device"></p>
+<p align="center"><img src="src/xtouch_daemon/gui/quick/images/icon.svg" width="128" alt="The icon of xtouch-daemon: four strips of the device"></p>
 
 # xtouch-daemon
 

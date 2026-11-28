@@ -1,5 +1,5 @@
 """
-The page Slots in Qt Quick (see tests/gui/qt/test_slots.py for the widgets): the cards, the overview, picking, the
+The page Slots in Qt Quick: the cards, the overview, picking, the
 inspector and editing the stacks.
 """
 
@@ -338,7 +338,7 @@ def test_problems_show_on_the_card_and_in_the_inspector(ui: Ui):
 
 
 def test_the_marks_of_why_follow_the_theme(ui: Ui):
-    from xtouch_daemon.gui.qt.theme.tokens import THEMES, ThemeMode
+    from xtouch_daemon.gui.domain.tokens import THEMES, ThemeMode
     from xtouch_daemon.gui.quick.engine import theme_of
 
     tell(ui, snapshot((0, 1, None)))

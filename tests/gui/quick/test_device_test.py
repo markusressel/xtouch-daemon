@@ -10,7 +10,7 @@ from tests.gui.quick.conftest import MakeUi
 from tests.gui.quick.device_support import device_of, live_ui, snapshot  # noqa: F401
 from tests.support.gui import FakeLiveDaemon
 from tests.support.quick import Ui
-from xtouch_daemon.gui.qt import device_test as device_test_module
+from xtouch_daemon.gui.quick.device import device_test as device_test_module
 from xtouch_daemon.live.codec import encode_reply
 from xtouch_daemon.live.messages import EndTest, KeepTest, Reply, StartTest
 

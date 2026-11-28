@@ -11,8 +11,8 @@ from typing import Any
 from xtouch_daemon.audio.model import AudioState, Direction
 from xtouch_daemon.gui.domain.channels import BUILT_IN_POOLS, CHANNEL_TYPES, uses
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
-from xtouch_daemon.gui.qt.fields.sound import sound_of
 from xtouch_daemon.gui.quick.pages.slots_data import rich
+from xtouch_daemon.gui.quick.pages.sound import sound_of
 from xtouch_daemon.slots.model import BUILT_IN
 
 APPS = ("pool", "apps")

@@ -1,6 +1,6 @@
 """
 What a pill opens in full: a heading, an intro and rows (`Entry`, `Group`), each with a status, an explanation and
-buttons. `Details` is the QML side of `gui.qt.fields.popover.show_popover`: the rows are built when the popover
+buttons. `Details` shows them in QML: the rows are built when the popover
 opens (and again while it is open and something changes), and QML calls back by the index of a row and its button.
 The popover is `DetailsPopover` of `XTouch.Controls`.
 """
@@ -11,11 +11,45 @@ from typing import Any
 
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot  # pyright: ignore[reportUnknownVariableType]
 
-from xtouch_daemon.gui.domain.status import Tone
-from xtouch_daemon.gui.qt.fields.popover import Entry, Group
+from xtouch_daemon.gui.domain.status import Status, Tone
+from xtouch_daemon.gui.domain.tokens import Entity
 from xtouch_daemon.gui.quick.window.rich import Rich
 
 Action = tuple[str, Callable[[], object]]
+
+
+@dataclass(frozen=True)
+class Entry:
+    title: str
+    """What the row is about, e.g. "Home Assistant"; "" for none (the popover is about one thing, its heading)."""
+    status: Status | None = None
+    """How it is doing, as a pill (none without a text: only the color of the bar); None for none."""
+    text: str = ""
+    """The explanation (the tip of the status when empty), with `code` as in the help."""
+    actions: tuple[tuple[str, Callable[[], object]], ...] = ()
+    """Buttons: their text and what they do (the popover closes first). The first one of a problem stands out."""
+    entity: Entity | None = None
+    """What the title names (a state, a channel, a slot), in its color; None for something else."""
+    path: str | None = None
+    """A path to show under the text, in a monospace font (its middle goes where it doesn't fit)."""
+    items: tuple[tuple[str, str], ...] = ()
+    """A list under the text, a line each: the item and a note on it (muted, "" for none)."""
+    icon: str = ""
+    """An icon before the title (an `image://icon/` name), e.g. a speaker for the outputs; "" for none."""
+    toggles: tuple[tuple[str, bool, Callable[[bool], object]], ...] = ()
+    """
+    Switches in a row under the text: their text, whether they are on, and what a click does with the new value. Unlike
+    the buttons of `actions`, they leave the popover open, so several can be switched at once.
+    """
+
+
+@dataclass(frozen=True)
+class Group:
+    """A heading between the rows of a popover: the rows after it are of another kind, e.g. states after the mode."""
+
+    title: str
+    text: str = ""
+    """What the rows of the group have in common, under the title; "" for nothing."""
 
 
 @dataclass(frozen=True)

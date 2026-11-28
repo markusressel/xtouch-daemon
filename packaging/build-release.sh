@@ -164,7 +164,7 @@ EOF
 chmod 755 "$gui_root/usr/bin/xtouch-daemon-gui"
 cp "$repo_dir/packaging/xtouch-daemon-gui.desktop" "$gui_root/usr/share/applications/"
 # the icon of the desktop file (Icon=xtouch-daemon-gui), the one the GUI shows
-cp "$repo_dir/src/xtouch_daemon/gui/qt/theme/images/icon.svg" \
+cp "$repo_dir/src/xtouch_daemon/gui/quick/images/icon.svg" \
     "$gui_root/usr/share/icons/hicolor/scalable/apps/xtouch-daemon-gui.svg"
 cp "$repo_dir/LICENSE" "$gui_root/"
 

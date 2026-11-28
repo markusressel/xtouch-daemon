@@ -9,7 +9,7 @@ import re
 
 from PyQt6.QtGui import QColor
 
-from xtouch_daemon.gui.qt.theme.tokens import THEMES, ThemeColors, ThemeMode
+from xtouch_daemon.gui.domain.tokens import THEMES, ThemeColors, ThemeMode
 
 _ENTITY_WORDS = re.compile(r"\b(states?|modes?|channels?|pools?|slots?|people|persons?|applications?)\b", re.IGNORECASE)
 _CONTROL_WORDS = re.compile(r"\b(?:Select|Mute|Solo|Rec)\b|\b(?:faders?|encoders?|LCDs?|LED rings?)\b")

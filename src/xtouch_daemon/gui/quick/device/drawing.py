@@ -1,6 +1,6 @@
 """
 The drawing of the device without its toolkit: the 8 strips laid out like the hardware, what each shows, and what the
-mouse and keys do on them. It is `Preview` of the widgets (`gui/qt/preview/panel.py`) for QML: the items of
+mouse and keys do on them. The items of
 `items.py` paint the strips, `DevicePanel.qml` lays them out from `scale`, `originX`, `originY` and `positions`.
 
 It is in one of two modes: Select, where a click (or the arrow keys) picks a strip, and with it its slot, and dragging
@@ -10,7 +10,7 @@ a strip (or Ctrl+arrow) moves its slot; or Play, where the mouse is a hand on th
 import time
 from dataclasses import dataclass
 from math import ceil
-from typing import TYPE_CHECKING, cast
+from typing import cast
 
 from PyQt6.QtCore import (  # pyright: ignore[reportUnknownVariableType]
     QObject,
@@ -24,14 +24,26 @@ from PyQt6.QtCore import (  # pyright: ignore[reportUnknownVariableType]
 from PyQt6.QtGui import QKeyEvent
 
 from xtouch_daemon.gui.domain.looks import UNKNOWN, StripFace
-from xtouch_daemon.gui.qt.preview.geometry import HEIGHT, MARGIN_X, MARGIN_Y, PANEL, SPACING, WIDTH, slot_position
-from xtouch_daemon.gui.qt.preview.panel import ANIMATION_MS, BLINK_MS, FRAME_MS, LIFT, MIN_SCALE, SETTLE_MS, Hand
-from xtouch_daemon.gui.quick.device.strips import HostWidget, PaintedStrip
+from xtouch_daemon.gui.quick.device.geometry import HEIGHT, MARGIN_X, MARGIN_Y, PANEL, SPACING, WIDTH, slot_position
+from xtouch_daemon.gui.quick.device.strip import Hand, Mover, StripPainter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import moving
 
-if TYPE_CHECKING:
-    from xtouch_daemon.gui.qt.preview.strip_view import Mover
+MIN_SCALE = 0.35
+"""The smallest the drawing gets: at about a third of its size it still shows the LEDs, faders and LCD colors."""
+SETTLE_MS = 150
+"""
+How long after the last change of size the strips are drawn sharp again: meanwhile (e.g. while the handle above the
+editor is dragged) their printed parts are the picture of before, scaled, which is much faster.
+"""
+BLINK_MS = 400
+"""How fast a flashing LED blinks."""
+FRAME_MS = 16
+"""How often the strips are drawn while a meter falls or a fader glides: about 60 times a second."""
+ANIMATION_MS = 160
+"""How long the other strips take to make room for a dragged one: quick, but long enough to see where they go."""
+LIFT = 8
+"""How far a dragged strip is lifted out of the row."""
 
 __all__ = ["ANIMATION_MS", "MIN_SCALE", "Drawing"]
 
@@ -76,9 +88,7 @@ class Drawing(QObject):
         self.settle.setSingleShot(True)
         self.settle.setInterval(SETTLE_MS)
         self.settle.timeout.connect(self._settled)
-        self.host = HostWidget(self)
-        self.destroyed.connect(self.host.deleteLater)
-        self.strips: list[PaintedStrip] = [PaintedStrip(self.host, index) for index in range(protocol.STRIPS)]
+        self.strips: list[StripPainter] = [StripPainter(self, index) for index in range(protocol.STRIPS)]
         self.blink = True
         """Whether flashing LEDs are lit right now."""
         self.blinker = QTimer(self)
@@ -333,10 +343,6 @@ class Drawing(QObject):
         self.positionsChanged.emit()
         self.panelChanged.emit()
         return drag
-
-    def menu_for(self, index: int) -> None:
-        """Not here: `menuFor`, for the `Menu` of QML (the protocol of the widgets asks for a `QMenu`)."""
-        raise NotImplementedError
 
     @pyqtSlot(int, result="QVariantList")
     def menuFor(self, index: int) -> list[dict[str, object]]:

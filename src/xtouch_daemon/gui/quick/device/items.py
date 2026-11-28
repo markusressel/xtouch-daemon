@@ -33,20 +33,18 @@ from PyQt6.QtGui import (
 from PyQt6.QtQml import qmlRegisterType
 from PyQt6.QtQuick import QQuickItem, QQuickPaintedItem
 
-from xtouch_daemon.gui.qt.preview.geometry import HEIGHT, PANEL, WIDTH, slot_position
-from xtouch_daemon.gui.qt.preview.painting import HW, PANEL_RADIUS, STRIP_RADIUS
-from xtouch_daemon.gui.qt.theme import style
-from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
+from xtouch_daemon.gui.domain.tokens import THEMES, ThemeMode
 from xtouch_daemon.gui.quick.device.drawing import Drawing
+from xtouch_daemon.gui.quick.device.geometry import HEIGHT, PANEL, WIDTH, slot_position
+from xtouch_daemon.gui.quick.device.painting import HW, PANEL_RADIUS, STRIP_RADIUS
 from xtouch_daemon.gui.quick.device.part import PartPreviewModel
 
 URI = "XTouch.Device"
 _registered = False
 
 
-def use_theme(dark: bool) -> None:
-    """The painting of the widgets reads the theme from a global of its own: it is the one of the item painted now."""
-    style._current_mode = ThemeMode.DARK if dark else ThemeMode.LIGHT  # pyright: ignore[reportPrivateUsage]
+def mode_of(dark: bool) -> ThemeMode:
+    return ThemeMode.DARK if dark else ThemeMode.LIGHT
 
 
 class StripItem(QQuickPaintedItem):
@@ -200,7 +198,7 @@ class StripItem(QQuickPaintedItem):
         view = self.view
         if painter is None or view is None or self.width() <= 0:
             return
-        use_theme(self._dark)
+        view.mode = mode_of(self._dark)
         view.ratio = self._ratio()
         view.paint_strip(painter)
 
@@ -332,7 +330,6 @@ class PanelItem(QQuickPaintedItem):
         drawing = self._drawing
         if painter is None or drawing is None:
             return
-        use_theme(self._dark)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         origin, scale = drawing.panel_geometry()
         painter.translate(origin)
@@ -342,7 +339,7 @@ class PanelItem(QQuickPaintedItem):
         gradient.setColorAt(0, QColor(HW.panel_top))
         gradient.setColorAt(1, QColor(HW.panel_bottom))
         painter.setBrush(gradient)
-        accent = QColor(style.current_colors().accent)
+        accent = QColor(THEMES[mode_of(self._dark)].accent)
         painter.setPen(QPen(accent, 4) if drawing.simulating else QPen(QColor(HW.panel_edge), 1))
         painter.drawRoundedRect(panel, PANEL_RADIUS, PANEL_RADIUS)
         painter.setPen(QPen(QColor(255, 255, 255, 18), 1))
@@ -441,8 +438,8 @@ class PartItem(QQuickPaintedItem):
         model = self._model
         if painter is None or model is None:
             return
-        use_theme(self._dark)
         view = model.view
+        view.mode = mode_of(self._dark)
         window = self.window()
         view.ratio = window.devicePixelRatio() if window is not None else 1.0
         painter.save()

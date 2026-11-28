@@ -44,7 +44,7 @@ def test_the_gui_reports_a_file_it_can_not_edit(tmp_path: Path) -> None:
     assert f"Error: {path} is not valid TOML" in result.output
 
 
-@pytest.mark.parametrize("package", ["PyQt6", "qtawesome", "qt_themes", "tomlkit"])
+@pytest.mark.parametrize("package", ["PyQt6", "qtawesome", "tomlkit"])
 def test_without_the_gui_extra_it_says_how_to_install_it(monkeypatch: pytest.MonkeyPatch, package: str) -> None:
     _without_gui_modules(monkeypatch)
     # as if it was not installed: its modules that are imported already too

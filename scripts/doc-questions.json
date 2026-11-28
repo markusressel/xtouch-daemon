@@ -58,8 +58,8 @@
       "src/xtouch_daemon/cli/simulator.py:28-51",
       "src/xtouch_daemon/cli/daemon.py:25-35",
       "src/xtouch_daemon/config/sections.py:40-45",
-      "src/xtouch_daemon/gui/qt/window/device_view.py:166-171",
-      "src/xtouch_daemon/gui/qt/window/main_window.py:1251-1266"
+      "src/xtouch_daemon/gui/quick/device/panel.py",
+      "src/xtouch_daemon/gui/quick/window/shell.py"
     ]
   },
   {
@@ -488,11 +488,9 @@
       "apply(): reloads only when the daemon reads this file; message if not running or another file"
     ],
     "code": [
-      "src/xtouch_daemon/gui/qt/window/main_window.py:125-141",
-      "src/xtouch_daemon/gui/qt/window/main_window.py:555",
-      "src/xtouch_daemon/gui/qt/window/main_window.py:714-719",
+      "src/xtouch_daemon/gui/quick/window/shell.py",
       "src/xtouch_daemon/gui/domain/apply.py:21-50",
-      "src/xtouch_daemon/gui/qt/live_preview.py:1-8"
+      "src/xtouch_daemon/gui/quick/live_preview.py:1-8"
     ]
   },
   {
@@ -502,7 +500,7 @@
     "answer": "On Arch install the AUR package `xtouch-daemon-gui-bin` and start `xtouch-daemon-gui` (there is a desktop entry 'X-Touch Extender'). From a checkout install with the extra: `uv tool install --force './xtouch-daemon[gui]'`, then `xtouch-daemon gui` (`-c FILE` for another file; the default is ~/.config/xtouch-daemon/config.toml).",
     "facts": [
       "GUI_MISSING message text",
-      "GUI extra (PyQt6, qtawesome, qt-themes, tomlkit)",
+      "GUI extra (PyQt6, qtawesome, tomlkit)",
       "xtouch-daemon-gui launcher runs `-m xtouch_daemon gui`; desktop Exec=xtouch-daemon-gui",
       "gui command takes the config path option; default path"
     ],
@@ -525,7 +523,7 @@
       "check-config prints 'What the slots show' table (12 rows shown, --all for all)"
     ],
     "code": [
-      "src/xtouch_daemon/gui/qt/pages/slots.py:165",
+      "src/xtouch_daemon/gui/quick/pages/slots.py",
       "src/xtouch_daemon/gui/domain/simulate.py:1-10",
       "src/xtouch_daemon/cli/slots.py:31-101",
       "src/xtouch_daemon/cli/configuration.py:163-176",

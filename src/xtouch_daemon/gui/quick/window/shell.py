@@ -65,13 +65,16 @@ from xtouch_daemon.gui.domain.status import (
     preview_status,
     runs_older,
 )
+from xtouch_daemon.gui.domain.tokens import THEMES, ThemeMode
 from xtouch_daemon.gui.domain.twin import unavailable as twin_unavailable
-from xtouch_daemon.gui.qt import errors
-from xtouch_daemon.gui.qt.file_watch import FileWatch
-from xtouch_daemon.gui.qt.live_preview import LivePreview
-from xtouch_daemon.gui.qt.live_view import LiveView
-from xtouch_daemon.gui.qt.theme.icons import APP_ICON
-from xtouch_daemon.gui.qt.theme.settings import (
+from xtouch_daemon.gui.quick import errors
+from xtouch_daemon.gui.quick.details import Content, Details
+from xtouch_daemon.gui.quick.device.virtual_device import HostedDevice
+from xtouch_daemon.gui.quick.file_watch import FileWatch
+from xtouch_daemon.gui.quick.icons import APP_ICON
+from xtouch_daemon.gui.quick.live_preview import LivePreview
+from xtouch_daemon.gui.quick.live_view import LiveView
+from xtouch_daemon.gui.quick.settings import (
     ZOOM_LEVELS,
     load_rail_labels,
     load_zoom,
@@ -80,13 +83,9 @@ from xtouch_daemon.gui.qt.theme.settings import (
     zoom_step,
     zoom_text,
 )
-from xtouch_daemon.gui.qt.theme.tokens import THEMES, ThemeMode
-from xtouch_daemon.gui.qt.virtual_device import HostedDevice
-from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
-from xtouch_daemon.gui.qt.window.session import Session, from_screen, to_screen
-from xtouch_daemon.gui.quick.details import Content, Details
 from xtouch_daemon.gui.quick.theme import Theme, colors_of
 from xtouch_daemon.gui.quick.window import messages
+from xtouch_daemon.gui.quick.window.audio_loader import AudioLoader
 from xtouch_daemon.gui.quick.window.dialogs import (
     OVERWRITE,
     OVERWRITE_RELOAD_CANCEL,
@@ -105,6 +104,7 @@ from xtouch_daemon.gui.quick.window.menus import flat, menus, native
 from xtouch_daemon.gui.quick.window.panels import Panels
 from xtouch_daemon.gui.quick.window.rich import help_html, tip_html
 from xtouch_daemon.gui.quick.window.service import ServiceBackend
+from xtouch_daemon.gui.quick.window.session import Session, from_screen, to_screen
 from xtouch_daemon.live.messages import Request, Snapshot
 from xtouch_daemon.simulator.server import AlreadyServed
 from xtouch_daemon.system import instance
@@ -589,7 +589,7 @@ class Shell(QObject):
                 if item["keys"]
             )
 
-        from xtouch_daemon.gui.qt.fields.popover import Entry
+        from xtouch_daemon.gui.quick.details import Entry
 
         return Content(
             "Keyboard shortcuts",
@@ -877,7 +877,7 @@ class Shell(QObject):
 
     def _changes_content(self) -> Content:
         """What the device runs, and the file: its path, to copy or to open its folder."""
-        from xtouch_daemon.gui.qt.fields.popover import Entry
+        from xtouch_daemon.gui.quick.details import Entry
 
         if self.changes is None:
             return Content("Configuration")
@@ -951,7 +951,7 @@ class Shell(QObject):
 
     def _audio_content(self) -> Content:
         """What the GUI read from the sound server, or why it couldn't, and reading it again (it stays open)."""
-        from xtouch_daemon.gui.qt.fields.popover import Entry
+        from xtouch_daemon.gui.quick.details import Entry
 
         again = (("Read again", self.load_audio),)
         if self.audio_error is not None:

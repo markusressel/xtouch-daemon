@@ -1,39 +1,25 @@
 """
-Helpers for the tests of the window: the configuration and sound server they start with, the dialogs they answer,
-a fake live view, and clicking and typing.
+Helpers for the tests of the window: the configuration and sound server they start with, a fake live view, and
+the fakes that keep the window away from the machine (no plugin, broker or Home Assistant is reached).
 """
 
 import dataclasses
-import html
-import re
-from collections.abc import Callable
 from math import cos, radians, sin
 from pathlib import Path
 
-from PyQt6.QtCore import QPointF, Qt
+from PyQt6.QtCore import QPointF
 from PyQt6.QtNetwork import QLocalServer, QLocalSocket
-from PyQt6.QtWidgets import (
-    QAbstractButton,
-    QLabel,
-    QLineEdit,
-    QMessageBox,
-    QWidget,
-)
-from pytestqt.qtbot import QtBot
 
 from tests.support.audio import output, source, stream
 from xtouch_daemon.audio.model import AudioState, Card, Profile
 from xtouch_daemon.config.sections import HomeAssistantConfig, MqttConfig
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.domain.voip import CLIENTS, NO_PLUGIN
-from xtouch_daemon.gui.qt.fields.menu import MenuPanel, open_menu
-from xtouch_daemon.gui.qt.fields.option_row import OptionRow
-from xtouch_daemon.gui.qt.pages.sections import PluginInstaller
-from xtouch_daemon.gui.qt.preview.geometry import ENCODER, RING_RADII, ring_angle
-from xtouch_daemon.gui.qt.window.main_window import MainWindow
+from xtouch_daemon.gui.quick.device.geometry import ENCODER, RING_RADII, ring_angle
+from xtouch_daemon.gui.quick.pages.settings_support import PluginInstaller
 from xtouch_daemon.homeassistant.client import Fetched, HomeAssistantError
 from xtouch_daemon.live.codec import decode_request, encode, encode_log, encode_twin
-from xtouch_daemon.live.messages import LogLines, Request, Snapshot, StripState, TwinView, fingerprint
+from xtouch_daemon.live.messages import LogLines, Request, Snapshot, StripState, TwinView
 from xtouch_daemon.voip import mumble
 
 CONFIG = """\
@@ -91,52 +77,6 @@ STOPPED = "LoadState=loaded\nActiveState=inactive\nUnitFileState=enabled\n"
 MISSING = "LoadState=not-found\nActiveState=inactive\nUnitFileState=\n"
 
 
-class Dialogs:
-    """Answers the message boxes, and records them."""
-
-    def __init__(self) -> None:
-        self.answer = QMessageBox.StandardButton.Discard
-        self.shown: list[str] = []
-        self.pick: str | None = None
-        """The button a message box of its own (`exec()`) gets clicked by its text; None for its Cancel."""
-
-    def question(self, parent: object, title: str, text: str, *args: object) -> QMessageBox.StandardButton:
-        self.shown.append(text)
-        return self.answer
-
-    def message(self, parent: object, title: str, text: str) -> QMessageBox.StandardButton:
-        self.shown.append(text)
-        return QMessageBox.StandardButton.Ok
-
-    def execute(self, box: QMessageBox) -> int:
-        self.shown.append(box.text())
-        if self.pick is None:
-            button = box.button(QMessageBox.StandardButton.Cancel)
-        else:
-            (button,) = [button for button in box.buttons() if button.text() == self.pick]
-        assert button is not None
-        button.click()
-        return 0
-
-
-type MakeWindow = Callable[..., MainWindow]
-
-
-def plain(text: str) -> str:
-    """Rich text without its markup (the colors of the help), as it reads."""
-    return html.unescape(re.sub(r"<[^>]+>", "", text))
-
-
-def pill(widget: QLabel | QAbstractButton) -> str:
-    """
-    The text of a pill, without the ▾ of one that opens a popover, after the dot of a state (drawn, `on`) as it looks:
-    ● on, ○ off.
-    """
-    on = widget.property("on")
-    dot = "" if on is None else "● " if on else "○ "
-    return dot + widget.text().removesuffix("  ▾")
-
-
 def no_install() -> str:
     raise mumble.MumbleError("Mumble is not installed")
 
@@ -154,56 +94,6 @@ async def unreachable_broker(config: MqttConfig) -> Status:
 async def unreachable_home_assistant(config: HomeAssistantConfig) -> Fetched:
     """No window reaches out to a real Home Assistant."""
     raise HomeAssistantError(f"can't connect to {config.websocket_url}: Connection refused")
-
-
-def row(window: MainWindow, name: str, page: str = "channels") -> OptionRow:
-    return next(option_row for option_row in window.pages[page].rows if option_row.option.name == name)
-
-
-def show_channel(window: MainWindow, name: str) -> None:
-    """Shows the form of a channel on the page Channels."""
-    window.channels_page.select(("channel", name))
-    window.show_page("channels")
-
-
-def shows(widget: QWidget, parent: QWidget) -> bool:
-    """Whether `widget` shows when `parent` does (the stubs of `isVisibleTo` want a widget of the same class)."""
-    return QWidget.isVisibleTo(widget, parent)
-
-
-def buttons[T: QAbstractButton](parent: QWidget, kind: type[T], match: Callable[[T], bool]) -> list[T]:
-    """The buttons on `parent` that `match`, of the parts of it that show (not e.g. the forms of other strip types)."""
-    return [button for button in parent.findChildren(kind) if shows(button, parent) and match(button)]
-
-
-def type_into(qtbot: QtBot, edit: QLineEdit, text: str) -> None:
-    edit.selectAll()
-    qtbot.keyClick(edit, Qt.Key.Key_Backspace)
-    qtbot.keyClicks(edit, text)
-
-
-def click(qtbot: QtBot, button: object) -> None:
-    qtbot.mouseClick(button, Qt.MouseButton.LeftButton)  # pyright: ignore[reportArgumentType]
-
-
-def open_menu_of(qtbot: QtBot, button: QWidget) -> MenuPanel:
-    """Clicks `button` and returns the menu it opens in its window."""
-    click(qtbot, button)
-    window = button.window()
-    assert window is not None
-    panel = open_menu(window)
-    assert panel is not None
-    return panel
-
-
-def pick(qtbot: QtBot, panel: MenuPanel, text: str) -> None:
-    """Clicks the row of `text` (without `&` and shortcut) of an open menu (or one of its submenus)."""
-    qtbot.mouseClick(panel.row(text), Qt.MouseButton.LeftButton)
-
-
-def menu_texts(panel: MenuPanel) -> list[str]:
-    """The rows of an open menu, by their text."""
-    return [row.title.text() for row in panel.rows]
 
 
 class FakeLiveDaemon:
@@ -265,13 +155,6 @@ def strip_state(text: tuple[str, str] = ("", ""), **changes: object) -> StripSta
         meter=0,
     )
     return dataclasses.replace(state, **changes)  # pyright: ignore[reportArgumentType]
-
-
-def snapshot(window: MainWindow, first: StripState, device: bool = True) -> Snapshot:
-    saved = window.document.saved_config
-    assert saved is not None
-    strips = (first, *(strip_state() for _ in range(7)))
-    return Snapshot(fingerprint(saved), device, sound_server=True, mqtt=None, strips=strips)
 
 
 def led_point(led: int) -> QPointF:

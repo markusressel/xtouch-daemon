@@ -1,7 +1,6 @@
 """
 The page Slots for QML: the state bar and Simulate, a card per slot with its candidates on a rail, and the inspector
-of the slot and the candidate picked (or the overview while nothing is). The decisions are those of the widgets
-(`gui/qt/pages/slots.py`, kept until the migration ends); QML only shows them and moves.
+of the slot and the candidate picked (or the overview while nothing is). QML only shows them and moves.
 
 What the page needs from outside (the live view of the daemon, the twin, the sound server) is a `Live`: the window
 sets `SlotsPage.live` and calls `show_live(snapshot)` for each snapshot of the daemon.
@@ -41,7 +40,6 @@ from xtouch_daemon.gui.domain.slot_stacks import (
 from xtouch_daemon.gui.domain.slots_document import Validation
 from xtouch_daemon.gui.domain.states import OVERRIDES
 from xtouch_daemon.gui.domain.status import Reason
-from xtouch_daemon.gui.qt.fields.sound import sounding
 from xtouch_daemon.gui.quick.forms.context import forms_of
 from xtouch_daemon.gui.quick.forms.form import Form
 from xtouch_daemon.gui.quick.forms.places import place_specs
@@ -68,6 +66,7 @@ from xtouch_daemon.gui.quick.pages.slots_simulate import (
     what_if_rows,
     with_mode,
 )
+from xtouch_daemon.gui.quick.pages.sound import sounding
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
 from xtouch_daemon.slots.model import AUTO, BUILT_IN, DEFAULT

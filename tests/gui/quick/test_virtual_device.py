@@ -25,9 +25,9 @@ from tests.support.quick import Ui
 from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.gui.domain.looks import UNKNOWN
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
-from xtouch_daemon.gui.qt.preview.geometry import ENCODER, SLOT, button_rect, fraction_at, part_at, travel_y
-from xtouch_daemon.gui.qt.preview.strip_view import HOVER_TIPS
-from xtouch_daemon.gui.qt.virtual_device import HostedDevice
+from xtouch_daemon.gui.quick.device.geometry import ENCODER, SLOT, button_rect, fraction_at, part_at, travel_y
+from xtouch_daemon.gui.quick.device.strip import HOVER_TIPS
+from xtouch_daemon.gui.quick.device.virtual_device import HostedDevice
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button
 from xtouch_daemon.simulator.server import AlreadyServed

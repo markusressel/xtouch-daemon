@@ -20,8 +20,8 @@ from xtouch_daemon.gui.domain.broker import live_status
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.schema import SECTIONS, Section, options
 from xtouch_daemon.gui.domain.status import Status, Tone
+from xtouch_daemon.gui.domain.tokens import THEMES, ThemeMode
 from xtouch_daemon.gui.domain.voip import client_status, connected_here, install_hint, install_steps
-from xtouch_daemon.gui.qt.theme.tokens import THEMES, ThemeMode
 from xtouch_daemon.gui.quick.forms.context import FormContext, forms_of
 from xtouch_daemon.gui.quick.forms.form import Form, RowSpec
 from xtouch_daemon.gui.quick.forms.suggestions import lines

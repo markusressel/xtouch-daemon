@@ -16,7 +16,7 @@ from PyQt6.QtQuick import QQuickTextDocument
 
 from xtouch_daemon.gui.domain.log import LEVELS, MAX_ENTRIES, MAX_MATCHES, LogHistory, line, matches, shown
 from xtouch_daemon.gui.domain.status import log_unavailable
-from xtouch_daemon.gui.qt.live_view import LiveView
+from xtouch_daemon.gui.quick.live_view import LiveView
 from xtouch_daemon.live.messages import EndLog, LogEntry, LogLines, Snapshot, WatchLog
 
 KEPT = MAX_ENTRIES

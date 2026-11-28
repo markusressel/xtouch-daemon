@@ -514,7 +514,7 @@ def test_an_empty_file_says_how_to_start(make_ui: MakeUi, path: Any):
 
 
 def test_the_channels_with_sound_move_in_the_list(ui: Ui):
-    from xtouch_daemon.gui.qt.fields.sound import sounding
+    from xtouch_daemon.gui.quick.pages.sound import sounding
     from xtouch_daemon.live.messages import Snapshot
 
     channels = page(ui)

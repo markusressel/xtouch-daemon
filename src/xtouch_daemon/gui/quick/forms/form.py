@@ -27,8 +27,7 @@ from xtouch_daemon.gui.domain.entities import attribute_suggestions
 from xtouch_daemon.gui.domain.schema import Kind, Option, describe
 from xtouch_daemon.gui.domain.slots_document import OptionPath
 from xtouch_daemon.gui.domain.sources import Suggestion, preset_suggestions, preset_tip
-from xtouch_daemon.gui.qt.preview.part_view import CAPTION_WIDTH
-from xtouch_daemon.gui.quick.device.part import PartPreviewModel
+from xtouch_daemon.gui.quick.device.part import CAPTION_WIDTH, PartPreviewModel
 from xtouch_daemon.gui.quick.forms import binding, entity_table, suggestions, tables
 from xtouch_daemon.gui.quick.forms.buttons import ButtonLogic
 from xtouch_daemon.gui.quick.forms.context import FormContext

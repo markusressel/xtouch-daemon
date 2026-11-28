@@ -4,13 +4,24 @@ The icons of QML: Material Design icons (qtawesome's mdi6) as `image://icon/<nam
 picture serves every theme.
 """
 
+from pathlib import Path
+
 import qtawesome as qta
 from PyQt6.QtCore import QSize
-from PyQt6.QtGui import QPixmap
+from PyQt6.QtGui import QIcon, QPixmap
 from PyQt6.QtQuick import QQuickImageProvider
 
 PROVIDER = "icon"
 DEFAULT_SIZE = 24
+APP_ICON = Path(__file__).parent / "images" / "icon.svg"
+"""
+The icon of the project: the device, as four of its strips. The original: the site (`just docs-icon`), the README and
+the desktop file of the release (`packaging/build-release.sh`) take it from here.
+"""
+
+
+def app_icon() -> QIcon:
+    return QIcon(str(APP_ICON))
 
 
 class IconProvider(QQuickImageProvider):

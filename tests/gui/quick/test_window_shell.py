@@ -9,9 +9,9 @@ from PyQt6.QtTest import QTest
 from tests.gui.quick.conftest import MakeUi
 from tests.support.dialogs import FakeDialogs
 from tests.support.quick import Ui
-from xtouch_daemon.gui.qt import errors
-from xtouch_daemon.gui.qt.fields.popover import Entry
-from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
+from xtouch_daemon.gui.domain.tokens import ThemeMode
+from xtouch_daemon.gui.quick import errors
+from xtouch_daemon.gui.quick.details import Entry
 from xtouch_daemon.gui.quick.theme import load_mode
 from xtouch_daemon.gui.quick.window import messages
 from xtouch_daemon.gui.quick.window.hover import first_paragraph

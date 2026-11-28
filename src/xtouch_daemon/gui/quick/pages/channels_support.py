@@ -5,7 +5,7 @@ import re
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot  # pyright: ignore[reportUnknownVariableType]
 from PyQt6.QtGui import QGuiApplication
 
-from xtouch_daemon.gui.qt.theme.settings import load_split, save_split
+from xtouch_daemon.gui.quick.settings import load_split, save_split
 
 ID = re.compile(r"[a-z0-9_]+")
 """What a channel, a pool or a state can be called."""

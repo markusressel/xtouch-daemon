@@ -17,7 +17,6 @@ from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import BUILT_IN_POOLS, CHANNEL_TYPES, uses
 from xtouch_daemon.gui.domain.clipboard import Tables, parse_tables, tables_text
 from xtouch_daemon.gui.domain.slots_document import OptionPath
-from xtouch_daemon.gui.qt.fields.sound import sounding
 from xtouch_daemon.gui.quick.forms.context import FormContext, forms_of
 from xtouch_daemon.gui.quick.forms.form import Form
 from xtouch_daemon.gui.quick.models import KeyedListModel
@@ -37,6 +36,7 @@ from xtouch_daemon.gui.quick.pages.channels_list import (
     path_of,
 )
 from xtouch_daemon.gui.quick.pages.channels_support import ID, NO_ID, PaneShare, clipboard_text, set_clipboard_text
+from xtouch_daemon.gui.quick.pages.sound import sounding
 from xtouch_daemon.live.messages import Snapshot
 from xtouch_daemon.slots.model import BUILT_IN
 

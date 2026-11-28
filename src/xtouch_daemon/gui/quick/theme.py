@@ -9,7 +9,7 @@ from typing import Any
 from PyQt6.QtCore import QObject, QSettings, pyqtProperty, pyqtSignal, pyqtSlot  # pyright: ignore[reportUnknownVariableType]
 from PyQt6.QtGui import QColor, QFont, QFontInfo, QGuiApplication
 
-from xtouch_daemon.gui.qt.theme.tokens import (
+from xtouch_daemon.gui.domain.tokens import (
     CONTROL_HEIGHT,
     HARDWARE,
     LCD_COLORS,

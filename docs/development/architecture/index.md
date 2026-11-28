@@ -56,7 +56,7 @@ The packages of `src/xtouch_daemon/`, from the device up. Tests mirror them: `te
 | `voip/` | `VoipProvider`: the people of a voice chat, with `DemoProvider` and `BridgeProvider` (plugins of voice chat clients on a Unix socket, one per client). `voip/mumble.py` and `integrations/mumble/` build and install the Mumble plugin (C), `voip/teamspeak.py` and `integrations/teamspeak/` the TeamSpeak plugin (C). See [Design: the voice chat](../design/voice-chat.md). |
 | `cli/` | The command line: a module per topic, put together by `main` in `cli/__init__.py`. |
 | `gui/domain/` | The editor without a toolkit. See [GUI](gui.md). |
-| `gui/qt/` | The widgets (the `gui` extra): `window/`, `preview/` (the drawing of the device), `pages/`, `fields/`, `theme/`. |
+| `gui/quick/` | The window in Qt Quick (the `gui` extra): the backends in Python (`window/`, `device/`, `forms/`, `pages/`) and the QML they show (`qml/`). |
 
 ## Data flow
 

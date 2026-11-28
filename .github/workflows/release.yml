@@ -116,7 +116,7 @@ jobs:
           su builder -c "xtouch-daemon check-config -c /usr/share/xtouch-daemon/config.example.toml"
           test -f /usr/lib/systemd/user/xtouch-daemon.service
           # the GUI's environment: the system's PyQt6 with the daemon's packages
-          /usr/lib/xtouch-daemon-gui/bin/python3.14 -I -c 'import PyQt6.QtWidgets, qtawesome, tomlkit, xtouch_daemon.gui.qt'
+          /usr/lib/xtouch-daemon-gui/bin/python3.14 -I -c 'import PyQt6.QtQuick, qtawesome, tomlkit, xtouch_daemon.gui.quick'
 
   release:
     name: Attach the tarballs to the GitHub release

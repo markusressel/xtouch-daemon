@@ -12,8 +12,8 @@ from typing import Any
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QKeySequence
 
-from xtouch_daemon.gui.qt.theme.settings import ZOOM_LEVELS, zoom_text
-from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
+from xtouch_daemon.gui.domain.tokens import ThemeMode
+from xtouch_daemon.gui.quick.settings import ZOOM_LEVELS, zoom_text
 from xtouch_daemon.gui.quick.window.panels import PLACE_TITLES, PLACES
 
 type Entry = dict[str, Any]

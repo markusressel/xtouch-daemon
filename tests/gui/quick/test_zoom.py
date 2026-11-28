@@ -13,10 +13,10 @@ from tests.gui.quick.conftest import MakeUi
 from tests.support.dialogs import FakeDialogs
 from tests.support.quick import Ui
 from xtouch_daemon.audio.model import DISCONNECTED
-from xtouch_daemon.gui.qt.theme.settings import ZOOM_LEVELS, load_zoom
-from xtouch_daemon.gui.qt.window.session import Session
 from xtouch_daemon.gui.quick import app as app_module
 from xtouch_daemon.gui.quick.app import App
+from xtouch_daemon.gui.quick.settings import ZOOM_LEVELS, load_zoom
+from xtouch_daemon.gui.quick.window.session import Session
 
 CTRL = Qt.KeyboardModifier.ControlModifier
 
@@ -90,7 +90,7 @@ def test_a_maximized_window_stays_maximized(make_ui: MakeUi, ui: Ui, monkeypatch
 def test_run_quick_starts_again_for_a_new_zoom(
     path: Path, monkeypatch: pytest.MonkeyPatch, qapp: QApplication, dialogs: FakeDialogs
 ):
-    from xtouch_daemon.gui import qt
+    from xtouch_daemon.gui.quick import errors
 
     apps: list[App] = []
     sessions: list[Session | None] = []
@@ -103,16 +103,16 @@ def test_run_quick_starts_again_for_a_new_zoom(
         sessions.append(deps.session)
 
     monkeypatch.setattr(App, "__init__", init)
-    monkeypatch.setattr(app_module, "QApplication", lambda args: qapp)
-    monkeypatch.setattr(qt.errors, "install", lambda: None)
+    monkeypatch.setattr(app_module, "QGuiApplication", lambda args: qapp)
+    monkeypatch.setattr(errors, "install", lambda: None)
     deleted: list[object] = []
     # the test's application stays
     monkeypatch.setattr(app_module.sip, "delete", deleted.append)
-    monkeypatch.delenv(qt.SCALE_FACTOR, raising=False)
+    monkeypatch.delenv(app_module.SCALE_FACTOR, raising=False)
     scales: list[str] = []
 
     def exec_() -> int:
-        scales.append(app_module.os.environ[qt.SCALE_FACTOR])
+        scales.append(app_module.os.environ[app_module.SCALE_FACTOR])
         if len(apps) == 1:
             shell = apps[0].shell
             shell.zoom_to(1.1)

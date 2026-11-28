@@ -10,7 +10,7 @@ from typing import Any
 from xtouch_daemon.gui.domain import sources
 from xtouch_daemon.gui.domain.entities import domain_icon
 from xtouch_daemon.gui.domain.sources import Suggestion
-from xtouch_daemon.gui.qt.theme.tokens import ThemeColors
+from xtouch_daemon.gui.domain.tokens import ThemeColors
 
 type Suggest = Callable[[], tuple[Suggestion, ...]]
 type ColumnSuggest = Callable[[dict[str, Any]], tuple[Suggestion, ...]]

@@ -17,10 +17,10 @@ from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.gui.domain.entities import data_text, parse_data
 from xtouch_daemon.gui.domain.places import program_text
 from xtouch_daemon.gui.domain.schema import describe
-from xtouch_daemon.gui.qt.fields.entities import EntitySource
-from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
 from xtouch_daemon.gui.quick.forms import tables, usage
+from xtouch_daemon.gui.quick.forms.entity_source import EntitySource
 from xtouch_daemon.gui.quick.forms.help import help_html
+from xtouch_daemon.gui.quick.window.audio_loader import AudioLoader
 from xtouch_daemon.live.messages import KnownDevice, Request, Snapshot
 
 if TYPE_CHECKING:

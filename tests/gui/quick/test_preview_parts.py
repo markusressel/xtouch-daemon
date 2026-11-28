@@ -14,9 +14,7 @@ from tests.gui.quick.conftest import MakeUi
 from tests.support.gui import strip_state
 from tests.support.quick import Ui
 from xtouch_daemon.gui.domain.demos import Frame, Part
-from xtouch_daemon.gui.qt.preview.part_view import CROPS
-from xtouch_daemon.gui.quick.device.items import use_theme
-from xtouch_daemon.gui.quick.device.part import PartPreviewModel
+from xtouch_daemon.gui.quick.device.part import CROPS, PartPreviewModel
 
 PARTS: tuple[Part, ...] = ("encoder", "display", "buttons", "fader")
 
@@ -141,7 +139,6 @@ def test_one_frame_has_nothing_to_go_through(make_ui: MakeUi) -> None:
 
 def test_the_drawing_shows_the_frame(shown: tuple[Ui, PartPreviewModel, QQuickItem]) -> None:
     ui, model, _ = shown
-    use_theme(True)
     drawing = ui.item("partDrawing")
     first = ui.grab()
     assert not first.isNull()

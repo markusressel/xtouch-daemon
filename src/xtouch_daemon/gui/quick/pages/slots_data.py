@@ -26,9 +26,9 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     row_state,
 )
 from xtouch_daemon.gui.domain.status import Tone
-from xtouch_daemon.gui.qt.fields.basics import _CONTROL_WORDS, _ENTITY_CODE, _ENTITY_OF, _ENTITY_WORDS  # pyright: ignore[reportPrivateUsage]
-from xtouch_daemon.gui.qt.fields.sound import sound_of
-from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS
+from xtouch_daemon.gui.domain.tokens import LCD_COLORS
+from xtouch_daemon.gui.quick.pages.sound import sound_of
+from xtouch_daemon.gui.quick.window.rich import CONTROL_WORDS, ENTITY_CODE, ENTITY_OF, ENTITY_WORDS
 from xtouch_daemon.slots.model import AUTO
 
 CardRow = tuple[str, dict[str, Any]]
@@ -46,7 +46,7 @@ def option_text(value: Any) -> str:
 
 def _entity(word: str) -> str:
     word = word.lower()
-    return _ENTITY_OF[word if word in _ENTITY_OF else word.removesuffix("s")].value
+    return ENTITY_OF[word if word in ENTITY_OF else word.removesuffix("s")].value
 
 
 def rich(text: str) -> str:
@@ -57,13 +57,13 @@ def rich(text: str) -> str:
     parts: list[str] = []
     for index, part in enumerate(html.escape(part) for part in text.split("`")):
         if not index % 2:
-            part = _CONTROL_WORDS.sub(
+            part = CONTROL_WORDS.sub(
                 lambda match: f'<span style="color: @text; font-weight: 600">{match[0]}</span>', part
             )
             parts.append(
-                _ENTITY_WORDS.sub(lambda match: f'<span style="color: @{_entity(match[1])}">{match[0]}</span>', part)
+                ENTITY_WORDS.sub(lambda match: f'<span style="color: @{_entity(match[1])}">{match[0]}</span>', part)
             )
-        elif match := _ENTITY_CODE.match(part):
+        elif match := ENTITY_CODE.match(part):
             parts.append(f'<code style="color: @{_entity(match[1])}">{part}</code>')
         else:
             parts.append(f"<code>{part}</code>")

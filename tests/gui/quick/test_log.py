@@ -17,7 +17,7 @@ from PyQt6.QtQuick import QQuickItem
 from tests.gui.quick.conftest import MakeUi
 from tests.support.gui import FakeLiveDaemon, strip_state
 from tests.support.quick import Ui
-from xtouch_daemon.gui.qt.theme.tokens import THEMES, ThemeMode
+from xtouch_daemon.gui.domain.tokens import THEMES, ThemeMode
 from xtouch_daemon.gui.quick.engine import theme_of
 from xtouch_daemon.gui.quick.window import log as log_module
 from xtouch_daemon.live.messages import FEATURES, EndLog, LogEntry, LogLines, Snapshot, WatchLog, fingerprint

@@ -1,7 +1,6 @@
 """
 The systemd user service at the right end of the menu bar: its state in a pill (a click opens what can be done with it
 and the connections of the daemon), and a button for what it needs (install and start, start, restart after an upgrade).
-The logic of `gui.qt.window.service.ServiceControls`, for QML.
 """
 
 from collections.abc import Callable
@@ -11,8 +10,7 @@ from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot  # pyright:
 from xtouch_daemon import installed_version
 from xtouch_daemon.gui.domain.connections import Connection, worst
 from xtouch_daemon.gui.domain.status import Status, Tone, outdated, unit_status
-from xtouch_daemon.gui.qt.fields.popover import Entry
-from xtouch_daemon.gui.quick.details import Content, Details
+from xtouch_daemon.gui.quick.details import Content, Details, Entry
 from xtouch_daemon.gui.quick.window.dialogs import YES, YES_NO, Asker
 from xtouch_daemon.gui.quick.window.rich import Rich
 from xtouch_daemon.live.messages import Snapshot

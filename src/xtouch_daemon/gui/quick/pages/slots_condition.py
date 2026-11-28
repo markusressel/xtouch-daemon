@@ -13,15 +13,32 @@ from PyQt6.QtGui import QColor, QFont, QSyntaxHighlighter, QTextCharFormat, QTex
 from PyQt6.QtQml import qmlRegisterType
 from PyQt6.QtQuick import QQuickTextDocument
 
-from xtouch_daemon.gui.qt.fields.condition import KEYWORDS, _tokens  # pyright: ignore[reportPrivateUsage]
 from xtouch_daemon.slots.expressions import ExpressionError, parse
 
+KEYWORDS = ("and", "or", "not", "present")
 _WORD = re.compile(r"[a-z0-9_]+|[()]")
 _PARTIAL = re.compile(r"[a-z0-9_(]*$")
 """The word being typed, up to the cursor: `pres`, `present(ga`."""
 HELP = "States and modes with `and`, `or`, `not`, parentheses and `present`"
 URI = "XTouch.Slots"
 """The module QML imports the types of this page from (`import XTouch.Slots`)."""
+
+
+def tokens(text: str) -> list[tuple[str, int, str]]:
+    """The words of `text` with where they start and what they are: keyword, name, target or symbol."""
+    tokens: list[tuple[str, int, str]] = []
+    for match in _WORD.finditer(text):
+        word = match.group()
+        if word in "()":
+            kind = "symbol"
+        elif word in KEYWORDS:
+            kind = "keyword"
+        elif len(tokens) >= 2 and tokens[-1][0] == "(" and tokens[-2][0] == "present":
+            kind = "target"
+        else:
+            kind = "name"
+        tokens.append((word, match.start(), kind))
+    return tokens
 
 
 def problem_of(
@@ -39,7 +56,7 @@ def problem_of(
             if match.start() <= position < match.end():
                 return match.start(), match.end() - match.start(), error.message
         return position, 1, error.message
-    for word, start, kind in _tokens(text):
+    for word, start, kind in tokens(text):
         if word == "present" and not present:
             return start, len(word), "present is only for candidates of slots."
         if kind == "name" and word not in states:
@@ -79,7 +96,7 @@ class _Highlighter(QSyntaxHighlighter):
 
     def highlightBlock(self, text: str | None) -> None:
         text = text or ""
-        for word, start, kind in _tokens(text):
+        for word, start, kind in tokens(text):
             look = QTextCharFormat()
             if kind == "keyword":
                 look.setForeground(self.helper.palette("text_muted"))

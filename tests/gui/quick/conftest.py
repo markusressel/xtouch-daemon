@@ -1,6 +1,6 @@
 """
 The window in Qt Quick, offscreen with Qt's software renderer, with a fake systemctl, a fake sound server and a
-configuration in a temporary directory (see tests/gui/qt/conftest.py for the widgets). `ui` is the window of a test.
+configuration in a temporary directory. `ui` is the window of a test.
 """
 
 import os
@@ -30,7 +30,7 @@ from tests.support.instance import RecordingInstance
 from tests.support.quick import Ui
 from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
-from xtouch_daemon.gui.qt.theme.tokens import Motion, ThemeMode
+from xtouch_daemon.gui.domain.tokens import Motion, ThemeMode
 from xtouch_daemon.gui.quick.app import App, Dependencies, load_window
 from xtouch_daemon.gui.quick.engine import QML, STYLE, make_engine
 from xtouch_daemon.gui.quick.theme import Theme

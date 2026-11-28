@@ -1,5 +1,6 @@
 """The dialogs of the window in Qt Quick (driven through their QML), the details popovers, the quit signals."""
 
+import signal
 from collections.abc import Callable
 
 from PyQt6.QtCore import QObject, Qt, QTimer
@@ -8,8 +9,7 @@ from PyQt6.QtGui import QGuiApplication
 from tests.gui.quick.conftest import MakeUi
 from tests.support.quick import Ui
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.gui.qt.fields.popover import Entry, Group
-from xtouch_daemon.gui.quick.details import Content, Details
+from xtouch_daemon.gui.quick.details import Content, Details, Entry, Group
 from xtouch_daemon.gui.quick.window.dialogs import (
     CANCEL,
     DISCARD,
@@ -183,16 +183,24 @@ def test_the_popover_of_a_pill_follows_what_changes_while_it_is_open(ui: Ui):
 def test_a_signal_closes_the_windows_unless_a_question_waits(ui: Ui):
     app = QGuiApplication.instance()
     assert app is not None
+    handlers = {number: signal.getsignal(number) for number in (signal.SIGINT, signal.SIGTERM)}
     signals = QuitWindows()
     asking = {"now": True}
-    signals.watch_windows(app, lambda: asking["now"])  # pyright: ignore[reportArgumentType]
-    signals.asked = True
-    ui.wait_until(lambda: not signals.asked)
-    assert ui.window.isVisible()
+    timer = signals.watch_windows(app, lambda: asking["now"])  # pyright: ignore[reportArgumentType]
+    try:
+        signals.asked = True
+        ui.wait_until(lambda: not signals.asked)
+        assert ui.window.isVisible()
 
-    asking["now"] = False
-    signals.asked = True
-    ui.wait_until(lambda: not ui.window.isVisible())
+        asking["now"] = False
+        signals.asked = True
+        ui.wait_until(lambda: not ui.window.isVisible())
+        # nothing asks about it any more: the next window is left alone
+        assert not signals.asked
+    finally:
+        timer.stop()
+        for number, handler in handlers.items():
+            signal.signal(number, handler)  # pyright: ignore[reportArgumentType]
 
 
 def test_children_are_found(ui: Ui):

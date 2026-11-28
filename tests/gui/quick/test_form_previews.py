@@ -1,5 +1,5 @@
 """
-The previews of the controls in the forms in Qt Quick (see tests/gui/qt/test_control_previews.py for the widgets): the
+The previews of the controls in the forms in Qt Quick: the
 group of the options about a part of the strip has a drawing of the part that plays what the options do, following
 the values of the form.
 """

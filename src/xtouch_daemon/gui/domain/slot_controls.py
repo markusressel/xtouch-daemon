@@ -1,7 +1,7 @@
 """
 The controls of a slot (`[controls].<n>`) as the editor of the page Slots sees them: the entries of a slot (one table,
 or a list of them, each with its `when`), the parts each sets, where each is in the file and its problems, and how a
-part starts once it is added. Toolkit-free; `gui/qt/pages/slot_controls.py` shows it.
+part starts once it is added. Toolkit-free; `gui/quick/pages/slots_controls.py` shows it.
 """
 
 import copy

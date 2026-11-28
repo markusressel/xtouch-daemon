@@ -1,12 +1,12 @@
-"""The sound of a channel beside its chip on a card (see `gui/qt/fields/sound.py`), painted for QML."""
+"""The sound of a channel beside its chip on a card (see `sound.py`), painted for QML."""
 
 from PyQt6.QtCore import QRectF, pyqtProperty, pyqtSignal  # pyright: ignore[reportUnknownVariableType]
 from PyQt6.QtGui import QColor, QPainter
 from PyQt6.QtQml import qmlRegisterType
 from PyQt6.QtQuick import QQuickItem, QQuickPaintedItem
 
-from xtouch_daemon.gui.qt.fields.sound import SIZE, Sound, clock_of, paint_sound, sounding
 from xtouch_daemon.gui.quick.pages.slots_condition import URI
+from xtouch_daemon.gui.quick.pages.sound import SIZE, Sound, clock_of, paint_sound, sounding
 
 
 class SoundBadge(QQuickPaintedItem):

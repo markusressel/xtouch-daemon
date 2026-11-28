@@ -15,8 +15,8 @@ from tests.gui.quick.conftest import MakeUi
 from tests.support.gui import FakeLiveDaemon, strip_state
 from tests.support.quick import MOUSE, Ui
 from xtouch_daemon.gui.domain.looks import StripFace
-from xtouch_daemon.gui.qt.preview.geometry import PANEL
 from xtouch_daemon.gui.quick.device.drawing import Drawing
+from xtouch_daemon.gui.quick.device.geometry import PANEL
 from xtouch_daemon.gui.quick.device.items import PanelItem, StripItem
 from xtouch_daemon.gui.quick.device.panel import DevicePanel
 from xtouch_daemon.hardware import protocol

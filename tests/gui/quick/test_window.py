@@ -3,7 +3,7 @@
 from PyQt6.QtGui import QColor
 
 from tests.support.quick import Ui
-from xtouch_daemon.gui.qt.theme.tokens import THEMES, ThemeMode
+from xtouch_daemon.gui.domain.tokens import THEMES, ThemeMode
 from xtouch_daemon.gui.quick.engine import theme_of
 
 

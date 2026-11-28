@@ -9,10 +9,10 @@ sync:
 test *ARGS:
     uv run pytest -n auto --dist worksteal {{ARGS}}
 
-# run the tests in parallel with coverage: fails below 93 %, or below 98 % without the GUI's Qt parts (gui/qt, gui/quick)
+# run the tests in parallel with coverage: fails below 93 %, or below 98 % without the GUI's Qt Quick part (gui/quick)
 coverage:
     uv run pytest -n auto --dist worksteal --cov --cov-report=term-missing
-    uv run coverage report --omit="*/gui/qt/*,*/gui/quick/*" --fail-under=98 --format=total
+    uv run coverage report --omit="*/gui/quick/*" --fail-under=98 --format=total
 
 # check style and formatting
 lint:
@@ -42,7 +42,7 @@ cold-read page report="":
 
 # copy the icon of the project (the one in the package, which the GUI uses) to where the site takes it from
 docs-icon:
-    cp src/xtouch_daemon/gui/qt/theme/images/icon.svg docs/images/icon.svg
+    cp src/xtouch_daemon/gui/quick/images/icon.svg docs/images/icon.svg
 
 # write the JSON Schemas of the configuration and the voice chat bridge that the documentation publishes (a test
 # checks that they are current)
@@ -63,7 +63,9 @@ docs-at ref port="8001":
     trap 'git worktree remove --force "$dir"' EXIT
     cd "$dir"
     # older refs have the copy committed
-    if [ -f src/xtouch_daemon/gui/qt/theme/images/icon.svg ]; then cp src/xtouch_daemon/gui/qt/theme/images/icon.svg docs/images/icon.svg; fi
+    for icon in src/xtouch_daemon/gui/quick/images/icon.svg src/xtouch_daemon/gui/qt/theme/images/icon.svg; do
+        if [ -f "$icon" ]; then cp "$icon" docs/images/icon.svg; break; fi
+    done
     # the Zensical of today: the ref may be older than the docs group
     uvx zensical serve --dev-addr localhost:{{port}}
 

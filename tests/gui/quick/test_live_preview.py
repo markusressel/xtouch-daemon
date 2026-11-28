@@ -19,7 +19,7 @@ from tests.support.gui import FakeLiveDaemon, strip_state
 from tests.support.instance import RecordingInstance
 from tests.support.quick import Ui
 from xtouch_daemon.gui.domain.live_preview import Place
-from xtouch_daemon.gui.qt import live_preview as live_preview_module
+from xtouch_daemon.gui.quick import live_preview as live_preview_module
 from xtouch_daemon.live.codec import decode_request, encode_reply
 from xtouch_daemon.live.messages import (
     FEATURES,
@@ -344,7 +344,7 @@ def test_a_new_window_goes_on_with_the_preview_where_it_was(
 
     from xtouch_daemon.gui.domain.history import History
     from xtouch_daemon.gui.domain.slots_document import SlotsDocument
-    from xtouch_daemon.gui.qt.window.session import Session
+    from xtouch_daemon.gui.quick.window.session import Session
 
     document = SlotsDocument.open(path)
     session = Session(

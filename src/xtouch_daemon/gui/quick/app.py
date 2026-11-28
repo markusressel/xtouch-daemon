@@ -22,21 +22,21 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PyQt6 import sip
-from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot  # pyright: ignore[reportUnknownVariableType]
+from PyQt6.QtCore import QCoreApplication, QObject, pyqtProperty, pyqtSignal, pyqtSlot  # pyright: ignore[reportUnknownVariableType]
+from PyQt6.QtGui import QGuiApplication
 from PyQt6.QtQml import QQmlApplicationEngine
 from PyQt6.QtQuick import QQuickWindow
-from PyQt6.QtWidgets import QApplication
 
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain import broker
 from xtouch_daemon.gui.domain.entities import Fetch
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
-from xtouch_daemon.gui.qt.editor import Editor
-from xtouch_daemon.gui.qt.theme.icons import app_icon
-from xtouch_daemon.gui.qt.window.audio_loader import Follow
-from xtouch_daemon.gui.qt.window.session import Session
+from xtouch_daemon.gui.quick.editor import Editor
 from xtouch_daemon.gui.quick.engine import make_engine
+from xtouch_daemon.gui.quick.icons import app_icon
+from xtouch_daemon.gui.quick.window.audio_loader import Follow
 from xtouch_daemon.gui.quick.window.dialogs import Asker
+from xtouch_daemon.gui.quick.window.session import Session
 from xtouch_daemon.homeassistant.client import fetch
 from xtouch_daemon.system import instance
 from xtouch_daemon.system.instance import Instance
@@ -46,6 +46,31 @@ if TYPE_CHECKING:
     from xtouch_daemon.gui.quick.window.shell import Shell
 
 log = logging.getLogger(__name__)
+
+SYSTEMCTL_TIMEOUT = 2.0
+"""
+Seconds a command of `systemctl` may take in the window, which waits for it: a user's service manager that hangs would
+freeze the window (the state of the service is read every 3 s). It answers in milliseconds otherwise; the jobs are
+queued (`--no-block`).
+"""
+SCALE_FACTOR = "QT_SCALE_FACTOR"
+"""Qt scales a whole application by it, when the application starts."""
+
+
+def name_application() -> None:
+    """QSettings (the theme, the zoom) go to ~/.config/xtouch-daemon/xtouch-daemon-gui.conf."""
+    QCoreApplication.setOrganizationName("xtouch-daemon")
+    QCoreApplication.setApplicationName("xtouch-daemon-gui")
+
+
+def scale_for(zoom: float, own: str | None) -> str:
+    """The QT_SCALE_FACTOR for a zoom, on top of the one the user set (`own`)."""
+    try:
+        base = float(own) if own else 1.0
+    except ValueError:
+        base = 1.0
+    return f"{base * zoom:g}"
+
 
 PAGES = (
     ("slots", "Slots", "tune-vertical", "What each slot shows when"),
@@ -193,8 +218,8 @@ def run_quick(path: Path) -> int:
     goes on where this one was (`Session`: the document with its history, the page, where the window is, ...).
     """
     from xtouch_daemon.audio.pulse import follow_state, read_state
-    from xtouch_daemon.gui.qt import SCALE_FACTOR, SYSTEMCTL_TIMEOUT, errors, name_application, scale_for
-    from xtouch_daemon.gui.qt.theme.settings import load_zoom
+    from xtouch_daemon.gui.quick import errors
+    from xtouch_daemon.gui.quick.settings import load_zoom
     from xtouch_daemon.gui.quick.window.quit import QuitWindows
 
     errors.install()
@@ -206,7 +231,7 @@ def run_quick(path: Path) -> int:
     while True:
         name_application()
         os.environ[SCALE_FACTOR] = scale_for(load_zoom(), own)
-        qapp = QApplication(sys.argv[:1])
+        qapp = QGuiApplication(sys.argv[:1])
         qapp.setApplicationDisplayName("X-Touch Extender")
         qapp.setDesktopFileName("xtouch-daemon-gui")
         qapp.setWindowIcon(app_icon())

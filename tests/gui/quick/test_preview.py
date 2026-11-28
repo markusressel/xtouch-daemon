@@ -1,6 +1,6 @@
 """
-The drawing of the device in Qt Quick: picking and moving strips, and how strips are painted (the tests of
-`tests/gui/qt/test_preview.py`, through the items of QML and the images the same painting makes offscreen).
+The drawing of the device in Qt Quick: picking and moving strips, and how strips are painted (through the items of QML and the
+images the same painting makes offscreen).
 """
 
 import dataclasses
@@ -16,7 +16,17 @@ from tests.gui.quick.device_support import configured, device_of, drawing_of, pi
 from tests.support.quick import MOUSE, Ui
 from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.gui.domain.looks import UNKNOWN
-from xtouch_daemon.gui.qt.preview.geometry import (
+from xtouch_daemon.gui.domain.tokens import (
+    HARDWARE,
+    LCD_COLORS,
+    LCD_TEXT,
+    LCD_TEXT_OFF,
+    THEMES,
+    TINT_ALPHA,
+    ThemeMode,
+)
+from xtouch_daemon.gui.quick.device.drawing import MIN_SCALE, Drawing
+from xtouch_daemon.gui.quick.device.geometry import (
     CAP_SIZE,
     CENTER_X,
     ENCODER,
@@ -35,17 +45,7 @@ from xtouch_daemon.gui.qt.preview.geometry import (
     slot_position,
     travel_y,
 )
-from xtouch_daemon.gui.qt.preview.painting import DIM, DIM_TEXT, HW, LCD_PANEL, LCD_TINT, SPRITES_KEPT, _sprites
-from xtouch_daemon.gui.qt.theme.tokens import (
-    HARDWARE,
-    LCD_COLORS,
-    LCD_TEXT,
-    LCD_TEXT_OFF,
-    THEMES,
-    TINT_ALPHA,
-    ThemeMode,
-)
-from xtouch_daemon.gui.quick.device.drawing import MIN_SCALE, Drawing
+from xtouch_daemon.gui.quick.device.painting import DIM, DIM_TEXT, HW, LCD_PANEL, LCD_TINT, SPRITES_KEPT, _sprites
 from xtouch_daemon.gui.quick.device.render import Scene
 from xtouch_daemon.hardware import protocol
 
@@ -556,14 +556,13 @@ def test_the_cursor_of_a_strip_follows_select_and_play(ui: Ui) -> None:
 
 
 def test_the_theme_is_the_one_of_the_window(make_ui: MakeUi) -> None:
-    from xtouch_daemon.gui.qt.theme import style
-
     light = make_ui(mode=ThemeMode.LIGHT)
     item = strip_item(light, 0)
 
     assert item.property("dark") is False
     light.grab()
-    assert style.current_mode() == ThemeMode.LIGHT
+    view = item.view  # pyright: ignore[reportAttributeAccessIssue]
+    assert view.mode == ThemeMode.LIGHT
 
 
 # -- the colors ----------------------------------------------------------------------------------------------------

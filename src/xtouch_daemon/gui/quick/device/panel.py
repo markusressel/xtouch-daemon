@@ -1,7 +1,6 @@
 """
-The drawing of the device, its backend for QML: the window Device. It is the `DeviceView` of the widgets
-(`gui/qt/window/device_view.py`): the bar over the strips (Select and Play, the pills of the live view, the mode, the
-virtual device, the test), the strips themselves (`Drawing`), the hands of the mouse on the device in Play, the test
+The drawing of the device, its backend for QML: the panel Device. It has the bar over the strips (Select and Play,
+the pills of the live view, the mode, the virtual device, the test), the strips themselves (`Drawing`), the hands of the mouse on the device in Play, the test
 of the device and the popovers of the pills.
 
 It owns nothing of the window around it: the live view, the daemon, the preview, the virtual device the window hosts
@@ -24,13 +23,13 @@ from xtouch_daemon.gui.domain.status import (
     play_unavailable,
     test_unavailable,
 )
-from xtouch_daemon.gui.qt.device_test import DeviceTest
-from xtouch_daemon.gui.qt.fields.popover import Entry, Group
-from xtouch_daemon.gui.qt.preview.panel import Hand
-from xtouch_daemon.gui.qt.remote_hand import RemoteHand
-from xtouch_daemon.gui.qt.theme.tokens import Entity
-from xtouch_daemon.gui.qt.virtual_device import HostedDevice
+from xtouch_daemon.gui.domain.tokens import Entity
+from xtouch_daemon.gui.quick.details import Entry, Group
+from xtouch_daemon.gui.quick.device.device_test import DeviceTest
 from xtouch_daemon.gui.quick.device.drawing import Drawing
+from xtouch_daemon.gui.quick.device.remote_hand import RemoteHand
+from xtouch_daemon.gui.quick.device.strip import Hand
+from xtouch_daemon.gui.quick.device.virtual_device import HostedDevice
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import SetMode, Snapshot
 from xtouch_daemon.slots.model import DEFAULT

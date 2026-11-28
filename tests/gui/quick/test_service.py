@@ -18,7 +18,7 @@ from tests.support.packaging import install_package
 from tests.support.quick import Ui
 from tests.support.systemd import FakeSystemctl
 from xtouch_daemon.gui.domain.status import Status, Tone
-from xtouch_daemon.gui.qt.fields.popover import Entry
+from xtouch_daemon.gui.quick.details import Entry
 from xtouch_daemon.gui.quick.window import service as service_module
 from xtouch_daemon.gui.quick.window.dialogs import CANCEL, DISCARD, SAVE, YES
 from xtouch_daemon.gui.quick.window.service import ServiceBackend

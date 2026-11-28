@@ -11,7 +11,7 @@ from xtouch_daemon.cli.options import CONFIG_OPTION
 from xtouch_daemon.config.base import ConfigError
 from xtouch_daemon.config.files import default_config_path
 
-GUI_PACKAGES = ("PyQt6", "qtawesome", "qt_themes", "qtpy", "tomlkit")
+GUI_PACKAGES = ("PyQt6", "qtawesome", "qtpy", "tomlkit")
 GUI_MISSING = """\
 the GUI needs the gui extra: on Arch Linux, install the package xtouch-daemon-gui-bin and start xtouch-daemon-gui;
 from the checkout, install xtouch-daemon with the extra:

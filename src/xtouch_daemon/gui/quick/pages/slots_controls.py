@@ -32,7 +32,7 @@ from xtouch_daemon.gui.domain.slot_controls import (
 )
 from xtouch_daemon.gui.domain.slot_stacks import targets
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
-from xtouch_daemon.gui.qt.editor import Editor
+from xtouch_daemon.gui.quick.editor import Editor
 from xtouch_daemon.gui.quick.forms.buttons import ButtonLogic
 from xtouch_daemon.gui.quick.forms.context import FormContext
 from xtouch_daemon.gui.quick.forms.form import Form, RowSpec
