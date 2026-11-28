@@ -49,15 +49,42 @@ class Inputs:
     modes: tuple[str, ...]
     states: tuple[str, ...]
     presence: tuple[str, ...]
+    pools: frozenset[str] = frozenset()
+    """The names of `presence` that are pools; the others are channels."""
 
     @classmethod
     def of(cls, setup: SlotsSetup) -> Inputs:
-        states, presence = dimensions(setup.scene)
-        return cls((DEFAULT, *setup.scene.modes), states, presence)
+        scene = setup.scene
+        states, presence = dimensions(scene)
+        pools = frozenset((*BUILT_IN, *scene.apps_pools, *scene.people_pools))
+        return cls((DEFAULT, *scene.modes), states, presence, pools & frozenset(presence))
+
+    @property
+    def channels(self) -> tuple[str, ...]:
+        """The channels whose presence the stacks ask about."""
+        return tuple(name for name in self.presence if name not in self.pools)
 
 
-def presence_text(name: str) -> str:
-    """The built-in pools are empty unless flipped, the channels present: the button says what flipping does."""
+def is_present(name: str, flipped: bool) -> bool:
+    """
+    Whether a channel or pool of the what-if is there: the channels are present unless flipped, the built-in pools
+    empty unless flipped (`auto`: no application plays for it).
+    """
+    return flipped if name in BUILT_IN or name == AUTO else not flipped
+
+
+def presence_tip(name: str, flipped: bool) -> str:
+    """What the toggle of a channel or pool shows now, and what a click makes of it."""
+    present = is_present(name, flipped)
     if name == AUTO:
-        return f"{name} plays"
-    return f"{name} fill" if name in BUILT_IN else f"{name} absent"
+        now, then = ("An application plays", "none") if present else ("No application plays", "one does")
+        return f"{now} for auto. Click: {then}."
+    if name in BUILT_IN:
+        now, then = ("has members", "it is empty") if present else ("is empty", "it has members")
+        return f"The pool {name} {now}. Click: {then}."
+    return f"{name} is {'present' if present else 'absent'}. Click: {'absent' if present else 'present'}."
+
+
+def state_tip(name: str, on: bool) -> str:
+    """What the toggle of a state shows now, and what a click makes of it."""
+    return f"{name} is {'on' if on else 'off'}. Click: {'off' if on else 'on'}."

@@ -3,7 +3,7 @@ Simulate: the what-if, the inputs a configuration offers it and the words of its
 """
 
 from xtouch_daemon.config.files import parse_config
-from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text
+from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, is_present, presence_tip, state_tip
 from xtouch_daemon.live.messages import SlotsState, StateView
 
 CONFIG = """
@@ -50,4 +50,13 @@ def test_simulate_starts_with_what_the_daemon_tells():
         waiting={},
     )
     assert WhatIf.of_live(slots) == WhatIf("gaming", frozenset({"call"}))
-    assert (presence_text("auto"), presence_text("voip")) == ("auto plays", "voip absent")
+    # a channel is present until flipped, the built-in pools empty until flipped
+    assert (is_present("voip", False), is_present("voip", True)) == (True, False)
+    assert (is_present("apps", False), is_present("auto", True)) == (False, True)
+    assert presence_tip("voip", False) == "voip is present. Click: absent."
+    assert presence_tip("voip", True) == "voip is absent. Click: present."
+    assert presence_tip("people", False) == "The pool people is empty. Click: it has members."
+    assert presence_tip("people", True) == "The pool people has members. Click: it is empty."
+    assert presence_tip("auto", False) == "No application plays for auto. Click: one does."
+    assert presence_tip("auto", True) == "An application plays for auto. Click: none."
+    assert state_tip("call", True) == "call is on. Click: off."

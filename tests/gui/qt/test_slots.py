@@ -5,9 +5,9 @@ The slots on the page Device: the state bar, a card per slot, the inspector, and
 import dataclasses
 
 import pytest
-from PyQt6.QtCore import QPoint, QPointF, Qt
+from PyQt6.QtCore import QEvent, QPoint, QPointF, Qt
 from PyQt6.QtGui import QDropEvent
-from PyQt6.QtWidgets import QComboBox, QFrame, QPushButton, QToolButton, QWidget
+from PyQt6.QtWidgets import QApplication, QComboBox, QFrame, QPushButton, QSpinBox, QToolButton, QWidget
 from PyQt6.QtWidgets import QLabel as QLabelType
 from pytestqt.qtbot import QtBot
 
@@ -526,6 +526,7 @@ def test_simulate_runs_on_the_virtual_twin_of_the_daemon(
     device = window.device_view
     window.document.set(("state", "gaming"), {"mode": True, "processes": ["steam"]})
     window.document.set(("slots", "3"), ["browser if gaming", "-"])
+    window.document.set(("slots", "4"), ["out if present", "apps"])
     window.editor.edited()
     qtbot.waitUntil(lambda: bool(live_daemon.clients))
     first = strip_state(("Real", "1%"), color="cyan")
@@ -555,6 +556,31 @@ def test_simulate_runs_on_the_virtual_twin_of_the_daemon(
     live_daemon.send_twin(TwinView(start.config, (twin_first, *(strip_state() for _ in range(7))), slots))
     qtbot.waitUntil(lambda: device.preview.strips[0].face.state == twin_first)
 
+    # each toggle has a dot: ● on or present, ○ off or absent; a click flips it
+    toggles = {button.text(): button for button in page.what_if_row.findChildren(QPushButton) if button.isCheckable()}
+    # grouped by what they are about: the mode, the states, the channels, the pools with their counts
+    groups = [w.text() for w in page.what_if_row.findChildren(QLabelType) if w.property("role") == "group"]
+    assert groups == ["MODE", "STATES", "CHANNELS", "POOLS"]
+    assert set(toggles) == {"call", "out"}
+    # a built-in pool is its number of members, with a dot: ○ while it is empty
+    pool = page.what_if_row.findChild(QWidget, "apps")
+    assert pool is not None
+    (count,) = pool.findChildren(QSpinBox)
+    assert count.value() == 0
+    assert [
+        dot.property("lit") for dot in pool.findChildren(QLabelType) if dot.pixmap() and not dot.pixmap().isNull()
+    ] == [False]
+    for name, toggle in toggles.items():
+        assert toggle.property("lit") is not None, name
+        assert toggle.toolTip().startswith((name, "The pool", "No application", "An application")), name
+    channel = next(name for name, toggle in toggles.items() if toggle.toolTip().endswith("is present. Click: absent."))
+    assert toggles[channel].property("lit") is True
+    toggles[channel].click()
+    # the bar is built anew: the old one goes
+    QApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete.value)
+    (flipped,) = (button for button in page.what_if_row.findChildren(QPushButton) if button.text() == channel)
+    assert flipped.property("lit") is False
+    assert flipped.isChecked()
     # the bar of what-ifs goes to the twin again
     (mode,) = page.what_if_row.findChildren(QComboBox)
     mode.setCurrentText("gaming")

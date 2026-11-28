@@ -337,10 +337,18 @@ slot shows.
 
 ### Simulate
 
-**Simulate** shows what the slots would show in another mode, with other states on, with channels absent, with
-`auto plays`, `people fill` or `apps fill`, or with so many people and applications (the strips show their names). It
-includes the unsaved changes and shows where the [preview](#preview) shows. A frame goes around the drawing, and a bar
-of what-ifs replaces the state bar. The drawing, the cards and the box of the inspector show it, and Play can operate
+**Simulate** shows what the slots would show in another mode, with other states on, with channels absent, or with so
+many people and applications (the strips show their names). It includes the unsaved changes and shows where the
+[preview](#preview) shows. A frame goes around the drawing, and a panel of what-ifs opens above the cards, in groups:
+
+- **Mode**: the mode.
+- **States**: a button per state that the slots ask about.
+- **Channels**: a button per channel whose presence the slots ask about (`present`).
+- **Pools**: the number of people in the voice chat, of applications that play and of outputs without a channel, and
+  a button for `auto` and for each pool of your own.
+
+A dot before each name says what it is now: ● for on or present, ○ for off, absent or empty. A highlighted button
+differs from how Simulate starts. The drawing, the cards and the box of the inspector show it, and Play can operate
 it. ++esc++, or Simulate again, ends it. It needs a running daemon of your user. For the command line, see
 [`simulate`](../reference/commands.md#simulate) and [`check-config`](../reference/commands.md#check-config), which
 prints what each slot shows in each situation.

@@ -129,6 +129,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI, Simulate: the what-ifs are a panel above the cards that wraps, grouped into mode, states, channels and pools,
+  instead of a row that scrolls. A dot before each name says what it is now (● on or present, ○ off, absent or
+  empty), and the tooltip what a click changes. `people`, `apps` and `devices` are their number of members only; the
+  buttons "people fill" and "apps fill" are gone, as a number up to the slots does the same.
 - GUI: the pill of the sound server in the footer shows icons with numbers (a speaker for the outputs, a microphone
   for the inputs, a play icon for the applications) instead of words; its popover has the same icons before the
   outputs, inputs and applications.

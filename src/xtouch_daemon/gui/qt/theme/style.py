@@ -233,6 +233,7 @@ QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabl
     border-color: {c.border}; }}
 QSpinBox[unset="true"], QDoubleSpinBox[unset="true"], QComboBox[unset="true"] {{ color: {c.placeholder}; }}
 QSpinBox, QDoubleSpinBox {{ min-width: {Space.XXL * 3}px; padding-right: {Space.XL}px; }}
+QSpinBox[narrow="true"] {{ min-width: {Space.XXL}px; }}
 QAbstractSpinBox QLineEdit {{ border: none; padding: 0; background: transparent; }}
 QSpinBox::up-button, QDoubleSpinBox::up-button, QSpinBox::down-button, QDoubleSpinBox::down-button {{
     subcontrol-origin: border; width: {Space.XL - 4}px; border: none; border-left: 1px solid {c.border}; }}

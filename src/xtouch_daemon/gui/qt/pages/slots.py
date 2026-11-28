@@ -15,6 +15,8 @@ from PyQt6.QtWidgets import (
     QFrame,
     QGridLayout,
     QHBoxLayout,
+    QLabel,
+    QLayout,
     QPushButton,
     QScrollArea,
     QSpinBox,
@@ -30,7 +32,7 @@ from xtouch_daemon.gui.domain.clipboard import candidates_text, parse_candidates
 from xtouch_daemon.gui.domain.demos import GROUPS, group_of
 from xtouch_daemon.gui.domain.places import Origin, Source, inherited, inherited_part, origin, place_help
 from xtouch_daemon.gui.domain.schema import Kind, Option, look_options
-from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, presence_text
+from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf, is_present, presence_tip, state_tip
 from xtouch_daemon.gui.domain.slot_stacks import (
     EMPTY,
     Row,
@@ -62,21 +64,23 @@ from xtouch_daemon.gui.qt.fields.basics import (
     label,
     set_help,
 )
+from xtouch_daemon.gui.qt.fields.chips import FlowLayout
 from xtouch_daemon.gui.qt.fields.choice import Choice
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.meter import meter_row
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow, add_groups, align_titles
 from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
-from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, row, scrolled, set_text
+from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, edged, row, scrolled, set_text
 from xtouch_daemon.gui.qt.pages.slot_cards import StackList
 from xtouch_daemon.gui.qt.pages.slot_controls import SlotControls
+from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import current_colors, current_mode, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.live.messages import Request, SetMode, SetOverride, SlotsState, SlotView, Snapshot
-from xtouch_daemon.slots.model import AUTO, BUILT_IN, DEFAULT, DEVICES
+from xtouch_daemon.slots.model import APPS, AUTO, BUILT_IN, DEFAULT, DEVICES, PEOPLE
 from xtouch_daemon.slots.why import where
 
 SHOWS_HELP = (
@@ -91,7 +95,7 @@ WHEN_HELP = (
 """The help under When."""
 
 
-def _clear(bar: QHBoxLayout) -> None:
+def _clear(bar: QLayout) -> None:
     """Removes the widgets of a bar (it has nothing else)."""
     while (item := bar.takeAt(0)) is not None:
         widget = item.widget()
@@ -157,11 +161,6 @@ class SlotsPanel(Page):
         self.state_bar.setSpacing(Space.S)
         self.state_bar_row = row(self.state_bar)
         bars.addWidget(self.state_bar_row)
-        self.what_if_bar = QHBoxLayout()
-        self.what_if_bar.setSpacing(Space.S)
-        self.what_if_row = row(self.what_if_bar)
-        self.what_if_row.hide()
-        bars.addWidget(self.what_if_row)
         bars.addWidget(self.device_note)
         self.device_note.hide()
         bars.addStretch()
@@ -304,7 +303,19 @@ class SlotsPanel(Page):
         self.right.add(self.inspector_scroll)
         self.right.add(self.overview_scroll)
         self.splitter = PaneSplitter("slots", self.card_scroll, self.right)
+        panel = QFrame()
+        set_role(panel, "card")
+        self.what_if_bar = FlowLayout(panel, Space.L)
+        self.what_if_bar.setContentsMargins(Space.M, Space.S, Space.M, Space.S)
+        self.what_if_row = QWidget()
+        """What Simulate can change, in groups that wrap: the mode, the states, the channels, the pools."""
+        holder = QVBoxLayout(self.what_if_row)
+        holder.setContentsMargins(0, 0, 0, 0)
+        holder.addWidget(panel)
+        self.what_if_row.hide()
+        self.layout_.addWidget(self.what_if_row)
         self.layout_.addWidget(self.splitter, 1)
+        edged(self)
         self._show()
 
     def _card(self, slot: int) -> None:
@@ -840,41 +851,80 @@ class SlotsPanel(Page):
 
     def _show_what_if_bar(self, inputs: Inputs, what_if: WhatIf) -> None:
         _clear(self.what_if_bar)
-        self.what_if_bar.addWidget(label("What if", "hint"))
         mode = Choice()
         mode.addItems(inputs.modes)
         mode.setCurrentText(what_if.mode)
         mode.setToolTip("The mode")
         mode.currentTextChanged.connect(lambda name: self.simulate(dataclasses.replace(what_if, mode=name)))
-        self.what_if_bar.addWidget(mode)
-        for name, flip, checked in (
-            *((name, False, name in what_if.on) for name in inputs.states),
-            *((name, True, name in what_if.flipped) for name in inputs.presence),
-        ):
-            toggle = QPushButton(presence_text(name) if flip else name)
-            set_role(toggle, "segment", "variant")
-            toggle.setCheckable(True)
-            toggle.setChecked(checked)
-            toggle.clicked.connect(lambda _=False, name=name, flip=flip: self.simulate(what_if.toggled(name, flip)))
-            self.what_if_bar.addWidget(toggle)
-        # members of the pools: a call with so many people, so many applications that play, devices plugged in
-        counts: list[tuple[str, int, str, Callable[[int], WhatIf]]] = [
-            ("people", what_if.people, "The people in the voice chat", lambda n: what_if.counted(people=n)),
-            ("apps", what_if.apps, "The applications that play", lambda n: what_if.counted(apps=n)),
-        ]
+        self._what_if_group("Mode", [mode])
+        if inputs.states:
+            self._what_if_group("States", [self._toggle(what_if, name, False) for name in inputs.states])
+        if inputs.channels:
+            self._what_if_group("Channels", [self._toggle(what_if, name, True) for name in inputs.channels])
+        # the built-in pools by how many members they have (0: empty), the others present or absent
+        counts: dict[str, tuple[int, str, Callable[[int], WhatIf]]] = {
+            PEOPLE: (what_if.people, "people in the voice chat", lambda n: what_if.counted(people=n)),
+            APPS: (what_if.apps, "applications that play", lambda n: what_if.counted(apps=n)),
+        }
         if DEVICES in inputs.presence:
-            counts.append(
-                ("devices", what_if.devices, "Outputs without a channel", lambda n: what_if.counted(devices=n))
-            )
-        for text, value, tip, counted in counts:
-            count = QSpinBox()
-            indent_text(count)
-            count.setRange(0, 2 * protocol.STRIPS)
-            count.setValue(value)
-            count.setSuffix(f" {text}")
-            count.setToolTip(tip)
-            count.valueChanged.connect(lambda n, counted=counted: self.simulate(counted(n)))
-            self.what_if_bar.addWidget(count)
+            counts[DEVICES] = (what_if.devices, "outputs without a channel", lambda n: what_if.counted(devices=n))
+        pools: list[QWidget] = [self._count(name, *counts[name]) for name in counts]
+        pools += [self._toggle(what_if, name, True) for name in inputs.presence if name in inputs.pools - counts.keys()]
+        self._what_if_group("Pools", pools)
+
+    def _what_if_group(self, title: str, widgets: list[QWidget]) -> None:
+        """A group of the what-ifs: its title over its controls."""
+        group = QWidget()
+        column = QVBoxLayout(group)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(Space.XS)
+        column.addWidget(label(title.upper(), "group"))
+        line = QHBoxLayout()
+        line.setSpacing(Space.S)
+        for widget in widgets:
+            line.addWidget(widget)
+        column.addLayout(line)
+        self.what_if_bar.addWidget(group)
+
+    def _count(self, name: str, value: int, what: str, counted: Callable[[int], WhatIf]) -> QWidget:
+        """A built-in pool and how many members it has: a dot (● with members) and its name, and the number."""
+        pool = QWidget()
+        line = QHBoxLayout(pool)
+        line.setContentsMargins(0, 0, 0, 0)
+        line.setSpacing(Space.XS)
+        dot = QLabel()
+        size = dot.fontMetrics().height() - 4
+        dot.setPixmap(icon("circle" if value else "circle-outline").pixmap(QSize(size, size), dot.devicePixelRatioF()))
+        dot.setProperty("lit", bool(value))
+        line.addWidget(dot)
+        line.addWidget(label(name))
+        count = QSpinBox()
+        indent_text(count)
+        count.setRange(0, 2 * protocol.STRIPS)
+        count.setValue(value)
+        # a number of two digits: narrower than the spin boxes of the forms
+        set_role(count, "true", "narrow")
+        count.setFixedWidth(Space.XXL * 2 + Space.S)
+        count.setToolTip(f"How many {what}; 0: the pool {name} is empty")
+        count.valueChanged.connect(lambda n: self.simulate(counted(n)))
+        line.addWidget(count)
+        pool.setObjectName(name)
+        return pool
+
+    def _toggle(self, what_if: WhatIf, name: str, flip: bool) -> QPushButton:
+        """A state (on or off), or with `flip` the presence of a channel or pool; a dot says which it is now."""
+        checked = name in (what_if.flipped if flip else what_if.on)
+        # ● on or present, ○ off or absent, as the dots of the states
+        lit = is_present(name, checked) if flip else checked
+        toggle = QPushButton(name)
+        set_role(toggle, "segment", "variant")
+        toggle.setCheckable(True)
+        toggle.setChecked(checked)
+        set_icon(toggle, "circle" if lit else "circle-outline", "on_accent" if checked else None)
+        toggle.setProperty("lit", lit)
+        toggle.setToolTip(presence_tip(name, checked) if flip else state_tip(name, checked))
+        toggle.clicked.connect(lambda _=False: self.simulate(what_if.toggled(name, flip)))
+        return toggle
 
     # -- picking --------------------------------------------------------------------------------------------------
 
