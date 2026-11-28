@@ -92,7 +92,7 @@ Rectangle {
             text: bar.shell.serviceControls.pillText
             tone: bar.shell.serviceControls.pillTone
             property string tip: bar.shell.serviceControls.pillTip
-            onClicked: servicePopover.open()
+            onClicked: servicePopover.toggle()
             DetailsPopover { id: servicePopover; anchor: servicePill; details: bar.shell.serviceControls.popover; objectName: "service_details" }
         }
         Button {

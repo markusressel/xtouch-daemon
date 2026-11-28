@@ -48,6 +48,9 @@ Rectangle {
 
             Menu {
                 id: problemsMenu
+                // a press on the button leaves it to the button, which closes it (closed by the press, its click would
+                // open it again)
+                closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside | Popup.CloseOnPressOutsideParent
                 objectName: "problems_menu"
                 y: -height
                 Instantiator {
@@ -99,7 +102,7 @@ Rectangle {
                     }
                 }
             }
-            onClicked: audioPopover.open()
+            onClicked: audioPopover.toggle()
             DetailsPopover { id: audioPopover; anchor: audio; details: footer.shell.audioPopover; objectName: "audio_details" }
         }
 
@@ -134,7 +137,7 @@ Rectangle {
             tone: footer.bar.changes ? footer.bar.changes.tone : "neutral"
             text: footer.bar.changes ? footer.bar.changes.text : ""
             property string tip: footer.bar.changes ? footer.bar.changes.tip : ""
-            onClicked: changesPopover.open()
+            onClicked: changesPopover.toggle()
             DetailsPopover { id: changesPopover; anchor: changes; details: footer.shell.changesPopover; objectName: "changes_details" }
         }
 

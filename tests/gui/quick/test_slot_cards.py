@@ -6,7 +6,7 @@ from PyQt6.QtCore import QPoint, QPointF, Qt
 from PyQt6.QtGui import QGuiApplication, QWheelEvent
 
 from tests.gui.quick.slots_helpers import click_row, model_rows, page, polish, press, snapshot, tell, texts
-from tests.support.quick import Ui
+from tests.support.quick import MOUSE, Ui
 from xtouch_daemon.gui.quick.pages.slots_cards import MovableRows
 
 
@@ -119,3 +119,35 @@ def test_a_click_below_the_cards_picks_nothing(ui: Ui):
     polish(ui)
     press(ui, "below_cards")
     assert slots.slot == 0
+
+
+def test_a_card_under_the_mouse_shows_its_line_at_once(ui: Ui):
+    page(ui)
+    tell(ui, snapshot((0, 1, None)))
+    polish(ui)
+    card = ui.item("card_2")
+    line = next(child for child in card.childItems() if child.objectName() == "hoverLine")
+    assert not line.isVisible()
+    MOUSE.mouseMove(ui.window, ui.center(card))
+    ui.settle()
+    # no fade: the line is there, the border of the card stays as it was
+    assert line.isVisible()
+    MOUSE.mouseMove(ui.window, QPoint(1, 1))
+    ui.settle()
+    assert not line.isVisible()
+
+
+def test_the_scroll_bar_shows_while_there_is_more_to_scroll_to(ui: Ui):
+    page(ui)
+    tell(ui, snapshot((0, 1, None)))
+    ui.window.resize(1000, 300)
+    polish(ui)
+    handles = [item for item in ui.all_items() if item.objectName() == "handle"]
+    cards = ui.item("cards")
+    # the bar of the cards: the cards move by the wheel only, so the bar is never `active`; it shows all the same
+    shown = [handle for handle in handles if handle.parentItem().parentItem() is cards]
+    assert shown
+    assert shown[0].opacity() > 0
+    ui.window.resize(1000, 4000)
+    polish(ui)
+    assert shown[0].opacity() == 0

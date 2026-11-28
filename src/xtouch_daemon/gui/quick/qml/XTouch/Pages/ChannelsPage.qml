@@ -86,7 +86,7 @@ Item {
                         canDuplicate: page.channels.inspector.mine ?? false
                         canRemove: page.channels.inspector.mine ?? false
                         removeTip: "Remove the channel or pool (Del)"
-                        onAddClicked: addMenu.open()
+                        onAddClicked: addMenu.toggle()
                         onDuplicateClicked: page.channels.duplicate()
                         onRemoveClicked: page.channels.remove()
                     }

@@ -202,7 +202,7 @@ SlotScroll {
                                         objectName: "add_source"
                                         text: "Add source"
                                         icon.source: "image://icon/plus"
-                                        onClicked: sourceMenu.open()
+                                        onClicked: sourceMenu.toggle()
                                     }
                                 }
                             }

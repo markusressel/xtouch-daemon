@@ -23,12 +23,22 @@ Rectangle {
     radius: Theme.radius.large
     color: Theme.colors.raised
     border.width: slotCard.picked || slotCard.problem !== "" ? 2 : 1
-    border.color: slotCard.problem !== "" ? Theme.colors.error : slotCard.picked ? Theme.colors.accent
-        : hover.hovered ? Theme.colors.control_border : Theme.colors.border
+    border.color: slotCard.problem !== "" ? Theme.colors.error : slotCard.picked ? Theme.colors.accent : Theme.colors.border
     Behavior on color { ColorAnimation { duration: Theme.fade } }
     Behavior on border.color { ColorAnimation { duration: Theme.fade } }
 
     HoverHandler { id: hover }
+    // the line of a card under the mouse: at once, as the mouse moves (a pick or a problem fades in)
+    Rectangle {
+        objectName: "hoverLine"
+        anchors.fill: parent
+        z: 1
+        radius: card.radius
+        color: "transparent"
+        border.width: 1
+        border.color: Theme.colors.control_border
+        visible: hover.hovered && !slotCard.picked && slotCard.problem === ""
+    }
     // a click on the card beside its candidates picks the slot alone
     MouseArea {
         anchors.fill: parent

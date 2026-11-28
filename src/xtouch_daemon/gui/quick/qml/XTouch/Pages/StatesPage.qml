@@ -73,7 +73,7 @@ Item {
                         canDuplicate: !(page.states.inspector.empty ?? true)
                         canRemove: !(page.states.inspector.empty ?? true)
                         removeTip: "Remove the state or mode (Del)"
-                        onAddClicked: addMenu.open()
+                        onAddClicked: addMenu.toggle()
                         onDuplicateClicked: page.states.duplicate()
                         onRemoveClicked: page.states.remove()
                     }

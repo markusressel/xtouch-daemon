@@ -17,10 +17,20 @@ Rectangle {
     radius: Theme.radius.large
     color: Theme.colors.raised
     border.width: picked || problem ? 2 : 1
-    border.color: problem ? Theme.colors.error : picked ? Theme.colors.accent
-        : hovered ? Theme.colors.control_border : Theme.colors.border
+    border.color: problem ? Theme.colors.error : picked ? Theme.colors.accent : Theme.colors.border
     Behavior on color { ColorAnimation { duration: Theme.fade } }
     Behavior on border.color { ColorAnimation { duration: Theme.fade } }
+
+    // the line of a card under the mouse: at once, as the mouse moves (a pick or a problem fades in)
+    Rectangle {
+        anchors.fill: parent
+        z: 1
+        radius: card.radius
+        color: "transparent"
+        border.width: 1
+        border.color: Theme.colors.control_border
+        visible: card.hovered && !card.picked && !card.problem
+    }
 
     Column {
         id: column

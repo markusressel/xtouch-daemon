@@ -134,8 +134,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
   around it slide along; a page fades into the next; the cards of the slots and the forms keep their place while you
   edit. What it does stays as it was. What is different: the windows Device and Log move through View → Device at and
   View → Log at (above, under, left, right or a window of their own) instead of by their title bars, and the
-  dependency on qt-themes is gone. The window now
-  logs what Qt warns about to the log of the GUI instead of printing it, and closes without errors.
+  dependency on qt-themes is gone. Select and Play are one switch, whose fill slides to the one that is on. A scroll
+  bar shows while there is more to scroll to, and a second click on a pill (Sound server, Service, the mode) closes its
+  popover. The window now logs what Qt warns about to the log of the GUI instead of printing it, and closes without
+  errors.
 - GUI, page Slots: the rail of a slot card always ends in "nothing to show", the dark strip, as its last option
   (dimmed while a candidate above shows something), so a card keeps its rows when its strip goes dark or lights up.
   A stack that ends in `-` has none: `-` is nothing itself.

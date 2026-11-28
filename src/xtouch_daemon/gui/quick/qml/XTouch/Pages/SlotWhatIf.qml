@@ -12,14 +12,14 @@ Rectangle {
     required property QtObject slots
     objectName: "what_if_panel"
 
-    implicitHeight: flow.implicitHeight + 2 * Theme.space.s
-    implicitWidth: flow.implicitWidth + 2 * Theme.space.m
+    implicitHeight: groups.implicitHeight + 2 * Theme.space.s
+    implicitWidth: groups.implicitWidth + 2 * Theme.space.m
     radius: Theme.radius.large
     color: Theme.colors.raised
     border.color: Theme.colors.border
 
     Flow {
-        id: flow
+        id: groups
         x: Theme.space.m
         y: Theme.space.s
         width: panel.width - 2 * Theme.space.m
@@ -39,7 +39,15 @@ Rectangle {
                     font.bold: true
                 }
                 Flow {
-                    width: Math.min(implicitWidth, flow.width)
+                    // the width of its controls in one row, wrapped at the panel's: a Flow has no implicit width
+                    // (0, which a Column would leave out), so it adds up its children itself; `flow` in a Flow is its direction
+                    readonly property real natural: {
+                        let sum = 0, count = 0
+                        for (const child of children)
+                            if (child.visible && child.width > 0) { sum += child.width; ++count }
+                        return sum + Math.max(0, count - 1) * spacing
+                    }
+                    width: Math.min(natural, groups.width)
                     spacing: Theme.space.s
                     Repeater {
                         model: group.modelData.items

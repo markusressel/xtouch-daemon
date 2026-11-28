@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import QPointF, Qt
 from PyQt6.QtGui import QGuiApplication
 
 from tests.gui.quick.slots_helpers import model_rows, page, polish, press, snapshot, tell
@@ -90,3 +90,17 @@ def test_the_edit_actions_work_on_the_candidate_in_the_focused_card(ui: Ui):
     assert len(doc.get(("slots", "3"))) == 2  # pyright: ignore[reportArgumentType]
     rows = model_rows(slots.cards[2].model)
     assert rows
+
+
+def test_the_what_ifs_show_their_controls(ui: Ui):
+    slots = page(ui)
+    tell(ui, snapshot((0, 1, None)))
+    slots.toggleSimulate(True)
+    polish(ui)
+    panel = ui.item("what_if_panel")
+    for name in ("what_if_mode", "what_if_call"):
+        item = ui.item(name)
+        top = item.mapToItem(panel, QPointF(0, 0)).y()
+        # under the title of its group, inside the panel (a row of width 0 was left out and drawn nowhere)
+        assert top > 10
+        assert top + item.height() <= panel.height()

@@ -48,7 +48,11 @@ ApplicationWindow {
         }
     }
 
-    DetailsPopover { id: keysPopover; anchor: menuBar; details: window.shell.keysPopover; objectName: "keys_details" }
+    // opened by a key, not by its anchor: a press on the menu bar closes it too
+    DetailsPopover {
+        id: keysPopover; anchor: menuBar; details: window.shell.keysPopover; objectName: "keys_details"
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+    }
     DialogHost { dialogs: window.shell.dialogs }
 
     // -- the panels -----------------------------------------------------------------------------------------------

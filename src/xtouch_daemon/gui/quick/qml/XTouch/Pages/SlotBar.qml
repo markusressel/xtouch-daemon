@@ -58,6 +58,10 @@ Item {
                     on: row.on
                     ToolTip.text: row.tip
                     onClicked: {
+                        if (popover.visible && popover.anchor === stateButton) {
+                            popover.close()
+                            return
+                        }
                         popover.info = bar.slots.stateInfo(key)
                         popover.anchor = stateButton
                         popover.open()

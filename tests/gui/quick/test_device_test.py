@@ -4,6 +4,7 @@ meanwhile, and the window learns when the daemon ends the test.
 """
 
 import pytest
+from PyQt6.QtCore import QPointF
 from pytestqt.qtbot import QtBot
 
 from tests.gui.quick.conftest import MakeUi
@@ -131,6 +132,26 @@ def test_play_says_in_a_pill_what_the_mouse_plays_on(
     assert (device.handStatus["text"], device.handStatus["tone"]) == (text, tone)
     device.setPlaying(False)
     assert device.handStatus == {}
+
+
+def test_the_thumb_of_select_and_play_sits_under_the_one_that_is_on(
+    qtbot: QtBot, make_ui: MakeUi, live_daemon: FakeLiveDaemon
+) -> None:
+    ui = live_ui(make_ui, live_daemon, qtbot)
+    device = device_of(ui)
+    hands = ui.item("hands")
+    thumb = next(child for child in hands.childItems() if child.objectName() == "thumb")
+
+    def under(name: str) -> bool:
+        ui.settle()
+        button = ui.item(name)
+        return thumb.x() == button.mapToItem(hands, QPointF(0, 0)).x() and thumb.width() == button.width()
+
+    assert under("modeSelect")
+    device.setPlaying(True)
+    assert under("modePlay")
+    assert ui.item("modePlay").property("checked")
+    assert not ui.item("modeSelect").property("checked")
 
 
 def test_without_a_daemon_to_ask_the_test_does_not_start(make_ui: MakeUi) -> None:

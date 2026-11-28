@@ -23,29 +23,27 @@ Item {
     EntriesPopover { id: virtualPopover; objectName: "virtualPopover"; device: bar.device; kind: "virtual"; anchor: virtualPill }
 
     // the segments of Select and Play keep the keys for the strips: no focus
-    Row {
+    SegmentGroup {
         id: segments
+        objectName: "hands"
         anchors.left: parent.left
         anchors.verticalCenter: parent.verticalCenter
-        spacing: 0
-        Button {
+        SegmentButton {
             id: select
             objectName: "modeSelect"
             text: "Select"
-            icon.source: "image://icon/cursor-default-outline"
-            flat: true
+            iconName: "cursor-default-outline"
             checked: !bar.device.playing
             focusPolicy: Qt.NoFocus
             onClicked: bar.device.setPlaying(false)
             ToolTip.visible: hovered
             ToolTip.text: bar.device.selectTip
         }
-        Button {
+        SegmentButton {
             id: play
             objectName: "modePlay"
             text: "Play"
-            icon.source: "image://icon/hand-back-right-outline"
-            flat: true
+            iconName: "hand-back-right-outline"
             checked: bar.device.playing
             enabled: bar.device.playEnabled
             focusPolicy: Qt.NoFocus
@@ -98,7 +96,7 @@ Item {
         anchors.verticalCenter: parent.verticalCenter
         x: Math.max(Math.min((bar.width - width) / 2, right.x - Theme.space.s - width), segments.width + Theme.space.s)
         Behavior on x { NumberAnimation { duration: Theme.resize; easing.type: Easing.OutCubic } }
-        onClicked: modesPopover.open()
+        onClicked: modesPopover.toggle()
         HoverHandler { id: modeHover }
         ToolTip.visible: modeHover.hovered && visible
         ToolTip.text: visible ? bar.device.modeStatus.tip : ""
@@ -116,7 +114,7 @@ Item {
             text: bar.device.liveStatus.text !== undefined ? bar.device.liveStatus.text : ""
             tone: bar.device.liveStatus.tone !== undefined ? bar.device.liveStatus.tone : "neutral"
             clickable: true
-            onClicked: livePopover.open()
+            onClicked: livePopover.toggle()
             HoverHandler { id: liveHover }
             ToolTip.visible: liveHover.hovered && bar.device.liveStatus.tip !== undefined
             ToolTip.text: bar.device.liveStatus.tip !== undefined ? bar.device.liveStatus.tip : ""
@@ -129,7 +127,7 @@ Item {
             text: visible ? bar.device.virtualStatus.text : ""
             tone: visible ? bar.device.virtualStatus.tone : "neutral"
             clickable: true
-            onClicked: virtualPopover.open()
+            onClicked: virtualPopover.toggle()
         }
         Item { width: Theme.space.xs; height: 1 }
         Button {

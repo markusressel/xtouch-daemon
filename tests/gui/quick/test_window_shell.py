@@ -194,6 +194,21 @@ def test_the_sound_server_popover_lists_what_was_read_and_reads_again(ui: Ui):
     assert loaded == [1]
 
 
+def test_a_second_click_on_a_pill_closes_its_popover_and_a_click_elsewhere_too(ui: Ui):
+    ui.click("audio_pill")
+    assert is_open(ui, "audio_details")
+    # the press on the pill leaves the popover to the pill: closed by the press, the click would open it again
+    ui.click("audio_pill")
+    ui.settle()
+    assert not is_open(ui, "audio_details")
+
+    ui.click("audio_pill")
+    assert is_open(ui, "audio_details")
+    ui.click("service_pill")
+    ui.settle()
+    assert not is_open(ui, "audio_details")
+
+
 def test_a_sound_server_that_does_not_answer_says_so(ui: Ui):
     ui.app.shell._audio_failed("No connection")  # pyright: ignore[reportPrivateUsage]
     ui.settle()

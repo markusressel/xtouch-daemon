@@ -16,3 +16,5 @@ PaneSplit 1.0 PaneSplit.qml
 EntryButtons 1.0 EntryButtons.qml
 ActionMenu 1.0 ActionMenu.qml
 Segmented 1.0 Segmented.qml
+SegmentGroup 1.0 SegmentGroup.qml
+SegmentButton 1.0 SegmentButton.qml
