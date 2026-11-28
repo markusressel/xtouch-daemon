@@ -132,6 +132,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 - GUI, page Slots: the rail of a slot card always ends in "nothing to show", the dark strip, as its last option
   (dimmed while a candidate above shows something), so a card keeps its rows when its strip goes dark or lights up.
   A stack that ends in `-` has none: `-` is nothing itself.
+- The daemon looks for the virtual device every 0.1 seconds instead of every 2 (the X-Touch Extender: still every 2
+  seconds). Play in the GUI, which opens the virtual device, starts right away instead of after up to 2 seconds.
 - GUI: changes move instead of jumping. A pill, button or row that changes its color fades to it, the pages of the
   window Configuration and the panes of a page fade from one to the next, and the states and the what-ifs of Simulate
   grow and shrink when Simulate opens and closes, while the cards move along. On a slot card only the rows that

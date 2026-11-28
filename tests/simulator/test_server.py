@@ -141,3 +141,19 @@ async def test_a_host_that_leaves_without_reading_is_gone(socket_dir: Path) -> N
             await asyncio.sleep(0.05)
         # what it didn't read resets the connection
         await until(lambda: server.host is None)
+
+
+async def test_the_daemon_finds_the_virtual_device_at_once(socket_dir: Path) -> None:
+    # the GUI opens it to play with it: the daemon looks for it more often than for a sound card
+    path = socket_dir / "virtual-device.sock"
+    surface = Surface(port=SocketPort(path))
+    task = asyncio.create_task(surface.run())
+    await asyncio.sleep(0.05)
+    async with serving(path) as server:
+        loop = asyncio.get_running_loop()
+        plugged = loop.time()
+        await until(lambda: server.host is not None)
+        assert loop.time() - plugged <= 0.2
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task

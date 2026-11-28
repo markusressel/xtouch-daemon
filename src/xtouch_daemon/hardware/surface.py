@@ -14,7 +14,7 @@ from xtouch_daemon.config.values import Pace, Sequence
 from xtouch_daemon.hardware import protocol
 from xtouch_daemon.hardware.protocol import Button, Color, Led, RingMode
 from xtouch_daemon.hardware.strip import FADER_REST, FADER_TICK, Strip
-from xtouch_daemon.hardware.transport import AlsaPort, Port, Transport
+from xtouch_daemon.hardware.transport import AlsaPort, Port, SocketPort, Transport
 from xtouch_daemon.simulator.device import SimulatedDevice
 
 _LOGGER = logging.getLogger(__name__)
@@ -22,6 +22,11 @@ _LOGGER = logging.getLogger(__name__)
 DEVICE_NAME = "X-Touch-Ext"
 SCAN_INTERVAL = 2.0
 """How often the sound cards are checked for the device while it is not connected."""
+SOCKET_SCAN_INTERVAL = 0.1
+"""
+How often the daemon looks for the virtual device while it does not run: a look is cheap, and the GUI opens it to
+play with it at once.
+"""
 
 
 TIME_SCALE = 1.0
@@ -386,7 +391,7 @@ class Surface:
                     if not announced_missing:
                         _LOGGER.warning(f"{self.device_name} is not connected, waiting for it")
                         announced_missing = True
-                    await asyncio.sleep(SCAN_INTERVAL)
+                    await asyncio.sleep(self._scan_interval())
                     continue
                 announced_missing = False
                 port = self.port
@@ -396,6 +401,11 @@ class Surface:
                     announced_missing = True
         finally:
             await self.close()
+
+    def _scan_interval(self) -> float:
+        if isinstance(self.port, SocketPort):
+            return min(SCAN_INTERVAL, SOCKET_SCAN_INTERVAL)
+        return SCAN_INTERVAL
 
     async def use(self, port: Port) -> None:
         """

@@ -99,6 +99,9 @@ reported in steps of 4, the motor that moves only when the host sets a value or 
 finger, a fader whose touch sensor failed (no touch reported), and switching it off and on (its query, everything
 dark, the faders going down by themselves and reporting it).
 
+While the X-Touch Extender is not there, the daemon looks for it every 2 seconds. It looks for the virtual device
+every 0.1 seconds: Play in the GUI opens it, and the daemon connects to it right away.
+
 What is assumed: how fast the motor goes (0.1 s over the whole travel), how fast a meter falls (one level per
 0.15 s), and when the touch of a quick hand comes (70 ms after its first move).
 
