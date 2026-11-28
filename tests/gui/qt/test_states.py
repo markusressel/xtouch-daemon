@@ -142,7 +142,7 @@ def test_a_program_of_your_own_is_a_source(qtbot: QtBot, window: MainWindow):
     assert window.document.get(("state", "call", "command")) == {"poll": ["vpn-up"]}
 
 
-def test_the_last_day_of_a_state_is_a_bar_per_hour(qtbot: QtBot, window: MainWindow):
+def test_the_last_day_of_a_state_is_a_bar_per_quarter_of_an_hour(qtbot: QtBot, window: MainWindow):
     window.document.set(("state", "gaming"), {"mode": True, "processes": ["steam"]})
     window.editor.edited()
     window.show_page("states")
@@ -157,11 +157,11 @@ def test_the_last_day_of_a_state_is_a_bar_per_hour(qtbot: QtBot, window: MainWin
     page.show_live(snapshot)
     bars = page.history
     assert not bars.isHidden()
-    assert len(bars.hours) == 24
+    assert len(bars.spans) == 96
     # watched from two hours ago, on for the last half hour
-    assert bars.hours[0].share is None
-    assert (bars.hours[-1].share or 0) > 0
-    assert bars.tip_at(bars.width() - 1) == bars.hours[-1].describe()
+    assert bars.spans[0].known == 0
+    assert bars.spans[-1].on > 0
+    assert bars.tip_at(bars.width() - 1) == bars.spans[-1].describe()
     assert bars.tip_at(-5) == ""
     assert not bars.grab().isNull()
     # the mouse on a bar tells its hour
@@ -175,7 +175,7 @@ def test_the_last_day_of_a_state_is_a_bar_per_hour(qtbot: QtBot, window: MainWin
         Qt.KeyboardModifier.NoModifier,
     )
     QApplication.sendEvent(bars, move)
-    assert bars.toolTip() == bars.hours[-1].describe()
+    assert bars.toolTip() == bars.spans[-1].describe()
     # without changes from the daemon there is nothing to draw
     page.select("gaming")
     page.show_live(snapshot)

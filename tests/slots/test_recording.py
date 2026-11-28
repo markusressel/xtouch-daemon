@@ -11,6 +11,7 @@ import pytest
 
 from tests.support.audio import output, stream
 from tests.support.slots import attendees, older
+from xtouch_daemon.audio.media import Player
 from xtouch_daemon.audio.model import AudioState, Capture
 from xtouch_daemon.live.codec import encode, encode_reply
 from xtouch_daemon.live.messages import Reply, Snapshot, VoipState
@@ -203,3 +204,25 @@ def test_a_short_excursion_after_a_long_time_is_a_flap():
     )
     # Bob shares the slots of auto: the rightmost one that has auto first
     assert [flap.text for flap in report.flaps] == ["slot 6: auto and back to people:Bob"]
+
+
+def test_a_paused_player_keeps_its_application_after_its_streams_are_gone():
+    observer = Observer()
+    brave = Player("org.mpris.MediaPlayer2.brave.instance7", None)
+    other = Player("org.mpris.MediaPlayer2.mpv", None)
+    with_stream = AudioState(streams=(stream(1, "Brave", "brave", corked=True),))
+    empty = AudioState()
+    players = (brave, other)
+    assert observer.observe(with_stream, frozenset(), None, 0, players=players).playing == ("Brave",)
+    # the browser ends the stream of a paused video: the paused player keeps it, as it started
+    paused = frozenset({brave})
+    kept = observer.observe(empty, frozenset(), None, 5, players=players, paused=paused)
+    assert kept.playing == ("Brave",)
+    assert observer.started["Brave"] == 0
+    # stopped or closed: gone, and for good
+    assert observer.observe(empty, frozenset(), None, 6, players=players).playing == ()
+    assert observer.observe(empty, frozenset(), None, 7, players=players, paused=paused).playing == ()
+    # without a player of its own nothing keeps it
+    alone = AudioState(streams=(stream(2, "Spotify", "spotify"),))
+    observer.observe(alone, frozenset(), None, 8, players=players, paused=paused)
+    assert observer.observe(empty, frozenset(), None, 9, players=players, paused=paused).playing == ()

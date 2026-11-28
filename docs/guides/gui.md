@@ -58,8 +58,8 @@ names, « hides them again.
 
     Delays and overrides (`delay_on`, `delay_off`, `persist`) are folded away until a state has one. Above the form
     the GUI says since when the state is on, from which source, its override, and which slots and controls use it.
-    Under that, a bar for each of the last 24 hours shows how much of the hour the state was on; the mouse on a bar
-    says it in minutes. The daemon keeps this day in memory, so after a restart the bars start empty.
+    Under that, a bar for each quarter of an hour of the last day shows how long the state was on (in its color) and
+    off (in gray); the mouse on a bar says it in minutes. The daemon keeps this day in memory, so after a restart the bars start empty.
 
 === "Settings"
 

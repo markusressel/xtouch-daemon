@@ -32,7 +32,14 @@ from xtouch_daemon.gui.domain.clipboard import Tables, parse_tables, tables_text
 from xtouch_daemon.gui.domain.schema import options
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.sources import patterns
-from xtouch_daemon.gui.domain.states import OVERRIDES, describe_live, hours_on, live_state, ordered, state_uses
+from xtouch_daemon.gui.domain.states import (
+    OVERRIDES,
+    describe_live,
+    live_state,
+    ordered,
+    spans_on,
+    state_uses,
+)
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, flat_button, help_label, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
@@ -236,7 +243,7 @@ class StatesPage(Page):
             live.addWidget(segment)
         inspector.addWidget(row(live))
         self.history = HistoryBars()
-        """The last day of the state: how much of each hour it was on."""
+        """The last day of the state: how much of each quarter of an hour it was on, and off."""
         inspector.addWidget(self.history)
         inspector.addWidget(self.problem)
         self.form, layout = card()
@@ -517,7 +524,7 @@ class StatesPage(Page):
         set_text(self.live, describe_live(state))
         self.history.setVisible(state is not None and bool(state.history))
         if state is not None and state.history:
-            self.history.show_hours(hours_on(state.history, time.time()))
+            self.history.show_spans(spans_on(state.history, time.time()))
         mode = bool(self.document.get(("state", name, "mode")))
         picked = snapshot.slots.mode_pick if snapshot is not None and snapshot.slots is not None else None
         # none is checked while another mode is picked: an exclusive group keeps one

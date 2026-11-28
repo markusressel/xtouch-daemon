@@ -13,6 +13,7 @@ from collections.abc import Callable
 from pathlib import Path
 
 from xtouch_daemon.audio.backend import AudioBackend
+from xtouch_daemon.audio.media import MediaPlayers
 from xtouch_daemon.audio.meter import PW_RECORD, Capturer
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.model import Config
@@ -100,6 +101,10 @@ class Rig:
         """The processes that run, for the states."""
         return frozenset()
 
+    def _players(self) -> MediaPlayers | None:
+        """The media players of the session, for the slots: none here."""
+        return None
+
     def _stepped(self, result: Result) -> None:
         """A step put `result` on the strips."""
 
@@ -119,7 +124,9 @@ class Rig:
         now = self._clock()
         slots = self.slots
         mode = slots.mode if slots.active.states is not None else None
-        result = slots.step(self.mixer.state, self._processes(now), voip_state(self.voip), self.desk.held_slots(), now)
+        result = slots.step(
+            self.mixer.state, self._processes(now), voip_state(self.voip), self.desk.held_slots(), now, self._players()
+        )
         states = slots.active.states
         assert states is not None
         seconds = self.config.switching.banner

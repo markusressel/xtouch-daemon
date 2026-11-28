@@ -4,6 +4,7 @@ applications across a new mixer, modes by hand and by the chord, held strips, re
 """
 
 import asyncio
+import dataclasses
 import json
 import logging
 from datetime import datetime
@@ -14,9 +15,11 @@ import pytest
 from tests.support.audio import FakeBackend, output, source, stream
 from tests.support.daemon import QUIET, Notifications
 from tests.support.hardware import RecordingSurface
+from tests.support.media import FakePlayers
 from tests.support.tasks import settle
 from tests.support.waiting import until
 from tests.support.watches import ProgramCommands
+from xtouch_daemon.audio.media import Player
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.files import parse_config
 from xtouch_daemon.daemon import lifecycle as daemon_module
@@ -602,5 +605,37 @@ async def test_the_snapshot_tells_the_channels_with_sound(
     daemon = make(path, surface, Processes(), (playing,))
     task = asyncio.create_task(daemon.run())
     await until(lambda: daemon.snapshot().sounding == ("out",))
+    daemon.stop()
+    await task
+
+
+async def test_a_paused_player_keeps_its_application_on_its_slot(tmp_path: Path, surface: RecordingSurface) -> None:
+    path = tmp_path / "slots.toml"
+    path.write_text(SLOTS)
+    spotify = Player("org.mpris.MediaPlayer2.spotify", None)
+    players = FakePlayers(spotify)
+    daemon = Daemon(
+        parse_config(path.read_text()),
+        FakeBackend((STATE,)),
+        surface,
+        path,
+        capture_command=QUIET,
+        processes=Processes(),
+        players=players,
+    )
+    task = asyncio.create_task(daemon.run())
+    await until(lambda: labels(surface) == ["Speaker", "Spotify", ""])
+    assert players.on_change == daemon.wake_slots
+
+    # paused, Spotify ends its stream: its player keeps it on its slot
+    players.paused = frozenset({spotify})
+    daemon.on_state(dataclasses.replace(STATE, streams=()))
+    await settle()
+    assert labels(surface)[1] == "Spotify"
+    # stopped: the player tells, and the slot lets it go
+    players.paused = frozenset()
+    daemon.wake_slots()
+    await until(lambda: labels(surface)[1] != "Spotify")
+
     daemon.stop()
     await task

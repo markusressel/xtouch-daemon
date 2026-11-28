@@ -97,6 +97,9 @@ What a pool can set:
 How `apps` and `auto` get their applications:
 
 - An application qualifies while at least one of its streams plays (is not paused).
+- A browser ends the stream of a paused video a few seconds after the pause. While the media player of the
+  application stays paused, the application still counts as playing: its channel stays present and its slot keeps
+  it. It stops counting when the player is stopped or closed.
 - Applications of an `apps` channel that has a slot never go to `apps` or `auto`. Neither do those of `exclude`.
 - An `apps` channel without a slot goes in as a whole, on one strip. `in_pool = false` keeps it out. After its
   applications stopped, it stays for its own `absent_after`, not for `hold`.

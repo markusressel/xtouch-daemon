@@ -5,11 +5,12 @@ voice chat of the running daemon, and read back to replay them through a `Simula
 
 import json
 import socket
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.audio.media import Player, player_of
+from xtouch_daemon.audio.model import AudioState, Stream
 from xtouch_daemon.config.presets import PRESETS
 from xtouch_daemon.live.codec import decode_message
 from xtouch_daemon.live.messages import Snapshot, VoipState
@@ -31,6 +32,11 @@ class Observer:
     started: dict[str, float] = field(default_factory=dict)
     apps: dict[str, str] = field(default_factory=dict)
     """The name of the application of the streams of each name (`stream_name()`), as the sound server says it."""
+    players: dict[str, Player] = field(default_factory=dict)
+    """
+    The media player of the streams of each name, found while they were there: a browser ends the streams of a
+    paused video a few seconds after the pause, and its paused player keeps the application playing.
+    """
 
     def observe(
         self,
@@ -41,10 +47,23 @@ class Observer:
         homeassistant: frozenset[str] = frozenset(),
         absent: frozenset[str] = frozenset(),
         commands: frozenset[str] = frozenset(),
+        players: Sequence[Player] = (),
+        paused: frozenset[Player] = frozenset(),
     ) -> Observation:
-        names = [stream_name(stream.app, stream.binary) for stream in audio.streams]
+        """
+        What the system shows now. `players` are the media players of the session, `paused` those of them that are
+        paused: an application whose streams are gone stays while the player it had is paused.
+        """
+        streams: dict[str, list[Stream]] = {}
         for stream in audio.streams:
+            streams.setdefault(stream_name(stream.app, stream.binary), []).append(stream)
             self.apps[stream_name(stream.app, stream.binary)] = stream.app
+        for name, own in streams.items():
+            if name not in self.players and (player := player_of(players, own)) is not None:
+                self.players[name] = player
+        held = [name for name, player in self.players.items() if name not in streams and player in paused]
+        self.players = {name: player for name, player in self.players.items() if name in streams or name in held}
+        names = [*streams, *held]
         for name in names:
             self.started.setdefault(name, now)
         for name in list(self.started):

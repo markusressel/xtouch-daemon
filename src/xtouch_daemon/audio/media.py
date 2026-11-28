@@ -89,6 +89,10 @@ class MediaPlayers(Protocol):
     """The players of the session. `MprisPlayers` is the real one, the tests use a fake."""
 
     players: tuple[Player, ...]
+    paused: frozenset[Player]
+    """The players that are paused, as of the last time the players were listed."""
+    on_change: Callable[[], None] | None
+    """Called when `players` or `paused` changed, e.g. to step the slots."""
 
     async def run(self) -> None: ...
 
@@ -122,6 +126,14 @@ class MprisPlayers:
         self._interval = interval
         self._bus: Any = None
         self.players: tuple[Player, ...] = ()
+        self.paused: frozenset[Player] = frozenset()
+        self.on_change: Callable[[], None] | None = None
+
+    def _show(self, players: tuple[Player, ...], paused: frozenset[Player]) -> None:
+        if (players, paused) != (self.players, self.paused):
+            self.players, self.paused = players, paused
+            if self.on_change is not None:
+                self.on_change()
 
     async def run(self) -> None:
         """Keeps `players` up to date, connecting again after a lost connection."""
@@ -131,7 +143,8 @@ class MprisPlayers:
                 self._bus = await self._connect()
                 reported = False
                 while True:
-                    self.players = await self._list()
+                    players = await self._list()
+                    self._show(players, await self._paused(players))
                     await asyncio.sleep(self._interval)
             except (DBusError, OSError, EOFError) as e:
                 if not reported:
@@ -141,7 +154,7 @@ class MprisPlayers:
                 if self._bus is not None:
                     self._bus.disconnect()
                 self._bus = None
-                self.players = ()
+                self._show((), frozenset())
             await asyncio.sleep(RECONNECT_DELAY)
 
     async def _call(self, **message: Any) -> list[Any]:
@@ -163,6 +176,17 @@ class MprisPlayers:
                 pid = None
             players.append(Player(name, pid))
         return tuple(players)
+
+    async def _paused(self, players: tuple[Player, ...]) -> frozenset[Player]:
+        paused: set[Player] = set()
+        for player in players:
+            try:
+                if await self.status(player) == "Paused":
+                    paused.add(player)
+            except MediaCommandError:
+                # gone meanwhile, or it does not tell
+                pass
+        return frozenset(paused)
 
     def _player_call(self, player: Player, member: str, signature: str = "", body: list[Any] | None = None) -> Any:
         return self._call(

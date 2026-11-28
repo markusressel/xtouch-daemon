@@ -378,6 +378,9 @@ class Daemon(Rig):
 
     # -- the slots of the device -------------------------------------------------------------------------------------
 
+    def _players(self) -> MediaPlayers | None:
+        return self.players
+
     def _processes(self, now: float) -> frozenset[str]:
         """Scanned every PROCESS_INTERVAL at most (`/proc` is not free)."""
         if self._slot_processes is None or now - self._slot_processes[0] >= PROCESS_INTERVAL:
@@ -800,6 +803,8 @@ class Daemon(Rig):
             # GUI shows too
             self._live_task = asyncio.create_task(self.live.run(), name="live view")
         if self.players is not None:
+            # a player paused, stopped or closed: the slots look again (see `Observer`)
+            self.players.on_change = self.wake_slots
             self._in_background(self.players.run(), "media players")
         systemd.notify("READY=1", self._status())
         channels = len(self.config.slots.channels)

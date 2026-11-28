@@ -8,9 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
-- GUI, page States: a bar for each of the last 24 hours shows how much of the hour the state or mode was on; the mouse
-  on a bar says it in minutes. The daemon keeps the changes of each state of the last day in memory and tells them in
-  the live view (`history` of a state).
+- GUI, page States: a bar for each quarter of an hour of the last day shows how long the state or mode was on (in its
+  color) and off (in gray); the mouse on a bar says it in minutes. The daemon keeps the changes of each state of the
+  last day in memory and tells them in the live view (`history` of a state).
 - The startup and shutdown sequences have options for their pace, each for itself and separately for the startup and
   the shutdown: the delay between the strips of `sweep` (`startup_sweep_delay`, `shutdown_sweep_delay`) and between
   the pairs of `curtain`, and the delay, the step of the light and the height of the faders of `show`
@@ -233,6 +233,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Fixed
 
+- A paused media player keeps its application on its slot again: a browser ends the stream of a paused video a few
+  seconds after the pause, and the slot let go of the channel or the application. Now the application counts as
+  playing while its player stays paused, until it is stopped or closed. The daemon reads which players are paused
+  when it lists them, every 2 seconds.
 - The ring of the balance showed its end from 90 % on, so turning towards the end LED in the GUI stopped short of
   100 %. Now four LEDs split the way to the side and the fifth lights only at 100 %, with the two LEDs at the ends of
   the ring.

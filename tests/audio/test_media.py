@@ -12,6 +12,7 @@ from dbus_fast.service import ServiceInterface, dbus_property, method
 
 from tests.support.audio import FakeBackend, stream
 from tests.support.hardware import RecordingSurface
+from tests.support.media import FakePlayers
 from tests.support.strips import ID
 from tests.support.tasks import settle
 from xtouch_daemon.audio import media
@@ -84,6 +85,8 @@ class Player2(ServiceInterface):
         self.calls: list[object] = []
         self.length = length
         self.position = position
+        self.status: str | None = "Playing"
+        """None: the player does not tell."""
 
     @method()
     def PlayPause(self) -> None:
@@ -101,7 +104,9 @@ class Player2(ServiceInterface):
 
     @dbus_property(access=PropertyAccess.READ)
     def PlaybackStatus(self) -> "s":  # type: ignore[valid-type]  # noqa: F821, UP037
-        return "Playing"
+        if self.status is None:
+            raise DBusError("org.freedesktop.DBus.Error.NotSupported", "no status")
+        return self.status
 
     @dbus_property(access=PropertyAccess.READ)
     def Metadata(self) -> "a{sv}":  # type: ignore[valid-type]  # noqa: F722
@@ -163,6 +168,29 @@ async def test_players_come_and_go_and_take_commands(bus_address: str, players: 
 
 
 @BUS_TIME
+async def test_the_paused_players_are_known_and_a_change_is_told(bus_address: str, players: MprisPlayers) -> None:
+    changes: list[int] = []
+    players.on_change = lambda: changes.append(1)
+    bus, service = await serve(bus_address, "org.mpris.MediaPlayer2.brave.instance1", None)
+    other, silent = await serve(bus_address, "org.mpris.MediaPlayer2.mpv", None)
+    silent.status = None
+    await wait_for(lambda: len(players.players) == 2)
+    assert players.paused == frozenset()
+    service.status = "Paused"
+    await wait_for(lambda: bool(players.paused))
+    assert [player.name for player in players.paused] == ["brave"]
+    assert len(changes) >= 2
+    # told once per change, not at every listing
+    told = len(changes)
+    await asyncio.sleep(0.05)
+    assert len(changes) == told
+    bus.disconnect()
+    other.disconnect()
+    await wait_for(lambda: not players.players)
+    assert players.paused == frozenset()
+
+
+@BUS_TIME
 async def test_a_track_without_a_length_has_no_progress(bus_address: str, players: MprisPlayers) -> None:
     bus, _ = await serve(bus_address, "org.mpris.MediaPlayer2.radio", None, position=None)
     await wait_for(lambda: bool(players.players))
@@ -214,44 +242,6 @@ async def test_a_player_whose_process_is_unknown(bus_address: str, monkeypatch: 
 
 
 # -- the knob ---------------------------------------------------------------------------------------------------
-
-
-class FakePlayers:
-    def __init__(self, *players: Player) -> None:
-        self.players = players
-        self.calls: list[tuple[str, object]] = []
-        self.progresses: dict[str, float | None] = {}
-        self.failing = False
-        self.positions: list[float | None] = []
-        self.playback = "Playing"
-        self.silent = False
-        """Whether the player does not tell its status."""
-        self.gate: asyncio.Event | None = None
-
-    async def run(self) -> None:
-        await asyncio.Event().wait()
-
-    async def play_pause(self, player: Player) -> None:
-        self.calls.append(("play_pause", player.name))
-        self.playback = "Paused" if self.playback == "Playing" else "Playing"
-
-    async def seek(self, player: Player, seconds: float) -> None:
-        self.calls.append(("seek", seconds))
-        if self.gate is not None:
-            await self.gate.wait()
-
-    async def position(self, player: Player) -> float | None:
-        return self.positions.pop(0) if self.positions else None
-
-    async def status(self, player: Player) -> str:
-        if self.silent:
-            raise MediaCommandError("gone")
-        return self.playback
-
-    async def progress(self, player: Player) -> float | None:
-        if self.failing:
-            raise MediaCommandError("gone")
-        return self.progresses.get(player.name)
 
 
 SPOTIFY = Player("org.mpris.MediaPlayer2.spotify", None)

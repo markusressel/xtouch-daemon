@@ -77,29 +77,31 @@ def describe_live(state: StateView | None) -> str:
     return text
 
 
-HOURS = 24
-"""The hours of the history of a state (see `hours_on`): a day."""
+SPAN = 15
+"""Minutes of a bar of the history of a state (see `spans_on`)."""
+SPANS = 24 * 60 // SPAN
+"""The bars of the history of a state: a day."""
 
 
 @dataclass(frozen=True)
-class Hour:
-    """An hour of the clock in the history of a state."""
+class Span:
+    """A quarter of an hour of the clock (`SPAN` minutes) in the history of a state."""
 
     start: datetime
     end: datetime
-    """Its end: an hour later, or now for the current hour."""
+    """Its end: `SPAN` minutes later, or now for the current one."""
     on: float
     """Seconds the state was on in it."""
     known: float
-    """Seconds of it the daemon watched the state: the share on is `on / known`; 0 for none."""
+    """Seconds of it the daemon watched the state; 0 for none."""
 
     @property
-    def share(self) -> float | None:
-        """How much of the hour the state was on (0..1), None for an hour the daemon didn't watch it."""
-        return self.on / self.known if self.known else None
+    def length(self) -> float:
+        """Seconds of a whole span, also of the current one."""
+        return SPAN * 60.0
 
     def describe(self) -> str:
-        """E.g. `14:00-15:00: on for 35 min`, and how long the daemon watched it if not all of it."""
+        """E.g. `14:00-14:15: on for 5 min`, and how long the daemon watched it if not all of it."""
         span = f"{self.start:%H:%M}-{self.end:%H:%M}"
         if not self.known:
             return f"{span}: no daemon watched it"
@@ -115,21 +117,23 @@ class Hour:
         return f"{span}: {text}"
 
 
-def hours_on(history: Sequence[tuple[float, bool]], now: float, hours: int = HOURS) -> tuple[Hour, ...]:
+def spans_on(history: Sequence[tuple[float, bool]], now: float, spans: int = SPANS) -> tuple[Span, ...]:
     """
-    The last `hours` hours of the clock, the current one up to `now` (Unix times), oldest first: how long a state was
-    on in each, from its changes (`StateView.history`). Before its first change the daemon didn't watch it.
+    The last `spans` quarters of an hour of the clock, the current one up to `now` (Unix times), oldest first: how
+    long a state was on in each, from its changes (`StateView.history`). Before its first change the daemon didn't
+    watch it.
     """
-    current = datetime.fromtimestamp(now).astimezone().replace(minute=0, second=0, microsecond=0)
-    result: list[Hour] = []
-    for back in range(hours - 1, -1, -1):
-        start = current - timedelta(hours=back)
-        begin, end = start.timestamp(), min(start.timestamp() + 3600, now)
+    local = datetime.fromtimestamp(now).astimezone()
+    current = local.replace(minute=local.minute - local.minute % SPAN, second=0, microsecond=0)
+    result: list[Span] = []
+    for back in range(spans - 1, -1, -1):
+        start = current - timedelta(minutes=SPAN * back)
+        begin, end = start.timestamp(), min(start.timestamp() + SPAN * 60, now)
         on = known = 0.0
         for index, (moment, value) in enumerate(history):
             until = history[index + 1][0] if index + 1 < len(history) else now
             overlap = max(0.0, min(until, end) - max(moment, begin))
             known += overlap
             on += overlap if value else 0.0
-        result.append(Hour(start, datetime.fromtimestamp(end).astimezone(), on, known))
+        result.append(Span(start, datetime.fromtimestamp(end).astimezone(), on, known))
     return tuple(result)

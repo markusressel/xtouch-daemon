@@ -11,6 +11,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
 
+from xtouch_daemon.audio.media import MediaPlayers
 from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.config.model import Config
 from xtouch_daemon.daemon.slot_files import (
@@ -301,10 +302,24 @@ class SlotEngine:
         voip: VoipState | None,
         held: frozenset[int],
         now: float,
+        players: MediaPlayers | None = None,
     ) -> Result:
-        """Resolves the slots with what the system shows at `now`; `held` are the slots (from 1) under a finger."""
+        """
+        Resolves the slots with what the system shows at `now`; `held` are the slots (from 1) under a finger,
+        `players` the media players of the session (a paused one keeps its application, see `Observer`).
+        """
         absent = self.absent if self.made_absent is None else self.made_absent
-        observation = self.observer.observe(audio, processes, voip, now, self.homeassistant, absent, self.commands)
+        observation = self.observer.observe(
+            audio,
+            processes,
+            voip,
+            now,
+            self.homeassistant,
+            absent,
+            self.commands,
+            players.players if players is not None else (),
+            players.paused if players is not None else frozenset(),
+        )
         if self.what_if is not None and self.situation is not None:
             # reality waits; nothing of the situation is kept
             what_if = self.what_if
