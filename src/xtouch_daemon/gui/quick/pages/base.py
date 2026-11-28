@@ -24,6 +24,10 @@ class PageBackend(QObject):
     @pyqtProperty("QStringList", notify=editableChanged)
     def editable(self) -> list[str]:  # pyright: ignore[reportRedeclaration]
         """The actions of `EDIT_ACTIONS` the Edit menu can do now (while the page's list has the focus)."""
+        return self.editable_actions()
+
+    def editable_actions(self) -> list[str]:
+        """What `editable` says; a page overrides this and emits `editableChanged` when it changes."""
         return []
 
     @pyqtSlot(str)
