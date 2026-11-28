@@ -9,7 +9,14 @@ import pytest
 from xtouch_daemon.audio import pulse as pulse_module
 from xtouch_daemon.audio.backend import AudioCommandError
 from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Card, Direction, Profile
-from xtouch_daemon.audio.pulse import PA_INVALID_INDEX, PulseBackend, balance_of, balanced_volume, scaled_volume
+from xtouch_daemon.audio.pulse import (
+    PA_INVALID_INDEX,
+    PulseBackend,
+    balance_of,
+    balanced_volume,
+    follow_state,
+    scaled_volume,
+)
 
 # what pulsectl reports (its enum has its values as dynamic attributes)
 RUNNING = pulsectl.PulseStateEnum["running"]
@@ -474,3 +481,24 @@ def test_volumes_go_above_where_the_sliders_of_pavucontrol_end() -> None:
     assert list(struct.values)[: struct.channels] == [2 * 65536, 65536]
     struct = pulse_module.Volume([1e9]).to_struct()
     assert struct.values[0] == pulsectl._pulsectl.PA_VOLUME_MAX
+
+
+def test_follow_state_calls_back_with_each_state_until_the_callback_raises():
+    fake = FakePulse()
+    states: list[AudioState] = []
+
+    class Enough(Exception):
+        pass
+
+    def on_state(state: AudioState) -> None:
+        states.append(state)
+        if len(states) == 1:
+            fake.sink_inputs = []
+            fake.events.put_nowait("sink_input remove")
+        else:
+            raise Enough
+
+    with pytest.raises(Enough):
+        follow_state("test", on_state, lambda name: fake)
+    assert len(states) == 2
+    assert states[-1].streams == ()

@@ -129,7 +129,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
-- GUI: the button beside the pill of the sound server is gone; its popover has Read again.
+- GUI: the pill of the sound server and its popover follow the sound server: an application that starts or ends, or
+  an output that comes or goes, shows at once, also in the open popover. The button beside the pill is gone; the
+  popover still has Read again.
 - GUI, Simulate: the what-ifs are a panel above the cards that wraps, grouped into mode, states, channels and pools,
   instead of a row that scrolls, its edges in line with the cards and the right pane. A dot before each name says
   what it is now, like the dots of the candidates (green and filled: on or present; a ring: off, absent or empty),

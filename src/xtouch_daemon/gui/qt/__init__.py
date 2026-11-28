@@ -10,7 +10,7 @@ from PyQt6 import sip
 from PyQt6.QtCore import QCoreApplication, QTimer
 from PyQt6.QtWidgets import QApplication
 
-from xtouch_daemon.audio.pulse import read_state
+from xtouch_daemon.audio.pulse import follow_state, read_state
 from xtouch_daemon.gui.domain.slots_document import SlotsDocument
 from xtouch_daemon.gui.qt import errors
 from xtouch_daemon.gui.qt.fields.rich_tips import RichTips
@@ -78,7 +78,13 @@ def run_gui(path: Path) -> int:
         app = create_application()
         signals.watch(app)
         service = Service(wait=False, timeout=SYSTEMCTL_TIMEOUT)
-        window = MainWindow(document, service, lambda: read_state("xtouch-daemon-gui"), session=session)
+        window = MainWindow(
+            document,
+            service,
+            lambda: read_state("xtouch-daemon-gui"),
+            session=session,
+            follow_audio=lambda on_state: follow_state("xtouch-daemon-gui", on_state),
+        )
         window.show()
         code = app.exec()
         if window.rezoom is None:
@@ -87,6 +93,7 @@ def run_gui(path: Path) -> int:
         session = window.session()
         # Qt allows one application at a time: this one goes before the next one starts (the handlers of the signals
         # and their timer still refer to it)
+        window.loader.stop()
         sip.delete(window)
         sip.delete(app)
         gc.collect()

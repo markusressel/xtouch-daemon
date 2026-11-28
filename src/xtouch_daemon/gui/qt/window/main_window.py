@@ -105,7 +105,7 @@ from xtouch_daemon.gui.qt.theme.settings import (
 from xtouch_daemon.gui.qt.theme.style import apply_theme, current_mode, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space, ThemeMode
 from xtouch_daemon.gui.qt.virtual_device import HostedDevice
-from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader
+from xtouch_daemon.gui.qt.window.audio_loader import AudioLoader, Follow
 from xtouch_daemon.gui.qt.window.device_view import DeviceView
 from xtouch_daemon.gui.qt.window.hover_tips import HoverTips
 from xtouch_daemon.gui.qt.window.input_filter import InputFilter
@@ -165,6 +165,7 @@ class MainWindow(QMainWindow):
         plugin_installers: Sequence[PluginInstaller] | None = None,
         virtual_socket: Path | None = None,
         read_entities: Fetch = fetch,
+        follow_audio: Follow | None = None,
     ):
         """
         `live_socket` is where the daemon serves its live view, by default `instance.socket_file()`. `try_broker` tries
@@ -293,6 +294,9 @@ class MainWindow(QMainWindow):
         """Changes of the file on disk by someone else (see `_file_changed`)."""
         self.file_watch.changed.connect(self._file_changed)
         self.load_audio()
+        if follow_audio is not None:
+            # the pill and its popover follow the sound server
+            self.loader.follow(follow_audio)
         self.refresh_service()
         self._document_changed(EVERYTHING)
         self.show_page("slots")
@@ -1035,6 +1039,7 @@ class MainWindow(QMainWindow):
         self.loader.load()
 
     def _audio_loaded(self, state: AudioState) -> None:
+        shown = self._audio_shown()
         self.audio = state
         self.audio_error = None
         summary = sources.summary(state)
@@ -1043,9 +1048,10 @@ class MainWindow(QMainWindow):
         self.audio_label.set_parts((AUDIO_ICONS[thing], str(number)) for thing, number in sources.counts(state))
         self.audio_label.setAccessibleName(f"Sound server: {summary}")
         self._audio_changed()
-        self._audio_read()
+        self._audio_read(shown)
 
     def _audio_failed(self, message: str) -> None:
+        shown = self._audio_shown()
         self.audio = DISCONNECTED
         self.audio_error = message
         status = Status("Sound server not reachable: type names by hand", Tone.WARN, message)
@@ -1053,7 +1059,7 @@ class MainWindow(QMainWindow):
         self.audio_label.setAccessibleName("")
         show_status(self.audio_label, status, more=True)
         self._audio_changed()
-        self._audio_read()
+        self._audio_read(shown)
 
     def _show_audio(self) -> None:
         """What the GUI read from the sound server, or why it couldn't, and reading it again (it stays open)."""
@@ -1097,12 +1103,18 @@ class MainWindow(QMainWindow):
         self.reopen_audio = True
         self.load_audio()
 
-    def _audio_read(self) -> None:
-        """The popover, open while it read again, shows what it read now (in the same place)."""
-        if not self.reopen_audio:
-            return
+    def _audio_shown(self) -> object:
+        """What the popover of the sound server shows: the error, or the names it read."""
+        return self.audio_error if self.audio_error is not None else sources.contents(self.audio)
+
+    def _audio_read(self, shown: object) -> None:
+        """
+        The popover, open while it read again or while the sound server changed what it shows (`shown` before), shows
+        what it read now (in the same place).
+        """
+        again = self.reopen_audio or self._audio_shown() != shown
         self.reopen_audio = False
-        if self.audio_popover is not None and self.audio_popover.isVisible():
+        if again and self.audio_popover is not None and self.audio_popover.isVisible():
             self.audio_popover.close()
             self._show_audio()
 

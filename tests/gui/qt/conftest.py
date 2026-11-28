@@ -34,6 +34,7 @@ from xtouch_daemon.gui.qt.pages.channels import ChannelsPage
 from xtouch_daemon.gui.qt.pages.sections import BrokerTest, PluginInstaller
 from xtouch_daemon.gui.qt.theme.style import apply_theme
 from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
+from xtouch_daemon.gui.qt.window.audio_loader import Follow
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.gui.qt.window.session import Session
 from xtouch_daemon.system.instance import Instance
@@ -125,6 +126,7 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
         plugin_installers: list[PluginInstaller] | None = None,
         virtual_socket: Path | None = None,
         read_entities: Fetch = unreachable_home_assistant,
+        follow_audio: Follow | None = None,
     ) -> MainWindow:
         # the window after a new zoom goes on with the document of the one before
         document = session.history.document if session is not None else SlotsDocument.open(file)
@@ -141,6 +143,7 @@ def make_window(qtbot: QtBot, path: Path, systemctl: FakeSystemctl, daemon: Reco
             plugin_installers if plugin_installers is not None else no_plugins(),
             virtual_socket,
             read_entities,
+            follow_audio,
         )
         qtbot.addWidget(window)
         window.show()

@@ -2,15 +2,18 @@
 Editing in the window: what it shows of the document, the page Channels, problems, undo.
 """
 
+import dataclasses
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QLabel, QListWidgetItem, QPushButton, QToolButton
+from PyQt6.QtWidgets import QFrame, QLabel, QListWidgetItem, QPushButton, QToolButton
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import (
     CONFIG,
+    STATE,
     Dialogs,
     MakeWindow,
     click,
@@ -23,7 +26,7 @@ from tests.support.gui import (
     type_into,
 )
 from tests.support.instance import RecordingInstance
-from xtouch_daemon.audio.model import AudioState
+from xtouch_daemon.audio.model import DISCONNECTED, AudioState
 from xtouch_daemon.audio.pulse import SoundServerError
 from xtouch_daemon.config.files import Problem
 from xtouch_daemon.gui.qt.pages.channels import APPS, AUTO, PEOPLE, ChannelsPage
@@ -361,3 +364,39 @@ def test_a_revert_can_be_undone(qtbot: QtBot, window: MainWindow):
     window.undo()
     assert "browser" not in window.document.get(("channel",))
     assert window.document.modified
+
+
+def test_the_popover_of_the_sound_server_follows_it_while_it_is_open(qtbot: QtBot, make_window: MakeWindow):
+    states: list[Callable[[AudioState], None]] = []
+    window = make_window(follow_audio=states.append)
+    # the window follows in a thread
+    qtbot.waitUntil(lambda: bool(states))
+    (on_state,) = states
+    window._show_audio()  # pyright: ignore[reportPrivateUsage]
+    first = window.audio_popover
+    assert first is not None
+
+    def names(popover: QFrame) -> list[str]:
+        return [label.text() for label in popover.findChildren(QLabel)]
+
+    assert "Brave" in " ".join(names(first))
+    # a change it doesn't show (a volume): the popover stays
+    on_state(dataclasses.replace(STATE, outputs=(dataclasses.replace(STATE.outputs[0], volume=10), *STATE.outputs[1:])))
+    qtbot.waitUntil(lambda: window.audio.outputs[0].volume == 10)
+    assert window.audio_popover is first
+    # an application ends: the popover shows it at once, the pill too
+    on_state(dataclasses.replace(STATE, streams=STATE.streams[1:]))
+    qtbot.waitUntil(lambda: window.audio_popover is not first)
+    again = window.audio_popover
+    assert again is not None
+    assert again.isVisible()
+    assert "Brave" not in " ".join(names(again))
+    assert ("play-circle-outline", "1") in window.audio_label.parts
+    # the sound server goes away: the popover says so
+    on_state(DISCONNECTED)
+    qtbot.waitUntil(lambda: window.audio_error is not None)
+    lost = window.audio_popover
+    assert lost is not None
+    assert lost is not again
+    assert "not reachable" in " ".join(names(lost))
+    window.loader.stop()

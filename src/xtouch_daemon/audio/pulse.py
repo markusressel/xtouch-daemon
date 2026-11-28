@@ -320,6 +320,16 @@ async def _read_state(client_name: str) -> AudioState:
         return await PulseBackend.snapshot(pulse)
 
 
+def follow_state(
+    client_name: str, on_state: Callable[[AudioState], None], pulse_factory: PulseFactory = pulsectl_asyncio.PulseAsync
+) -> None:
+    """
+    Calls `on_state` with the state of the sound server, then after each change of it, with `DISCONNECTED` while it
+    can't be reached (for the tools around the daemon, in a thread of their own). Returns when `on_state` raises.
+    """
+    asyncio.run(PulseBackend(pulse_factory, client_name).run(on_state))
+
+
 def read_state(client_name: str) -> AudioState:
     """The state of the sound server right now, from a connection of its own (for the tools around the daemon)."""
     try:
