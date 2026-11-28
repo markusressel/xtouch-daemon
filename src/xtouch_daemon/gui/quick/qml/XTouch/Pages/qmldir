@@ -3,3 +3,8 @@ SlotsPage 1.0 SlotsPage.qml
 ChannelsPage 1.0 ChannelsPage.qml
 StatesPage 1.0 StatesPage.qml
 SettingsPage 1.0 SettingsPage.qml
+SettingsSection 1.0 SettingsSection.qml
+SectionBlock 1.0 SectionBlock.qml
+ConnectionBox 1.0 ConnectionBox.qml
+PluginBox 1.0 PluginBox.qml
+AliasesPane 1.0 AliasesPane.qml
