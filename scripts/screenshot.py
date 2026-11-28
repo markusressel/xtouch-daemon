@@ -10,7 +10,7 @@ import os
 import sys
 import tempfile
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from PyQt6.QtCore import QRectF
@@ -110,12 +110,14 @@ def shoot(home: Path, out: Path) -> None:
     from PyQt6.QtCore import QCoreApplication, QSettings
     from PyQt6.QtNetwork import QLocalServer
     from PyQt6.QtWidgets import QApplication
-    from xtouch_daemon.gui.qt.theme.style import apply_theme
-    from xtouch_daemon.gui.qt.window.main_window import MainWindow
 
-    from xtouch_daemon.audio.model import AudioState, Card, Device, Direction, Profile, Stream
+    from xtouch_daemon.audio.model import DISCONNECTED, AudioState, Card, Device, Direction, Profile, Stream
     from xtouch_daemon.gui.domain.slots_document import SlotsDocument
     from xtouch_daemon.gui.domain.tokens import Motion, ThemeMode
+    from xtouch_daemon.gui.quick.app import App, Dependencies, close_window, load_window
+    from xtouch_daemon.gui.quick.device.geometry import PANEL
+    from xtouch_daemon.gui.quick.engine import make_engine
+    from xtouch_daemon.gui.quick.theme import Theme
     from xtouch_daemon.live.codec import encode
     from xtouch_daemon.live.messages import (
         FEATURES,
@@ -133,10 +135,9 @@ def shoot(home: Path, out: Path) -> None:
     QCoreApplication.setOrganizationName("xtouch-daemon-screenshot")
     QCoreApplication.setApplicationName("xtouch-daemon-screenshot")
     QSettings.setPath(QSettings.Format.NativeFormat, QSettings.Scope.UserScope, str(home / "settings"))
-    app = QApplication(sys.argv[:1])
+    qapp = QApplication(sys.argv[:1])
     # every change at once: a picture shows the end of it, not a fade
     Motion.enabled = False
-    apply_theme(ThemeMode.DARK)
 
     path = home / "config" / "xtouch-daemon" / "config.toml"
     path.parent.mkdir(parents=True)
@@ -227,18 +228,28 @@ def shoot(home: Path, out: Path) -> None:
         return ""
 
     daemon = Instance(os.getpid(), path.resolve(), systemd=True)
-    window = MainWindow(document, Service(systemctl), lambda: audio, lambda: daemon, socket)
+    app = App(Dependencies(document, Service(systemctl), lambda: audio, lambda: daemon, live_socket=socket))
+    engine = make_engine(Theme(ThemeMode.DARK))
+    window = load_window(app, engine)
     window.resize(*SIZE)
     window.show()
-    wait(app, lambda: window.live.snapshot is not None and window.audio_label.text() != "Reading the sound server…")
-    window.device_view.select(SELECTED)
-    settle(app)
+    shell = app.shell
+    wait(qapp, lambda: shell.live.snapshot is not None and shell.audio is not DISCONNECTED)
+    slots: Any = app.slots
+    slots.selectSlot(SELECTED + 1)
+    settle(qapp)
     # the path of the file (in the temporary directory) is in the title of the window, which a grab doesn't show
 
     out.mkdir(parents=True, exist_ok=True)
-    save(window.grab(), out / "gui.png")
-    save(window.device_view.preview.grab(), out / "device.png")
-    window.close()
+    whole = window.grabWindow()
+    save_image(whole, out / "gui.png")
+    stage = find(window, "drawingStage")
+    device: Any = app.device
+    drawing = device.drawing
+    save_image(
+        crop_of(whole, window, stage, drawing.origin.y() - 3, PANEL.height() * drawing.scale + 6), out / "device.png"
+    )
+    close_window(engine, app)
     server.close()
     shoot_controls(out / "controls")
 
@@ -334,56 +345,68 @@ CONTROL_SCALE = 2.0
 
 def render_part(state: StripState, crop: QRectF, scale: float) -> QImage:
     """The strip showing `state`, cut to `crop` (in logical units of a strip), with rounded corners."""
-    from PyQt6.QtCore import QPoint, QPointF, QRectF, Qt
-    from PyQt6.QtGui import QImage, QKeyEvent, QPainter, QPainterPath, QRegion
-    from PyQt6.QtWidgets import QWidget
-    from xtouch_daemon.gui.qt.preview.strip_view import StripView
+    from PyQt6.QtCore import QPointF, QRectF, Qt
+    from PyQt6.QtGui import QImage, QPainter, QPainterPath
 
     from xtouch_daemon.gui.domain.looks import StripFace, StripLook
-    from xtouch_daemon.gui.quick.device.geometry import HEIGHT, WIDTH
+    from xtouch_daemon.gui.quick.device.render import render_strip
 
-    class Host(QWidget):
-        """What a strip asks of the drawing it is in: a fixed scale, nothing that moves, no mouse."""
-
-        def __init__(self) -> None:
-            super().__init__()
-            self.scale = scale
-            self.blink = True
-            self.now = 0.0
-            self.resizing = False
-            self.hand = None
-            self.mover = None
-
-        def pick(self, index: int) -> None:
-            pass
-
-        def key(self, index: int, event: QKeyEvent) -> bool:
-            return False
-
-    host = Host()
-    view = StripView(host, 2)
-    view.resize(round(WIDTH * scale), round(HEIGHT * scale))
-    view.move(round(-crop.left() * scale), round(-crop.top() * scale))
-    host.resize(round(crop.width() * scale), round(crop.height() * scale))
-    look = StripLook("preview", state.text[0], "", state.color, printed=" ")
-    view.show_face(StripFace(look, state, live=True, dimmed=False), False)
     ratio = 2
-    image = QImage(host.width() * ratio, host.height() * ratio, QImage.Format.Format_ARGB32_Premultiplied)
-    image.setDevicePixelRatio(ratio)
-    image.fill(Qt.GlobalColor.transparent)
-    host.render(image, QPoint(), QRegion(), QWidget.RenderFlag.DrawChildren)
-    rounded = QImage(image.size(), QImage.Format.Format_ARGB32_Premultiplied)
+    look = StripLook("preview", state.text[0], "", state.color, printed=" ")
+    whole = render_strip(StripFace(look, state, live=True, dimmed=False), scale, ratio)
+    pixels = ratio * scale
+    cut = whole.copy(
+        round(crop.left() * pixels),
+        round(crop.top() * pixels),
+        round(crop.width() * pixels),
+        round(crop.height() * pixels),
+    )
+    cut.setDevicePixelRatio(ratio)
+    width, height = cut.width() / ratio, cut.height() / ratio
+    rounded = QImage(cut.size(), QImage.Format.Format_ARGB32_Premultiplied)
     rounded.setDevicePixelRatio(ratio)
     rounded.fill(Qt.GlobalColor.transparent)
     painter = QPainter(rounded)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing)
     path = QPainterPath()
-    path.addRoundedRect(QRectF(0, 0, host.width(), host.height()), 8, 8)
+    path.addRoundedRect(QRectF(0, 0, width, height), 8, 8)
     painter.setClipPath(path)
-    painter.drawImage(QPointF(), image)
+    painter.drawImage(QPointF(), cut)
     painter.end()
-    host.deleteLater()
     return rounded
+
+
+def find(window: object, name: str) -> object:
+    """The item of the window named `name`."""
+    from PyQt6.QtQuick import QQuickItem, QQuickWindow
+
+    assert isinstance(window, QQuickWindow)
+    stack: list[QQuickItem] = [window.contentItem()]  # pyright: ignore[reportAssignmentType]
+    while stack:
+        item = stack.pop()
+        if item.objectName() == name:
+            return item
+        stack.extend(item.childItems())
+    raise LookupError(name)
+
+
+def crop_of(whole: QImage, window: object, item: object, top: float, height: float) -> QImage:
+    """The part of a picture of the window that an item covers, from `top` of it, `height` high."""
+    from PyQt6.QtCore import QPointF
+    from PyQt6.QtQuick import QQuickItem, QQuickWindow
+
+    assert isinstance(item, QQuickItem)
+    assert isinstance(window, QQuickWindow)
+    ratio = window.devicePixelRatio()
+    top_left = item.mapToScene(QPointF(0, top))
+    cut = whole.copy(
+        round(top_left.x() * ratio),
+        round(top_left.y() * ratio),
+        round(item.width() * ratio),
+        round(height * ratio),
+    )
+    cut.setDevicePixelRatio(ratio)
+    return cut
 
 
 def side_by_side(parts: list[QImage], gap: int = 8) -> QImage:
@@ -433,14 +456,6 @@ def settle(app: object, seconds: float = 0.5) -> None:
         # outside of `exec()` Qt deletes no widgets by itself: the pages replaced by a selection would stay visible
         QCoreApplication.sendPostedEvents(None, QEvent.Type.DeferredDelete)
         time.sleep(0.01)
-
-
-def save(picture: object, path: Path) -> None:
-    from PyQt6.QtGui import QPixmap
-
-    assert isinstance(picture, QPixmap)
-    assert picture.save(str(path), "PNG", 0), path  # 0: the smallest file
-    print(f"{path.relative_to(ROOT) if path.is_relative_to(ROOT) else path}: {picture.width()}x{picture.height()}")
 
 
 def save_image(image: QImage, path: Path) -> None:
