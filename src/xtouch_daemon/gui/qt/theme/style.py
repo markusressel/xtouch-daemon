@@ -206,6 +206,9 @@ QPushButton[variant="danger"]:hover {{ background: {tint(c.error)}; border-color
 QPushButton[variant="segment"] {{ margin-right: {Space.XS}px; padding: 0 {Space.M}px; }}
 QPushButton[variant="segment"]:checked {{ background: {c.accent}; color: {c.on_accent}; border-color: {c.accent};
     font-weight: 600; }}
+QPushButton[variant="what-if"] {{ padding: 0 {Space.M}px; }}
+QPushButton[variant="what-if"]:checked {{ background: {c.accent}; color: {c.on_accent}; border-color: {c.accent};
+    font-weight: 600; }}
 QPushButton[variant="nav"] {{ text-align: left; padding: 0 {Space.M}px; min-width: {Space.XXL * 3}px;
     border: none; border-left: 3px solid transparent; border-radius: {Radius.MEDIUM}px; background: transparent; }}
 QPushButton[variant="nav"]:hover {{ background: {tint(c.text, 18)}; }}
@@ -233,6 +236,7 @@ QLineEdit:disabled, QSpinBox:disabled, QDoubleSpinBox:disabled, QComboBox:disabl
     border-color: {c.border}; }}
 QSpinBox[unset="true"], QDoubleSpinBox[unset="true"], QComboBox[unset="true"] {{ color: {c.placeholder}; }}
 QSpinBox, QDoubleSpinBox {{ min-width: {Space.XXL * 3}px; padding-right: {Space.XL}px; }}
+QComboBox[narrow="true"] {{ min-width: {Space.XXL}px; }}
 QSpinBox[narrow="true"] {{ min-width: {Space.XXL}px; }}
 QAbstractSpinBox QLineEdit {{ border: none; padding: 0; background: transparent; }}
 QSpinBox::up-button, QDoubleSpinBox::up-button, QSpinBox::down-button, QDoubleSpinBox::down-button {{

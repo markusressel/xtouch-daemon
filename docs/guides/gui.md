@@ -347,7 +347,8 @@ many people and applications (the strips show their names). It includes the unsa
 - **Pools**: the number of people in the voice chat, of applications that play and of outputs without a channel, and
   a button for `auto` and for each pool of your own.
 
-A dot before each name says what it is now: ● for on or present, ○ for off, absent or empty. A highlighted button
+A dot before each name says what it is now, like the dots of the candidates on the cards: green and filled for
+on or present, a ring for off, absent or empty. A highlighted button
 differs from how Simulate starts. The drawing, the cards and the box of the inspector show it, and Play can operate
 it. ++esc++, or Simulate again, ends it. It needs a running daemon of your user. For the command line, see
 [`simulate`](../reference/commands.md#simulate) and [`check-config`](../reference/commands.md#check-config), which

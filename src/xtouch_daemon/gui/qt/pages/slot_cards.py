@@ -4,11 +4,12 @@ its condition as chips, what it shows (with the colors of its LCD, see `ShowChip
 one the device shows.
 """
 
+import math
 from collections.abc import Mapping
 from typing import Any
 
-from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, QPointF, QRectF, Qt, QVariantAnimation, pyqtSignal
-from PyQt6.QtGui import QColor, QDropEvent, QKeyEvent, QPainter, QPaintEvent, QPen
+from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, QPointF, QRectF, QSize, Qt, QVariantAnimation, pyqtSignal
+from PyQt6.QtGui import QColor, QDropEvent, QIcon, QKeyEvent, QPainter, QPaintEvent, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QAbstractItemView,
     QFrame,
@@ -41,6 +42,37 @@ from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS, Entity, Motion, Space
 from xtouch_daemon.slots.model import AUTO
 
 _INDEX = Qt.ItemDataRole.UserRole
+
+
+NODE = 5
+"""The radius of a node of the rail: the dot of a candidate, filled green while the device shows it."""
+
+
+def paint_node(painter: QPainter, center: QPointF, on: bool, ring: str, fill: str) -> None:
+    """A node of the rail at `center`: green and filled while `on`, else a ring of `ring` filled with `fill`."""
+    colors = current_colors()
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(QColor(colors.tone_good if on else ring), 2))
+    painter.setBrush(QColor(colors.tone_good if on else fill))
+    painter.drawEllipse(center, NODE, NODE)
+    painter.restore()
+
+
+NODE_ICON = QSize(2 * NODE + 2 + Space.XS, 2 * NODE + 2)
+"""The size of `node_icon`: the node with its ring, and room before the text after it."""
+
+
+def node_icon(on: bool, ring: str, ratio: float) -> QIcon:
+    """A node of the rail (`paint_node`) as an icon of `NODE_ICON`, e.g. before a text, hollow while off."""
+    side = NODE_ICON.height()
+    pixmap = QPixmap(math.ceil(NODE_ICON.width() * ratio), math.ceil(side * ratio))
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    paint_node(painter, QPointF(side / 2, side / 2), on, ring, "transparent")
+    painter.end()
+    return QIcon(pixmap)
 
 
 class StackList(QListWidget):
@@ -225,13 +257,13 @@ class CandidateRow(QWidget):
         painter.drawLine(
             QPointF(x, 0 if not self.first else node), QPointF(x, self.height() if not self.last else node)
         )
-        if self.state == "shown":
-            painter.setPen(QPen(QColor(colors.tone_good), 2))
-            painter.setBrush(QColor(colors.tone_good))
-        else:
-            painter.setPen(QPen(QColor(colors.text_muted if self.state == "passed" else colors.control_border), 2))
-            painter.setBrush(QColor(colors.raised))
-        painter.drawEllipse(QPointF(x, node), 5, 5)
+        paint_node(
+            painter,
+            QPointF(x, node),
+            self.state == "shown",
+            colors.text_muted if self.state == "passed" else colors.control_border,
+            colors.raised,
+        )
         if not self.first:
             painter.setPen(QColor(colors.text_muted))
             band = QRectF(RAIL, 0, self.width() - RAIL, self.fontMetrics().height() + 2 * Space.XS)

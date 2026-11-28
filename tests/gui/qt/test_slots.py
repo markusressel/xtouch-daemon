@@ -17,7 +17,7 @@ from xtouch_daemon.gui.domain.live_preview import Place
 from xtouch_daemon.gui.domain.simulate import WhatIf
 from xtouch_daemon.gui.qt.fields.basics import DOT_ICON
 from xtouch_daemon.gui.qt.fields.controls import LcdBadge
-from xtouch_daemon.gui.qt.pages.slot_cards import CandidateRow, ShowChip, StackList
+from xtouch_daemon.gui.qt.pages.slot_cards import NODE_ICON, CandidateRow, ShowChip, StackList
 from xtouch_daemon.gui.qt.pages.slots import SlotsPanel
 from xtouch_daemon.gui.qt.theme import style
 from xtouch_daemon.gui.qt.theme.tokens import THEMES, ThemeMode
@@ -652,3 +652,56 @@ def test_the_marks_of_why_follow_the_theme(window: MainWindow, monkeypatch: pyte
     page.shown_live = None
     page.show_live(live)
     assert THEMES[ThemeMode.LIGHT].tone_good in mark_color()
+
+
+def test_the_what_ifs_line_up_with_the_panes_and_take_their_room_at_once(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon
+):
+    window = make_window(live_socket=live_daemon.path)
+    window.resize(1280, 900)
+    window.show_page("slots")
+    page = panel(window)
+    window.document.set(("slots", "4"), ["out if present", "apps"])
+    window.editor.edited()
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    live_daemon.send(dataclasses.replace(device_snapshot(window, strip_state(("Real", "1%"))), features=("on_device",)))
+    qtbot.waitUntil(lambda: page.simulate_button.isEnabled())
+    QApplication.processEvents()
+
+    def edges(widget: QWidget) -> tuple[int, int]:
+        return widget.mapTo(window, widget.rect().topLeft()).x(), widget.mapTo(window, widget.rect().topRight()).x()
+
+    page.simulate(WhatIf())
+    # laid out before anything is drawn, not once the event loop gets to it: no frame at the wrong height
+    what_ifs = page.what_if_row.findChild(QFrame)
+    assert what_ifs is not None
+    placed = (edges(what_ifs), what_ifs.height(), page.splitter.height())
+    assert what_ifs.height() > 2 * what_ifs.fontMetrics().height()
+    QApplication.processEvents()
+    assert (edges(what_ifs), what_ifs.height(), page.splitter.height()) == placed
+    # on the left as the cards, on the right as the card of the right pane
+    assert edges(what_ifs)[0] == edges(page.card_frames[0])[0]
+    assert edges(what_ifs)[1] == edges(page.overview)[1]
+    # and back, at once too
+    page.simulate(None)
+    closed = page.splitter.height()
+    QApplication.processEvents()
+    assert page.splitter.height() == closed
+
+
+def test_a_what_if_has_the_node_of_the_candidates_and_the_mode_is_as_wide_as_its_modes(
+    qtbot: QtBot, make_window: MakeWindow, live_daemon: FakeLiveDaemon
+):
+    window = make_window(live_socket=live_daemon.path)
+    page = panel(window)
+    window.document.set(("slots", "4"), ["out if present", "apps"])
+    window.editor.edited()
+    qtbot.waitUntil(lambda: bool(live_daemon.clients))
+    live_daemon.send(dataclasses.replace(device_snapshot(window, strip_state(("Real", "1%"))), features=("on_device",)))
+    qtbot.waitUntil(lambda: page.simulate_button.isEnabled())
+    page.simulate(WhatIf())
+    (toggle,) = (button for button in page.what_if_row.findChildren(QPushButton) if button.text() == "out")
+    assert toggle.iconSize() == NODE_ICON
+    (mode,) = page.what_if_row.findChildren(QComboBox)
+    assert mode.sizeAdjustPolicy() == QComboBox.SizeAdjustPolicy.AdjustToContents
+    assert mode.minimumSizeHint().width() < 200

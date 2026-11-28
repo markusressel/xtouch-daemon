@@ -170,11 +170,12 @@ def test_the_scroll_bar_of_the_right_pane_sits_at_the_edge_of_the_window(make_wi
     right = pane.mapToGlobal(pane.rect().topRight()).x()
     configuration = window.stack.mapToGlobal(window.stack.rect().topRight()).x()
     assert right == configuration
-    # the rows above the panes keep their distance from the edge
+    # the rows above the panes keep their distance from the edge (the what-ifs of Simulate line up with the card of the
+    # right pane instead, see test_slots)
     first = window.pages[page].layout_.itemAt(0)
     assert first is not None
     widget = first.widget()
-    if widget is not None and widget is not splitter:
+    if widget is not None and widget is not splitter and widget is not getattr(window.pages[page], "what_if_row", None):
         assert widget.contentsMargins().right() == EDGE
 
 

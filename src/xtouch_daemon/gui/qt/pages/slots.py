@@ -12,6 +12,7 @@ from typing import Any
 from PyQt6.QtCore import QEvent, QObject, QRectF, QSize, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QIcon, QKeySequence, QMouseEvent, QPainter, QPen, QPixmap, QShortcut, QStandardItemModel
 from PyQt6.QtWidgets import (
+    QComboBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -72,9 +73,8 @@ from xtouch_daemon.gui.qt.fields.meter import meter_row
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow, add_groups, align_titles
 from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, edged, row, scrolled, set_text
-from xtouch_daemon.gui.qt.pages.slot_cards import StackList
+from xtouch_daemon.gui.qt.pages.slot_cards import NODE_ICON, StackList, node_icon
 from xtouch_daemon.gui.qt.pages.slot_controls import SlotControls
-from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import current_colors, current_mode, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 from xtouch_daemon.gui.qt.window.splitter import PaneSplitter
@@ -93,6 +93,13 @@ WHEN_HELP = (
     "It takes states, modes, `present`, `and`, `or`, `not` and parentheses, e.g. `call and not gaming`."
 )
 """The help under When."""
+
+
+def _lay_out(window: QWidget) -> None:
+    """Places the widgets of `window` now, from the top down, rather than when the event loop gets to it."""
+    for layout in [window.layout(), *(widget.layout() for widget in window.findChildren(QWidget))]:
+        if layout is not None:
+            layout.activate()
 
 
 def _clear(bar: QLayout) -> None:
@@ -310,12 +317,14 @@ class SlotsPanel(Page):
         self.what_if_row = QWidget()
         """What Simulate can change, in groups that wrap: the mode, the states, the channels, the pools."""
         holder = QVBoxLayout(self.what_if_row)
-        holder.setContentsMargins(0, 0, 0, 0)
+        # its edges those of the panes below: on the left the cards, on the right the card of the right pane
+        holder.setContentsMargins(self.cards.contentsMargins().left(), 0, 0, 0)
         holder.addWidget(panel)
         self.what_if_row.hide()
         self.layout_.addWidget(self.what_if_row)
         self.layout_.addWidget(self.splitter, 1)
         edged(self)
+        self.what_if_row.setContentsMargins(0, 0, INSET, 0)
         self._show()
 
     def _card(self, slot: int) -> None:
@@ -840,18 +849,29 @@ class SlotsPanel(Page):
             what_if = None
         self.what_if = what_if
         self.simulate_button.setChecked(what_if is not None)
-        self.state_bar_row.setVisible(what_if is None)
-        self.what_if_row.setVisible(what_if is not None)
-        self.device_note.setVisible(what_if is not None)
-        if config is not None and what_if is not None:
-            self._show_what_if_bar(Inputs.of(config.slots), what_if)
-        self.shown_live = None
-        self.show_live(self.snapshot())
+        # nothing drawn until all is in its place: else the rows would show for a moment at their old heights, and the
+        # what-ifs before they wrap
+        window = self.window()
+        window.setUpdatesEnabled(False)
+        try:
+            self.state_bar_row.setVisible(what_if is None)
+            self.what_if_row.setVisible(what_if is not None)
+            self.device_note.setVisible(what_if is not None)
+            if config is not None and what_if is not None:
+                self._show_what_if_bar(Inputs.of(config.slots), what_if)
+            self.shown_live = None
+            self.show_live(self.snapshot())
+            _lay_out(window)
+        finally:
+            window.setUpdatesEnabled(True)
         self.simulated.emit()
 
     def _show_what_if_bar(self, inputs: Inputs, what_if: WhatIf) -> None:
         _clear(self.what_if_bar)
         mode = Choice()
+        # as wide as its longest mode
+        set_role(mode, "true", "narrow")
+        mode.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
         mode.addItems(inputs.modes)
         mode.setCurrentText(what_if.mode)
         mode.setToolTip("The mode")
@@ -885,6 +905,8 @@ class SlotsPanel(Page):
             line.addWidget(widget)
         column.addLayout(line)
         self.what_if_bar.addWidget(group)
+        # shown now: Qt would show it only once the event loop gets to it, so the bar would first be laid out without it
+        group.setVisible(not self.what_if_row.isHidden())
 
     def _count(self, name: str, value: int, what: str, counted: Callable[[int], WhatIf]) -> QWidget:
         """A built-in pool and how many members it has: a dot (● with members) and its name, and the number."""
@@ -893,8 +915,8 @@ class SlotsPanel(Page):
         line.setContentsMargins(0, 0, 0, 0)
         line.setSpacing(Space.XS)
         dot = QLabel()
-        size = dot.fontMetrics().height() - 4
-        dot.setPixmap(icon("circle" if value else "circle-outline").pixmap(QSize(size, size), dot.devicePixelRatioF()))
+        ratio = dot.devicePixelRatioF()
+        dot.setPixmap(node_icon(bool(value), current_colors().text_muted, ratio).pixmap(NODE_ICON, ratio))
         dot.setProperty("lit", bool(value))
         line.addWidget(dot)
         line.addWidget(label(name))
@@ -917,10 +939,13 @@ class SlotsPanel(Page):
         # ● on or present, ○ off or absent, as the dots of the states
         lit = is_present(name, checked) if flip else checked
         toggle = QPushButton(name)
-        set_role(toggle, "segment", "variant")
+        set_role(toggle, "what-if", "variant")
         toggle.setCheckable(True)
         toggle.setChecked(checked)
-        set_icon(toggle, "circle" if lit else "circle-outline", "on_accent" if checked else None)
+        # the node of the candidates on the cards: green and filled while on, a ring while off
+        colors = current_colors()
+        toggle.setIcon(node_icon(lit, colors.on_accent if checked else colors.text_muted, toggle.devicePixelRatioF()))
+        toggle.setIconSize(NODE_ICON)
         toggle.setProperty("lit", lit)
         toggle.setToolTip(presence_tip(name, checked) if flip else state_tip(name, checked))
         toggle.clicked.connect(lambda _=False: self.simulate(what_if.toggled(name, flip)))
@@ -1235,11 +1260,15 @@ class _OverviewLine(QFrame):
             self.picked()
 
 
+INSET = Space.L
+"""Room on the right of the card of the right pane, for its scroll bar."""
+
+
 def _inset(widget: QWidget) -> QWidget:
-    """`widget` with room on its right for the scroll bar of its pane."""
+    """`widget` with room on its right for the scroll bar of its pane (`INSET`)."""
     holder = QWidget()
     layout = QVBoxLayout(holder)
-    layout.setContentsMargins(0, 0, Space.L, 0)
+    layout.setContentsMargins(0, 0, INSET, 0)
     layout.addWidget(widget)
     return holder
 
