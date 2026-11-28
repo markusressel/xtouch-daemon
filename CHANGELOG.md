@@ -127,7 +127,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 ### Changed
 
 - GUI: the pill of the sound server in the footer shows icons with numbers (a speaker for the outputs, a microphone
-  for the inputs, a play icon for the applications) instead of words.
+  for the inputs, a play icon for the applications) instead of words; its popover has the same icons before the
+  outputs, inputs and applications.
 - GUI: the settings of the MQTT broker (`[mqtt]`) and of the API of Home Assistant (`[homeassistant]`) share the
   page "Home Assistant", one below the other.
 - GUI: an unbound `lcd` says what the second line of the LCD shows for the type of its channel, e.g. "the volume, e.g.

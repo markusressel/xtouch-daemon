@@ -469,7 +469,7 @@ value matches, e.g. "Matches 2: ..." for `bluez_output.*`, or "Matches nothing k
 - `person` of a `person` channel: the people in the voice chat now, as the running daemon tells them.
 
 The pill "Sound server" at the left of the footer says how much the GUI read: a speaker with the number of outputs, a
-microphone with the number of inputs, and a play icon with the number of applications that play. A click lists them, with "Read again", e.g. after you started an application. Without a sound server, or without a daemon for the people of the
+microphone with the number of inputs, and a play icon with the number of applications that play. A click lists them under the same icons, with "Read again", e.g. after you started an application. Without a sound server, or without a daemon for the people of the
 voice chat, type the names by hand.
 
 ## Undo

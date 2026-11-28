@@ -17,6 +17,7 @@ from PyQt6.QtWidgets import QApplication, QFrame, QGridLayout, QHBoxLayout, QLab
 from xtouch_daemon.gui.domain.status import Status, Tone
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, help_text, label, show_status
 from xtouch_daemon.gui.qt.fields.depth import lift
+from xtouch_daemon.gui.qt.theme.icons import icon
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Space
 
@@ -40,6 +41,8 @@ class Entry:
     """A path to show under the text, in a monospace font (its middle goes where it doesn't fit)."""
     items: tuple[tuple[str, str], ...] = ()
     """A list under the text, a line each: the item and a note on it (muted, "" for none)."""
+    icon: str = ""
+    """An icon before the title (see `theme.icons.icon`), e.g. a speaker for the outputs; "" for none."""
     toggles: tuple[tuple[str, bool, Callable[[bool], object]], ...] = ()
     """
     Switches in a row under the text: their text, whether they are on, and what a click does with the new value. Unlike
@@ -221,7 +224,19 @@ def _row(popup: QFrame, entry: Entry) -> QFrame:
         title.setStyleSheet("font-weight: bold;")
         if entry.entity is not None:
             title.setStyleSheet(f"font-weight: bold; color: {getattr(current_colors(), entry.entity.value)};")
-        grid.addWidget(title, 0, 0)
+        if entry.icon:
+            # as high as the text, in its color, before it
+            size = title.fontMetrics().height()
+            mark = QLabel()
+            mark.setPixmap(icon(entry.icon).pixmap(QSize(size, size), row.devicePixelRatioF()))
+            heading = QHBoxLayout()
+            heading.setContentsMargins(0, 0, 0, 0)
+            heading.setSpacing(Space.S)
+            heading.addWidget(mark)
+            heading.addWidget(title)
+            grid.addLayout(heading, 0, 0)
+        else:
+            grid.addWidget(title, 0, 0)
     if entry.status is not None and entry.status.text:
         pill = label("", "pill")
         show_status(pill, entry.status)

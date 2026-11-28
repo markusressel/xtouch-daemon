@@ -1079,8 +1079,9 @@ class MainWindow(QMainWindow):
                 Status(str(len(items)), Tone.GOOD if items else Tone.NEUTRAL),
                 "" if items else "None.",
                 items=items,
+                icon=AUDIO_ICONS[thing],
             )
-            for kind, items in sources.contents(self.audio)
+            for (kind, items), (thing, _) in zip(sources.contents(self.audio), sources.counts(self.audio), strict=True)
         ]
         self._keep_audio_popover(show_popover(self.audio_label, heading, entries, intro, again))
 

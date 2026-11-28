@@ -6,7 +6,7 @@ from pathlib import Path
 
 import pytest
 from PyQt6.QtCore import Qt
-from PyQt6.QtWidgets import QListWidgetItem
+from PyQt6.QtWidgets import QLabel, QListWidgetItem
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import (
@@ -49,6 +49,20 @@ def test_the_window_shows_the_configuration(window: MainWindow, path: Path):
     # they take their room: the pill is wider than its text
     words = window.audio_label.fontMetrics().horizontalAdvance(window.audio_label.text())
     assert window.audio_label.sizeHint().width() > words + 3 * window.audio_label.fontMetrics().height()
+    assert not window.audio_label.grab().isNull()
+    # its popover has the same icons, before the outputs, inputs and applications
+    window._show_audio()  # pyright: ignore[reportPrivateUsage]
+    popover = window.audio_popover
+    assert popover is not None
+    titles = [
+        label.text() for label in popover.findChildren(QLabel) if label.text() in ("Outputs", "Inputs", "Applications")
+    ]
+    assert titles == ["Outputs", "Inputs", "Applications"]
+    marks = [
+        label for label in popover.findChildren(QLabel) if label.pixmap() is not None and not label.pixmap().isNull()
+    ]
+    assert len(marks) == 3
+    popover.close()
     assert window.windowTitle() == path.name
     assert not window.save_button.isEnabled()
     assert not window.problems_button.isVisible()
