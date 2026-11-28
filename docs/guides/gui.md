@@ -530,7 +530,7 @@ Next to Save and apply, a pill says what the control surface runs. A click tells
 
 | Pill | Means |
 |---|---|
-| Saved, on the device | Nothing is unsaved, and the control surface runs the saved file. |
+| Saved, running | Nothing is unsaved, and the daemon runs the saved file on the control surface. |
 | Unsaved changes | You changed something; the control surface still runs the saved file. |
 | In the GUI, not saved | The changes show on the virtual twin. |
 | On the device, not saved | The control surface runs the changes ("Sending to the device…" for a moment after a change). |

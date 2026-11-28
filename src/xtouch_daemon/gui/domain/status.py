@@ -212,7 +212,7 @@ def drawing_status(live: Status, in_gui: bool, on_device: bool) -> Status:
             "Preview in the GUI",
             Tone.NEUTRAL,
             "The strips show the preview on a twin of the device in the daemon: the changes, and Simulate while it is "
-            "open. The device runs the saved file; Preview: Off shows it here.",
+            "open. The daemon runs the saved file; Preview: Off shows it here.",
         )
     if on_device:
         return Status(
@@ -305,7 +305,7 @@ def _changes_status(
         return Status(
             "Unsaved changes",
             Tone.NEUTRAL,
-            "The device runs the saved file. Preview: On the device runs the changes there before you save them.",
+            "The daemon runs the saved file. Preview: On the device runs the changes there before you save them.",
         )
     return Status("Unsaved changes", base.tone, f"{base.text}. {base.tip}".strip())
 
@@ -321,7 +321,7 @@ def _saved_status(
     if snapshot is None:
         return Status("Saved", Tone.NEUTRAL, "The daemon reads this file; it has no live view to tell what runs.")
     if saved is not None and snapshot.config == fingerprint(saved):
-        return Status("Saved, on the device", Tone.GOOD, "The device runs the saved file.")
+        return Status("Saved, running", Tone.GOOD, "The daemon runs the saved file.")
     if snapshot.preview:
         return Status(
             "Another window previews",

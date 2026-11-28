@@ -75,7 +75,7 @@ def test_the_virtual_device_is_offered_while_the_daemon_waits_for_it(
         (None, None, True, False, "Unsaved changes", Tone.NEUTRAL),
         (Instance(42, Path("/other.toml"), systemd=False), None, False, False, "Runs another file", Tone.WARN),
         (DAEMON, None, False, False, "Saved", Tone.NEUTRAL),
-        (DAEMON, snapshot(), False, False, "Saved, on the device", Tone.GOOD),
+        (DAEMON, snapshot(), False, False, "Saved, running", Tone.GOOD),
         # the device runs the saved file: the changes are only in the editor
         (DAEMON, snapshot(), True, False, "Unsaved changes", Tone.NEUTRAL),
         (DAEMON, snapshot(config=fingerprint(OTHER)), False, True, "Applying…", Tone.NEUTRAL),

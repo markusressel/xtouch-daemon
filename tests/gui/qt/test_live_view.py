@@ -33,7 +33,7 @@ def test_the_preview_shows_the_device_live(
 
     assert window.device_view.preview.strips[0].face.state == first
     assert pill(window.device_view.live_pill) == "Live"
-    assert pill(window.changes_pill) == "Saved, on the device"
+    assert pill(window.changes_pill) == "Saved, running"
     # Select flashes
     assert window.device_view.preview.blinker.isActive()
     blink = window.device_view.preview.blink
@@ -59,7 +59,7 @@ def test_the_preview_shows_the_device_live(
     assert "journalctl --user -u xtouch-daemon" in window.changes_pill.toolTip()
     # it did
     live_daemon.send(snapshot(window, first, device=False))
-    qtbot.waitUntil(lambda: pill(window.changes_pill) == "Saved, on the device")
+    qtbot.waitUntil(lambda: pill(window.changes_pill) == "Saved, running")
     assert pill(window.device_view.live_pill) == "Live · not connected"
     # nothing to show without the device
     assert window.device_view.preview.strips[0].face.look.detail == "The device is not connected."

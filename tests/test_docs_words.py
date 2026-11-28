@@ -22,7 +22,6 @@ GUI_LABELS = (
     "device not connected",
     "Sending to the device",
     "Not on the device yet",
-    "Saved, on the device",
 )
 """Texts of the GUI that say "device" for the control surface: the docs quote them as the GUI shows them."""
 

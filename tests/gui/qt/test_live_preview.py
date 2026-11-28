@@ -154,7 +154,7 @@ def test_the_device_follows_the_editor_while_the_live_preview_is_on(
     switch_on(qtbot, window)
     # nothing to preview yet: the device runs the file
     assert previewing.requests == []
-    assert pill(window.changes_pill) == "Saved, on the device"
+    assert pill(window.changes_pill) == "Saved, running"
 
     type_into(qtbot, row(window, "label").line, "Boxes")
     qtbot.waitUntil(lambda: bool(previewing.previews))

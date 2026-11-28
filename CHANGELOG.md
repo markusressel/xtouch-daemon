@@ -129,6 +129,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: the pill next to Save and apply says "Saved, running" instead of "Saved, on the device": the daemon runs the
+  file, the control surface keeps nothing.
 - GUI: the pill of the sound server and its popover follow the sound server: an application that starts or ends, or
   an output that comes or goes, shows at once, also in the open popover. The button beside the pill is gone; the
   popover still has Read again.
