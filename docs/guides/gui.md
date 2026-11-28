@@ -275,9 +275,11 @@ condition holds wins.
 
 **The rail** on the left joins the candidates, with "else" between two. The node is green on the candidate that the
 control surface shows (or that Simulate would show). Above it, candidates are dimmed with why they did not win (`✗ browser
-doesn't play`, `✗ browser is on slot 3`); below it, they are dimmed more: not reached. When none has anything to show,
-the rail ends in "nothing to show: the strip is dark". A click on that row picks the slot and says why the strip is
-dark; so does a click on a dark strip of the drawing.
+doesn't play`, `✗ browser is on slot 3`); below it, they are dimmed more: not reached. The last row of the rail is
+always "nothing to show": the strip goes dark when no candidate above has anything to show, for example when a pool is
+empty. Then that row has the green node and says "the strip is dark". A click on it picks the slot and says why the
+strip is dark; so does a click on a dark strip of the drawing. A stack that ends in `-` has no such row: `-` shows
+nothing itself.
 
 **The chips:**
 

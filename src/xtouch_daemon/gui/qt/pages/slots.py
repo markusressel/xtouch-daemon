@@ -40,6 +40,7 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     Row,
     StepKind,
     choice_groups,
+    ends_dark,
     member_summary,
     place_options,
     pool_kind,
@@ -414,7 +415,7 @@ class SlotsPanel(Page):
             shown_candidate = view.candidate if view is not None else None
             member = member_summary(view, self.audio(), self.shown_slots())
             # a pool with nothing to hand out (or no candidate at all): none of them shows, the strip is dark
-            dark = view is not None and (view.candidate is None or (view.pool is not None and view.member is None))
+            dark = self._dark(slot)
             if dark:
                 shown_candidate = None
             reached = len(candidates) if dark else shown_candidate
@@ -427,7 +428,7 @@ class SlotsPanel(Page):
             if slot == self.slot and self.candidate is not None and self.candidate < stack.count():
                 stack.setCurrentRow(self.candidate)
             elif slot == self.slot and self.end:
-                # gone when the strip shows something again
+                # gone only with the candidates that make it (see `ends_dark`)
                 self.end = stack.end_row() >= 0
                 stack.setCurrentRow(stack.end_row())
             elif slot != self.slot:
@@ -449,22 +450,7 @@ class SlotsPanel(Page):
             self.candidate = len(stack) - 1 if stack else None
         self._show_why()
         self.slot_controls.show_slot(self.slot)
-        if not stack:
-            text = (
-                f"Slot {self.slot} has no candidate: it shows `auto`, the next application that plays or person of "
-                "the voice chat. Add a candidate (+ on its card) to show a channel here, e.g. an output."
-            )
-        elif self.end:
-            text = (
-                "The strip is dark: none of the candidates has anything to show now. + adds a candidate at the end, "
-                "e.g. an output, which is always there."
-            )
-        elif self.candidate is None:
-            text = "Pick a candidate to edit it. The first one whose condition holds is shown; + adds one at the end."
-        else:
-            text = ""
-        set_text(self.hint, _help(text))
-        self.hint.setVisible(bool(text))
+        self._show_hint(stack)
         self._show_crumbs(stack)
         for widget in (self.show_box, self.when_edit):
             widget.parentWidget().setVisible(self.candidate is not None)  # pyright: ignore[reportOptionalMemberAccess]
@@ -599,10 +585,12 @@ class SlotsPanel(Page):
         shown = view.candidate if view is not None else None
         # the candidate it came to, which has nothing for it: the strip is dark
         dark = view is not None and view.pool is not None and view.member is None
-        # the end of the rail, while the strip is dark (see `StackList.fill`)
-        end = stack and self.lists[self._slot - 1].end_row() >= 0
+        # the end of the rail: the dark strip (see `ends_dark`), with the dot while the strip is dark
+        end = ends_dark(stack)
+        strip_dark = self._dark(self._slot)
         # the theme too: the dot is painted in its color
         key = (self.slot, tuple((row.show, row.when) for row in stack), self.candidate, shown, dark, end, self.end)
+        key += (strip_dark,)
         key += (current_mode(),)
         if key == self.shown_crumbs:
             return
@@ -631,12 +619,16 @@ class SlotsPanel(Page):
             crumb = QToolButton()
             # what the slot shows, like a candidate: nothing
             set_role(crumb, Entity.CHANNEL.value, "entity")
-            _mark(crumb, "●")
+            _mark(crumb, "●" if strip_dark else "")
             crumb.setText("dark")
             crumb.setCheckable(True)
             crumb.setChecked(self.end)
             crumb.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-            crumb.setToolTip("None of the candidates has anything to show now, so the strip is dark")
+            crumb.setToolTip(
+                "None of the candidates has anything to show now, so the strip is dark"
+                if strip_dark
+                else "When none of the candidates has anything to show, the strip goes dark"
+            )
             crumb.clicked.connect(lambda checked: self._crumb_clicked(self.lists[self._slot - 1].end_row(), checked))
             self.crumbs.addWidget(crumb)
 
@@ -843,7 +835,38 @@ class SlotsPanel(Page):
             self._show_overview()
         else:
             # the dot on the candidate shown, and the end of the rail while the strip is dark
-            self._show_crumbs(rows(self.document.values, self.slot))
+            stack = rows(self.document.values, self.slot)
+            self._show_crumbs(stack)
+            self._show_hint(stack)
+
+    def _show_hint(self, stack: list[Row]) -> None:
+        """What to do next, by what is picked: a candidate, or the end of the rail (dark now or not)."""
+        if not stack:
+            text = (
+                f"Slot {self.slot} has no candidate: it shows `auto`, the next application that plays or person of "
+                "the voice chat. Add a candidate (+ on its card) to show a channel here, e.g. an output."
+            )
+        elif self.end and self._dark(self._slot):
+            text = (
+                "The strip is dark: none of the candidates has anything to show now. + adds a candidate at the end, "
+                "e.g. an output, which is always there."
+            )
+        elif self.end:
+            text = (
+                "When none of the candidates has anything to show, the strip goes dark. + adds a candidate at the "
+                "end, e.g. an output, which is always there."
+            )
+        elif self.candidate is None:
+            text = "Pick a candidate to edit it. The first one whose condition holds is shown; + adds one at the end."
+        else:
+            text = ""
+        set_text(self.hint, _help(text))
+        self.hint.setVisible(bool(text))
+
+    def _dark(self, slot: int) -> bool:
+        """Whether the strip of `slot` is dark: none of its candidates has anything to show (as the daemon tells)."""
+        view = self._views().get(slot)
+        return view is not None and (view.candidate is None or (view.pool is not None and view.member is None))
 
     def _views(self) -> dict[int, SlotView]:
         slots = self.shown_slots()
@@ -1000,7 +1023,8 @@ class SlotsPanel(Page):
         count = len(rows(self.document.values, slot))
         candidate = view.candidate if view is not None and view.candidate is not None else 0 if count else None
         stack = self.lists[slot - 1]
-        end = stack.end_row() >= 0
+        # the end of the rail while the strip is dark: it shows that
+        end = self._dark(slot) and stack.end_row() >= 0
         self._pick(slot, None if end else candidate, end)
         stack.setFocus()
         self.card_scroll.ensureWidgetVisible(self.card_frames[slot - 1])

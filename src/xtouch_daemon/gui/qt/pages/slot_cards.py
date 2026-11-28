@@ -27,6 +27,7 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     EMPTY,
     Row,
     RowState,
+    ends_dark,
     free_text,
     free_words,
     is_pool,
@@ -156,9 +157,9 @@ class StackList(QListWidget):
         member: tuple[str, str] | None = None,
     ) -> None:
         """
-        The candidates of a slot on its rail; `dark`: none of them has anything to show, so the rail ends in a row
-        of its own, the dark strip, which is the one shown. `member`: what the pool of the one shown hands out, and
-        who else waits for a slot (see `member_summary`).
+        The candidates of a slot on its rail, which ends in a row of its own, the dark strip (see `ends_dark`);
+        `dark`: none of them has anything to show, so the dark strip is the one shown. `member`: what the pool of
+        the one shown hands out, and who else waits for a slot (see `member_summary`).
         """
         # the old rows fade through the card to the new ones while the list grows or shrinks at the bottom (see
         # `gui/qt/motion.py`): a row whose text changes would show both texts at once
@@ -175,7 +176,7 @@ class StackList(QListWidget):
         member: tuple[str, str] | None,
     ) -> None:
         self.clear()
-        count = len(candidates) + dark
+        count = len(candidates) + ends_dark(candidates)
         for index, candidate in enumerate(candidates):
             item = QListWidgetItem()
             item.setData(_INDEX, index)
@@ -192,16 +193,23 @@ class StackList(QListWidget):
             )
             self.setItemWidget(item, widget)
             item.setSizeHint(self.itemWidget(item).sizeHint())  # pyright: ignore[reportOptionalMemberAccess]
-        if dark and candidates:
+        if ends_dark(candidates):
             item = QListWidgetItem()
             # no candidate: it can be picked (its slot, with why the strip is dark), not moved or dropped on
             item.setFlags(Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled)
             self.addItem(item)
-            end = CandidateRow(len(candidates), count, "shown", "", numbered=False)
-            end.rule.addWidget(label("nothing to show: the strip is dark", "hint"))
+            # always the last option, so the card keeps its rows when the strip goes dark or lights up
+            state = "shown" if dark else "" if shown is None else "unreached"
+            end = CandidateRow(len(candidates), count, state, "", numbered=False)
+            text = "nothing to show: the strip is dark" if dark else "nothing to show: the strip goes dark"
+            end.rule.addWidget(label(text, "hint"))
             end.rule.addWidget(LcdBadge("off", "off: the LCD is dark"))
             end.rule.addStretch()
-            end.setToolTip("No candidate has anything to show now, so the strip is dark")
+            end.setToolTip(
+                "No candidate has anything to show now, so the strip is dark"
+                if dark
+                else "When no candidate above has anything to show, the strip goes dark"
+            )
             self.setItemWidget(item, end)
             item.setSizeHint(end.sizeHint())
         if self.count() == 0:

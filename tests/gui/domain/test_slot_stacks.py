@@ -8,6 +8,7 @@ from xtouch_daemon.gui.domain.slot_stacks import (
     Step,
     StepKind,
     choices,
+    ends_dark,
     free_text,
     free_words,
     lcd_colors,
@@ -205,3 +206,14 @@ def test_a_member_as_the_card_names_it():
     assert member_text("device:bluez_output.x", {"bluez_output.x": "Buds"}) == "Buds"
     assert member_text("device:usb", {}) == "usb"
     assert member_text("browser", {}) == "browser"
+
+
+def test_a_rail_ends_in_the_dark_strip_but_where_it_ends_in_nothing():
+    # a pool can be empty, a channel on another slot: the strip can always go dark
+    assert ends_dark([Row("out")])
+    assert ends_dark([Row("browser", "call"), Row("auto")])
+    # `-` is the dark strip itself; one with a condition can be passed
+    assert not ends_dark([Row("browser", "call"), Row("-")])
+    assert ends_dark([Row("browser"), Row("-", "call")])
+    # no candidate: the slot shows auto
+    assert not ends_dark([])

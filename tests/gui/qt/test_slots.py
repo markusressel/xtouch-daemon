@@ -92,8 +92,13 @@ def snapshot(candidates: tuple[int | None, ...], pick: str | None = None, call: 
 
 def test_the_cards_show_the_stacks(window: MainWindow):
     page = panel(window)
-    assert texts(page.lists[0]) == ["1 always → out"]
-    assert texts(page.lists[1]) == ["1 when call → browser", "2 when app or person without a slot → auto"]
+    # each rail ends in the dark strip, always the last option (a channel can be on another slot, a pool empty)
+    assert texts(page.lists[0]) == ["1 always → out", "nothing to show: the strip goes dark"]
+    assert texts(page.lists[1]) == [
+        "1 when call → browser",
+        "2 when app or person without a slot → auto",
+        "nothing to show: the strip goes dark",
+    ]
     assert texts(page.lists[2]) == ["auto (no entry)"]
     # at the start no slot is picked: the overview takes the place of the inspector
     assert page.slot is None
@@ -186,7 +191,11 @@ def test_the_device_shows_which_candidate_and_the_states(window: MainWindow):
     live = snapshot((0, 1, None))
     page.snapshot = lambda: live
     page.show_live(live)
-    assert texts(page.lists[1]) == ["1 when call → browser", "▶ 2 when app or person without a slot → auto"]
+    assert texts(page.lists[1]) == [
+        "1 when call → browser",
+        "▶ 2 when app or person without a slot → auto",
+        "nothing to show: the strip goes dark",
+    ]
     assert pill(page.state_buttons["call"]) == "● call"
     # the dot at the scale of the screen (1 offscreen): sharp, not drawn at 2 and scaled down
     (size,) = page.state_buttons["call"].icon().availableSizes()
@@ -433,6 +442,22 @@ def test_the_rows_that_are_no_candidate_can_be_picked(qtbot: QtBot, window: Main
     # the strip of a dark slot picks the end of its rail
     window.device_view.select(1)
     assert (page.slot, page.candidate, page.end) == (2, None, True)
+    # it lights up: the end stays, the last option without the dot, and the strip picks what it shows
+    lit = snapshot((0, 1, None))
+    page.snapshot = lambda: lit
+    page.show_live(lit)
+    assert texts(stack) == [
+        "1 when call → browser",
+        "▶ 2 when app or person without a slot → auto",
+        "nothing to show: the strip goes dark",
+    ]
+    assert stack.end_row() == 2
+    assert crumb(page, "dark").toolTip().startswith("When none of the candidates")
+    assert plain(page.hint.text()).startswith("When none of the candidates has anything to show")
+    window.device_view.select(1)
+    assert (page.slot, page.candidate, page.end) == (2, 1, False)
+    page.snapshot = lambda: live
+    page.show_live(live)
     # `auto` of an empty slot picks the slot
     page.lists[2].setCurrentRow(0)
     assert (page.slot, page.candidate, page.end) == (3, None, True)

@@ -227,6 +227,18 @@ type RowState = Literal["", "shown", "passed", "unreached"]
 nothing tells."""
 
 
+def ends_dark(candidates: Sequence[Row]) -> bool:
+    """
+    Whether the rail of a slot ends in the dark strip, a row after the candidates: always, as any slot can go dark
+    (a pool can be empty, a channel can be on another slot), but for one without candidates and one that ends in `-`
+    for nothing, which is the dark strip itself.
+    """
+    if not candidates:
+        return False
+    last = candidates[-1]
+    return last.show != EMPTY or bool(last.when)
+
+
 def row_state(index: int, shown: int | None, dark: bool) -> RowState:
     """
     Where the candidate `index` is against the one shown (`shown`, None while nothing tells); `dark`: none of them has
