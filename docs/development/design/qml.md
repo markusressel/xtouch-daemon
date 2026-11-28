@@ -227,3 +227,32 @@ its one `EntitySource` (`context.entity_source`). The broker test and the plugin
 - **Pill popovers** are `Details` (Python rows) shown by `DetailsPopover.qml`; they rebuild while open.
 - **The log** fills the `QTextDocument` of a `TextArea` from Python and asks the daemon only while the panel shows.
 - **Hover tips** come from one event filter on the window: the first paragraph of the `tip` of the item under the mouse.
+
+## The pages Channels and States
+
+Both pages are a list on the left, the entry picked on the right, and a handle between them that keeps its place
+(`PaneSplit`; `PaneShare` keeps the share for the next start, once the handle is let go).
+
+**Shared items.** `EntryList` is the list (rows `(key, values)` with `kind`, `title`, `below`, `icon`, `problem`;
+`kind: "header"` is a title of a group; a page adds a `trailing` item after the title: the dot of a state, the sound
+badge of a channel). `EntryButtons` are Add, Duplicate and Remove under it. `ActionMenu` is a menu inside the window
+(a `Popover`): `sections` is `[{title, items: [{action, text, icon, detail, enabled, children}]}]`, an entry with
+`children` opens them under it, `triggered(action)` says which one was picked. `Segmented` is a row of buttons of which
+one is checked: the page decides, so a switch that asks first stays on the old value until the answer.
+
+**Channels.** `ChannelsPage` has `entries`, `selection` (`("channel", name)` or `("pool", kind)`), `inspector`,
+`add(action)`, `remove()`, `duplicate()`, `rename(new)` and the Edit protocol (`editable`, `edit(action)` with
+`cut`, `copy`, `paste`, `duplicate`, `remove` and `rename`, `reveal(path)`). `channels_list.py` makes the rows and the Add menu from the document and the sound
+server; `channels_forms.py` makes the form of a type the first time it shows (a background build makes the others after
+`PREBUILD_AFTER_MS`, the types of the file first). Add on a device of the sound server (`device:output:<name>`) makes a
+channel for it.
+
+**States.** `StatesPage` has the same shape: `entries`, `current`, `inspector`, `liveInfo` (what the daemon says, the
+override and the history), three forms (`modeForm`, `sourcesForm`, `delaysForm`) and `states_data.py` for its words. A
+state is on while its sources are on or while a condition holds, never both: `setComposed(true|false)` asks first
+(`switchQuestion`, `confirmSwitch()`, `cancelSwitch()`) when the switch removes something. The condition field is the
+`ConditionField` of the page Slots.
+
+**Tests.** `tests/gui/quick/test_channels.py`, `test_states.py` and `test_editing.py` click through the window. A click
+on a child of an `ActionMenu` entry is not reliable in the offscreen window (the press lands on the list under the
+menu), so the test calls `add(action)` for it, and clicks the entries that have no children.

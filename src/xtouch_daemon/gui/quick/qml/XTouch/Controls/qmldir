@@ -12,3 +12,7 @@ Divider 1.0 Divider.qml
 Banner 1.0 Banner.qml
 Swatch 1.0 Swatch.qml
 DetailsPopover 1.0 DetailsPopover.qml
+PaneSplit 1.0 PaneSplit.qml
+EntryButtons 1.0 EntryButtons.qml
+ActionMenu 1.0 ActionMenu.qml
+Segmented 1.0 Segmented.qml
