@@ -13,17 +13,22 @@ For a page: `Form(forms_of(app), [RowSpec(option), ...], base=("behavior",))`, o
 
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from PyQt6.QtCore import QObject, pyqtProperty, pyqtSignal, pyqtSlot  # pyright: ignore[reportUnknownVariableType]
 from PyQt6.QtGui import QFontMetricsF, QGuiApplication
 
 from xtouch_daemon.config.files import Problem
+from xtouch_daemon.config.sections import BehaviorConfig
 from xtouch_daemon.gui.domain import sources
 from xtouch_daemon.gui.domain.changes import Change, Scope
+from xtouch_daemon.gui.domain.demos import Part, Strip, scene
 from xtouch_daemon.gui.domain.entities import attribute_suggestions
 from xtouch_daemon.gui.domain.schema import Kind, Option, describe
+from xtouch_daemon.gui.domain.slots_document import OptionPath
 from xtouch_daemon.gui.domain.sources import Suggestion, preset_suggestions, preset_tip
+from xtouch_daemon.gui.qt.preview.part_view import CAPTION_WIDTH
+from xtouch_daemon.gui.quick.device.part import PartPreviewModel
 from xtouch_daemon.gui.quick.forms import binding, entity_table, suggestions, tables
 from xtouch_daemon.gui.quick.forms.buttons import ButtonLogic
 from xtouch_daemon.gui.quick.forms.context import FormContext
@@ -46,7 +51,7 @@ class RowSpec:
     """One row of a form: its option, and where the option is and what it suggests, beyond what the model says."""
 
     option: Option
-    path: tuple[str, ...] | None = None
+    path: OptionPath | None = None
     """Where the option is in the document, by default the base of the form and its name."""
     suggest: Suggest | TableSuggest | None = None
     """What a text, a list or the columns of a table suggest."""
@@ -72,6 +77,10 @@ class RowSpec:
     """What the suggestions say without any."""
     preview: str = ""
     """The part of the strip (`encoder`, `display`, `buttons`, `fader`) a preview of this row's group shows."""
+    title: str = ""
+    """The name of the row where it is not the option's, e.g. "LCD line" for `lcd` in `[controls]`."""
+    reset_tip: str = ""
+    """What the reset button says, where "Back to the default" is not what it does."""
 
     @property
     def name(self) -> str:
@@ -100,7 +109,7 @@ class Form(QObject):
         self,
         context: FormContext,
         specs: Sequence[RowSpec] = (),
-        base: tuple[str, ...] = (),
+        base: OptionPath = (),
         present: Callable[[], bool] | None = None,
         parent: QObject | None = None,
     ) -> None:
@@ -116,6 +125,7 @@ class Form(QObject):
         self._resolved: dict[str, Any] = {}
         self.strip = ""
         """The strip type the form is for (what the previews of its groups show)."""
+        self._previews: dict[str, PartPreviewModel] = {}
         self._title_width = 0
         self._active = True
         self._dirty = False
@@ -158,6 +168,11 @@ class Form(QObject):
     def stripType(self) -> str:  # pyright: ignore[reportRedeclaration]
         return self.strip
 
+    @pyqtProperty(int, constant=True)
+    def previewWidth(self) -> int:  # pyright: ignore[reportRedeclaration]
+        """The width of the preview of a part, in pixels at 100 %: the options of its group make room for it."""
+        return CAPTION_WIDTH
+
     @pyqtProperty(bool, notify=activeChanged)
     def active(self) -> bool:  # pyright: ignore[reportRedeclaration]
         return self._active
@@ -172,7 +187,7 @@ class Form(QObject):
 
     @pyqtProperty("QStringList", constant=True)
     def basePath(self) -> list[str]:  # pyright: ignore[reportRedeclaration]
-        return list(self.base)
+        return [str(each) for each in self.base]
 
     # -- the rows ---------------------------------------------------------------------------------------------------
 
@@ -188,14 +203,18 @@ class Form(QObject):
             static["groupStart"] = spec.group != group
             static["divided"] = index > 0 and spec.group == group and spec.option.shown_with is None
             group = spec.group
+        # the last row of its group
+        for index, spec in enumerate(specs):
+            after = specs[index + 1] if index + 1 < len(specs) else None
+            self._statics[spec.name]["groupEnd"] = after is None or after.group != spec.group
         self.refresh()
 
-    def retarget(self, base: tuple[str, ...]) -> None:
+    def retarget(self, base: OptionPath) -> None:
         """The same rows for another place of the document (another channel of the type); the values are its own."""
         self.base = base
         self.refresh()
 
-    def path_of(self, spec: RowSpec, name: str | None = None) -> tuple[str, ...]:
+    def path_of(self, spec: RowSpec, name: str | None = None) -> OptionPath:
         return spec.path if spec.path is not None and name is None else (*self.base, name or spec.name)
 
     def _static(self, spec: RowSpec) -> dict[str, Any]:
@@ -203,7 +222,7 @@ class Form(QObject):
         static = spec_of(option)
         static.update(
             {
-                "titleText": option.title + ("  *" if option.required else ""),
+                "titleText": (spec.title or option.title) + ("  *" if option.required else ""),
                 "titleTip": option.name + (", required" if option.required else ""),
                 "tall": option.kind in TALL,
                 "link": spec.link or "",
@@ -268,7 +287,29 @@ class Form(QObject):
             self.resolvedChanged.emit()
         self._show_rest(claimed, validation)
         self._show_title_width()
+        self._play_previews()
         self.changed.emit()
+
+    @pyqtSlot(str, result=QObject)  # pyright: ignore[reportArgumentType]
+    def previewModel(self, part: str) -> QObject:
+        """The model of the preview of a part (`encoder`, `display`, ...): it plays what the values do."""
+        if not part:
+            # a preview that is not told its part yet: one of its own, so it takes no hook of a later one
+            return PartPreviewModel("display", self)
+        found = self._previews.get(part)
+        if found is None:
+            found = self._previews[part] = PartPreviewModel(cast(Part, part), self)
+            self._play(part, found)
+        return found
+
+    def _play_previews(self) -> None:
+        for part, model in self._previews.items():
+            self._play(part, model)
+
+    def _play(self, part: str, model: PartPreviewModel) -> None:
+        config = self.editor.validation.config
+        behavior = config.behavior if config else BehaviorConfig()
+        model.play(scene(cast(Part, part), Strip(self.strip, self._resolved, behavior)))
 
     def _show_rest(self, claimed: set[tuple[Any, ...]], validation: Any) -> None:
         """The problems of the place that no row shows: its whole (`[device]`) or an option the model doesn't know."""
@@ -319,7 +360,7 @@ class Form(QObject):
             "nested": nested,
             "visible": option.shown(values),
             "resettable": spec.resettable and value is not None and not option.required,
-            "resetTip": f"Back to the default ({describe(option.default)})",
+            "resetTip": spec.reset_tip or f"Back to the default ({describe(option.default)})",
             "meaning": self._meaning(spec, value),
             "matches": self._matches(spec, value),
             "helpDefault": option.default_text or (self._default_help(spec)),

@@ -23,6 +23,7 @@ from xtouch_daemon.gui.domain.channels import BUILT_IN_POOLS, channel_options, l
 from xtouch_daemon.gui.domain.demos import GROUPS, PREVIEWED, group_of
 from xtouch_daemon.gui.domain.schema import Kind, Option, options
 from xtouch_daemon.gui.domain.slot_controls import modes_and_states
+from xtouch_daemon.gui.domain.slots_document import OptionPath
 from xtouch_daemon.gui.domain.sources import Suggestion
 from xtouch_daemon.gui.domain.voip import participants
 from xtouch_daemon.gui.quick.forms import meter, tables
@@ -33,7 +34,7 @@ from xtouch_daemon.gui.quick.forms.suggestions import Suggest, TableSuggest
 from xtouch_daemon.live.messages import ForgetDevice, KnownDevice
 from xtouch_daemon.slots.model import AppsPoolConfig, PeoplePoolConfig, PoolConfig
 
-type Where = Callable[[], tuple[str, ...]]
+type Where = Callable[[], OptionPath]
 """Where the channel or pool of the form is in the document, e.g. `("channel", "speakers")`."""
 
 GROUP_TITLES = dict(GROUPS)
@@ -199,14 +200,15 @@ def _button(context: FormContext, strip: str, option: Option, where: Where) -> B
     return ButtonLogic(option.name, option.columns, defaults=defaults, extra=lambda: modes_and_states(document.values))
 
 
-def channel_form(context: FormContext, channel_type: str, where: tuple[str, ...] = ()) -> Form:
+def channel_form(context: FormContext, channel_type: str, where: OptionPath = ()) -> Form:
     """The form of the channels of a type: `form.retarget(("channel", id))` points it at a channel."""
     form = Form(context, base=where)
+    form.strip = channel_type
     form.set_specs(strip_rows(context, channel_type, channel_options(channel_type), lambda: form.base))
     return form
 
 
-def pool_form(context: FormContext, pool: str, kind: str | None = None, where: tuple[str, ...] = ()) -> Form:
+def pool_form(context: FormContext, pool: str, kind: str | None = None, where: OptionPath = ()) -> Form:
     """
     The form of a pool: a built-in one (`apps`, `people`, `devices`, `auto`) by its name, one of your own by its
     kind (`None` for a pool of channels, `"apps"` or `"people"`).
@@ -219,5 +221,6 @@ def pool_form(context: FormContext, pool: str, kind: str | None = None, where: t
         form_options = options(model)
         strip = "voip" if kind == "people" else "auto"
     form = Form(context, base=where)
+    form.strip = strip
     form.set_specs(strip_rows(context, strip, form_options, lambda: form.base))
     return form

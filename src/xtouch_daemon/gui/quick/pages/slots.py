@@ -19,8 +19,9 @@ from xtouch_daemon.audio.model import AudioState
 from xtouch_daemon.gui.domain.changes import Change, Scope
 from xtouch_daemon.gui.domain.channels import CHANNEL_TYPES, uses
 from xtouch_daemon.gui.domain.clipboard import candidates_text, parse_candidates
-from xtouch_daemon.gui.domain.places import Origin, Source, inherited, origin, place_help
+from xtouch_daemon.gui.domain.places import Origin, Source, origin
 from xtouch_daemon.gui.domain.simulate import Inputs, WhatIf
+from xtouch_daemon.gui.domain.slot_controls import modes_and_states
 from xtouch_daemon.gui.domain.slot_stacks import (
     EMPTY,
     Row,
@@ -41,6 +42,9 @@ from xtouch_daemon.gui.domain.slots_document import Validation
 from xtouch_daemon.gui.domain.states import OVERRIDES
 from xtouch_daemon.gui.domain.status import Reason
 from xtouch_daemon.gui.qt.fields.sound import sounding
+from xtouch_daemon.gui.quick.forms.context import forms_of
+from xtouch_daemon.gui.quick.forms.form import Form
+from xtouch_daemon.gui.quick.forms.places import place_specs
 from xtouch_daemon.gui.quick.models import KeyedListModel
 from xtouch_daemon.gui.quick.pages import slots_condition, slots_sound
 from xtouch_daemon.gui.quick.pages.base import PageBackend
@@ -155,7 +159,8 @@ class SlotsPage(PageBackend):
         self._crumbs = KeyedListModel(self)
         self._why = KeyedListModel(self)
         self._overview = KeyedListModel(self)
-        self._controls = SlotControls(self.editor, self)
+        self._place: Form | None = None
+        self._controls = SlotControls(self.editor, lambda: forms_of(app), self)
         self._inspector: dict[str, Any] = {}
         self._simulate_state: tuple[bool, str] = (False, "")
         self._actions: dict[str, Callable[[], None]] = {}
@@ -372,6 +377,7 @@ class SlotsPage(PageBackend):
         self._show_problems_of_controls()
         if self._slot == 0:
             self._show_overview()
+            self._clear_place_form()
             self._set_inspector({"mode": "overview"})
             return
         stack = rows(self.values, self._slot)
@@ -390,6 +396,7 @@ class SlotsPage(PageBackend):
         }
         if self._candidate is not None:
             info.update(self._candidate_info(stack[self._candidate]))
+        self._show_place_form(info["place"])
         info["problem"] = self._problem_text(info["place"])
         self._set_inspector(info)
 
@@ -441,7 +448,6 @@ class SlotsPage(PageBackend):
                 "strip": strip or "",
                 "allowed": sorted(place_options(candidate.show, values)),
                 "pick": not own,
-                "path": ["slots", str(self._slot), self._candidate or 0],
                 "key": f"{strip}:{int(not own)}:{','.join(sorted(place_options(candidate.show, values)))}",
             }
         return info
@@ -691,20 +697,28 @@ class SlotsPage(PageBackend):
         )
         self._write(self._slot, stack, self._candidate)
 
-    # -- the place of the candidate: what the option rows of the forms ask for --------------------------------------
+    # -- the place of the candidate: the option rows of its form ------------------------------------------------------
 
-    def _place_row(self) -> Row:
-        assert self._candidate is not None
-        return rows(self.values, self._slot)[self._candidate]
+    @pyqtProperty(QObject, constant=True)
+    def placeForm(self) -> Form:  # pyright: ignore[reportRedeclaration]
+        """The option rows of the place of the candidate picked ("Look in slot N")."""
+        return self._place_form()
 
-    @pyqtSlot(str, result="QVariant")
-    def placeOption(self, name: str) -> Any:
-        """An option of the place of the candidate picked (null for none)."""
-        return self._place_row().options.get(name) if self._candidate is not None else None
+    def _place_form(self) -> Form:
+        """The form of the place, made when it is first needed (the context of the forms is made after the pages)."""
+        if self._place is None:
+            self._place = Form(forms_of(self.app))
+        return self._place
 
-    @pyqtSlot(str, "QVariant")
-    def setPlaceOption(self, name: str, value: Any) -> None:
-        """Sets an option of the place of the candidate picked (null removes it); the option rows call this."""
+    def _place_option(self, name: str) -> Any:
+        """An option of the place of the candidate picked (None for none)."""
+        if self._candidate is None:
+            return None
+        stack = rows(self.values, self._slot)
+        return stack[self._candidate].options.get(name) if self._candidate < len(stack) else None
+
+    def _set_place_option(self, name: str, value: Any) -> None:
+        """Sets an option of the place of the candidate picked (None removes it); the form edits through this."""
         if self._candidate is None:
             return
         stack = rows(self.values, self._slot)
@@ -714,19 +728,32 @@ class SlotsPage(PageBackend):
             options[name] = value
         stack[self._candidate] = Row(candidate.show, candidate.when, options)
         self._put(self._slot, stack)
-        self.editor.edited(Change(Scope.VALUE, ("slots", str(self._slot), self._candidate, name)))
 
-    @pyqtSlot(str, result="QString")
-    def placeInherited(self, name: str) -> str:
-        """What an option the place leaves unset takes, as a word (the placeholder of its row)."""
-        place = self.place_origin
-        return (inherited(place, name, True) if place is not None else None) or ""
+    def _clear_place_form(self) -> None:
+        if self._place is not None:
+            self._place.set_specs([])
 
-    @pyqtSlot(str, result="QString")
-    def placeHelp(self, name: str) -> str:
-        """The help of an option of the place, for this slot."""
-        place = self.place_origin
-        return _link(place_help(place, name, self._slot, None), "slots") if place is not None else ""
+    def _show_place_form(self, place: dict[str, Any]) -> None:
+        """The rows of the place of the candidate picked: they change in place while it is the same kind of place."""
+        origin = self.place_origin
+        if origin is None or self._candidate is None or not place.get("form"):
+            self._clear_place_form()
+            return
+        form = self._place_form()
+        form.strip = place["strip"]
+        form.base = ("slots", str(self._slot), self._candidate)
+        form.set_specs(
+            place_specs(
+                origin,
+                self._slot,
+                place["strip"],
+                frozenset(place["allowed"]),
+                place["pick"],
+                self._place_option,
+                self._set_place_option,
+                lambda: modes_and_states(self.values),
+            )
+        )
 
     @pyqtSlot()
     def editOrigin(self) -> None:

@@ -317,10 +317,6 @@ SlotScroll {
                             width: parent.width
                             slots: pane.slots
                             visible: !!pane.info.place && pane.info.place.form === true
-                            optionPath: pane.info.place && pane.info.place.path || []
-                            strip: pane.info.place && pane.info.place.strip || ""
-                            allowed: pane.info.place && pane.info.place.allowed || []
-                            pick: pane.info.place ? pane.info.place.pick === true : true
                         }
                     }
                 }
