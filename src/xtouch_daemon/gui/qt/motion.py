@@ -8,7 +8,7 @@ import contextlib
 from collections.abc import Iterator
 
 from PyQt6.QtCore import QAbstractAnimation, QEasingCurve, QEvent, QObject, Qt, QVariantAnimation
-from PyQt6.QtGui import QPainter, QPaintEvent, QPixmap
+from PyQt6.QtGui import QColor, QPainter, QPaintEvent, QPixmap
 from PyQt6.QtWidgets import QGraphicsOpacityEffect, QWidget
 
 from xtouch_daemon.gui.qt.theme.tokens import Motion
@@ -17,6 +17,9 @@ UNBOUNDED = (1 << 24) - 1
 """The largest size of a widget (Qt's `QWIDGETSIZE_MAX`): no bound."""
 REVEAL = "reveal"
 """The object name of the animation of `reveal`, a child of the widget it moves."""
+
+OUT = 0.35
+"""The part of a fade through in which the old picture fades out; the new look fades in in the rest (as Material's)."""
 
 _fading: list[QWidget] = []
 """The widgets whose change fades right now: a change inside one of them is part of its fade."""
@@ -35,56 +38,85 @@ def moving(widget: QWidget) -> bool:
 
 
 class Fade(QWidget):
-    """The old picture of a widget over its new look, fading out; gone at the end."""
+    """
+    The old picture of a widget over its new look, fading out; gone at the end. With a color `behind` (what the widget
+    sits on) it fades through: the old picture fades out on that color, then the color fades away to the new look, so
+    the two never show at once (texts that change would show both, on top of each other).
+    """
 
-    def __init__(self, over: QWidget, picture: QPixmap):
+    def __init__(
+        self, over: QWidget, picture: QPixmap, through_resize: bool = False, behind: QColor | None = None
+    ) -> None:
         super().__init__(over)  # pyright: ignore[reportArgumentType]  (PyQt6 types the parent as Self)
         self.picture = picture
-        self.opacity = 1.0
+        self.behind = behind
+        self.progress = 0.0
         self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
         size = picture.deviceIndependentSize().toSize()
         self.setGeometry(0, 0, size.width(), size.height())
+        if through_resize:
+            self.resize(over.size().expandedTo(size))
         self.animation = QVariantAnimation(self)
-        self.animation.setDuration(Motion.FADE)
-        self.animation.setEasingCurve(QEasingCurve.Type.OutCubic)
-        self.animation.setStartValue(1.0)
-        self.animation.setEndValue(0.0)
+        self.animation.setDuration(Motion.FADE if behind is None else Motion.RESIZE)
+        self.animation.setEasingCurve(QEasingCurve.Type.InOutQuad)
+        self.animation.setStartValue(0.0)
+        self.animation.setEndValue(1.0)
         self.animation.valueChanged.connect(self._fade)
         self.animation.finished.connect(self.deleteLater)
-        # a widget that changes its size moves what it shows: the old picture would show twice, apart
+        # a widget that changes its size moves what it shows: the old picture would show twice, apart (unless what
+        # it shows stays where it is, e.g. rows from the top)
+        self.through_resize = through_resize
         over.installEventFilter(self)
         self.show()
         self.raise_()
         self.animation.start()
 
+    @property
+    def opacity(self) -> float:
+        """Of the old picture: it fades out over the whole fade, or over its first part (`OUT`) to fade through."""
+        return 1.0 - self.progress if self.behind is None else max(0.0, 1.0 - self.progress / OUT)
+
+    @property
+    def cover(self) -> float:
+        """Of the color behind, over the new look: whole while the old picture fades out, then fading out itself."""
+        return 0.0 if self.behind is None else min(1.0, (1.0 - self.progress) / (1.0 - OUT))
+
     def eventFilter(self, a0: QObject | None, a1: QEvent | None) -> bool:
-        if (
-            a1 is not None
-            and a1.type() == QEvent.Type.Resize
-            and self.animation.state() == QAbstractAnimation.State.Running
-        ):
+        if a1 is None or a1.type() != QEvent.Type.Resize or self.animation.state() == QAbstractAnimation.State.Stopped:
+            return False
+        if self.through_resize:
+            # the color behind covers the rows that come too, until they fade in
+            over = self.parentWidget()
+            if over is not None:
+                self.resize(over.size())
+        else:
             self.animation.stop()
             self.hide()
             self.deleteLater()
         return False
 
-    def _fade(self, opacity: float) -> None:
-        self.opacity = opacity
+    def _fade(self, progress: float) -> None:
+        self.progress = progress
         self.update()
 
     def paintEvent(self, a0: QPaintEvent | None) -> None:
         painter = QPainter(self)
+        if self.behind is not None:
+            painter.setOpacity(self.cover)
+            painter.fillRect(self.rect(), self.behind)
         painter.setOpacity(self.opacity)
         painter.drawPixmap(0, 0, self.picture)
         painter.end()
 
 
 @contextlib.contextmanager
-def fading(widget: QWidget) -> Iterator[None]:
+def fading(widget: QWidget, through_resize: bool = False, behind: QColor | None = None) -> Iterator[None]:
     """
     Fades from what `widget` shows (with its children) to what it shows after the block: any change of its look, a
     color of the stylesheet, a text, another page. At once when it doesn't move (see `moving`) or is part of a fade
-    already.
+    already. The fade ends when the widget changes its size, unless `through_resize`: what it shows stays where it
+    was (rows from the top that grow or shrink at the bottom). With the color `behind` it (what it sits on) it fades
+    through, see `Fade`.
     """
     if not moving(widget) or any(outer is widget or outer.isAncestorOf(widget) for outer in _fading):
         yield
@@ -96,7 +128,7 @@ def fading(widget: QWidget) -> Iterator[None]:
     finally:
         _fading.remove(widget)
     if widget.isVisible():
-        Fade(widget, picture)
+        Fade(widget, picture, through_resize, behind)
 
 
 def reveal(widget: QWidget, shown: bool) -> QVariantAnimation | None:

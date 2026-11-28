@@ -4,10 +4,11 @@ Motion in the GUI (`gui/qt/motion.py`): fades and reveals, driven to a time of t
 
 import pytest
 from PyQt6.QtCore import QEvent, QVariantAnimation
+from PyQt6.QtGui import QColor
 from PyQt6.QtWidgets import QApplication, QGraphicsOpacityEffect, QLabel, QVBoxLayout, QWidget
 from pytestqt.qtbot import QtBot
 
-from xtouch_daemon.gui.qt.motion import REVEAL, UNBOUNDED, Fade, fading, reveal
+from xtouch_daemon.gui.qt.motion import OUT, REVEAL, UNBOUNDED, Fade, fading, reveal
 from xtouch_daemon.gui.qt.pages.base import Stack
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Motion
@@ -196,3 +197,23 @@ def test_a_fade_ends_when_its_widget_changes_its_size(column: tuple[QWidget, QLa
     assert fade.isHidden()
     gone()
     assert fades(first) == []
+
+
+def test_a_fade_through_shows_the_old_then_the_new_never_both(column: tuple[QWidget, QLabel, QLabel]):
+    _, first, _ = column
+    with fading(first, through_resize=True, behind=QColor("black")):
+        first.setText("changed")
+    (fade,) = fades(first)
+    # the old picture on the color behind, which covers the new look
+    assert (fade.opacity, fade.cover) == (1.0, 1.0)
+    fade.animation.pause()
+    # the old one is gone, the new one not there yet
+    fade._fade(OUT)  # pyright: ignore[reportPrivateUsage]
+    assert fade.opacity == 0.0
+    assert fade.cover == pytest.approx(1.0)
+    # it grows with the widget: the rows that come are covered too, until they fade in
+    first.setFixedHeight(first.height() + 20)
+    assert fade.isVisible()
+    assert fade.size() == first.size()
+    fade.animation.setCurrentTime(Motion.RESIZE)
+    assert (fade.opacity, fade.cover) == (0.0, 0.0)

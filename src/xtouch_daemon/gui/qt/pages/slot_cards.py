@@ -37,6 +37,7 @@ from xtouch_daemon.gui.domain.slot_stacks import (
 from xtouch_daemon.gui.qt.fields.basics import ElidedLabel, entity_label, label
 from xtouch_daemon.gui.qt.fields.controls import LcdBadge
 from xtouch_daemon.gui.qt.fields.sound import SoundBadge, sound_of
+from xtouch_daemon.gui.qt.motion import fading, moving
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import LCD_COLORS, Entity, Motion, Space
 from xtouch_daemon.slots.model import AUTO
@@ -100,14 +101,14 @@ class StackList(QListWidget):
     def grow_to(self, height: int) -> None:
         """
         Grows or shrinks to `height` (its rows) smoothly, so a card that gets a line more or less doesn't jump; at
-        once while it is not shown yet.
+        once while it doesn't move (see `motion.moving`).
         """
         animation = self.resize_animation
         target = animation.endValue() if animation.state() == QAbstractAnimation.State.Running else self.height()
         if target == height:
             return
         animation.stop()
-        if not self.isVisible():
+        if not moving(self):
             self.setFixedHeight(height)
             return
         animation.setStartValue(self.height())
@@ -159,6 +160,20 @@ class StackList(QListWidget):
         of its own, the dark strip, which is the one shown. `member`: what the pool of the one shown hands out, and
         who else waits for a slot (see `member_summary`).
         """
+        # the old rows fade through the card to the new ones while the list grows or shrinks at the bottom (see
+        # `gui/qt/motion.py`): a row whose text changes would show both texts at once
+        with fading(self, through_resize=True, behind=QColor(current_colors().raised)):
+            self._fill(candidates, shown, why, values, dark, member)
+
+    def _fill(
+        self,
+        candidates: list[Row],
+        shown: int | None,
+        why: dict[int, str],
+        values: Mapping[str, Any],
+        dark: bool,
+        member: tuple[str, str] | None,
+    ) -> None:
         self.clear()
         count = len(candidates) + dark
         for index, candidate in enumerate(candidates):

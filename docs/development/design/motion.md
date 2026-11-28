@@ -25,6 +25,13 @@ change, so a page needs no animation code of its own.
   change happen, and lays the old picture over the new one, fading out. It works for any change of the look: a color
   from the stylesheet, a text, an icon, a whole page. No widget paints its own colors for it, so the stylesheet stays
   the one place of the look. Compose's `Crossfade` does the same.
+- **Fade through where texts change.** A crossfade shows the old and the new picture at once: a row whose text
+  changes shows both texts on top of each other. Given the color behind the widget (`behind`), `fading` fades
+  through instead, as Material's "fade through": the old picture fades out on that color in the first 35 %, then the
+  color fades away to the new look. The rows of a slot card do (`StackList.fill`).
+- **A fade ends when its widget changes its size**: what it shows moves, and the old picture would show it twice,
+  apart. Unless what it shows stays where it was (`through_resize`): the rows of a card grow or shrink at the bottom,
+  and the color behind grows with the card.
 - **`set_role` fades.** Restyling by a property (`role`, `tone`, `variant`, ...) is how the widgets change their look;
   `set_role` runs in `fading`, so every pill, button and row that changes its tone fades without a change of its own.
   `show_status` fades its text and tone together.
@@ -47,6 +54,7 @@ change, so a page needs no animation code of its own.
 |---|---|---|
 | `fading(widget)` | `with fading(pill): ...` around any change of the look | `Crossfade` |
 | `reveal(widget, shown)` | A row that comes and goes in a layout | `AnimatedVisibility` |
+| `fading(widget, through_resize=True, behind=color)` | Content that changes while it grows or shrinks | `AnimatedContent` |
 | `StackList.grow_to` | A card that gets a line more or less (`Motion.RESIZE`) | `animateContentSize` |
 
 ## Where it is used
