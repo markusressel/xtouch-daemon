@@ -126,11 +126,6 @@ def guide_link(guide: str) -> str:
     return url(GUIDES[guide])
 
 
-def strip_type_link(strip_type: str) -> str | None:
-    path = STRIP_TYPES.get(strip_type)
-    return None if path is None else url(path)
-
-
 def option_link(section: str, name: str, strip_type: str | None = None, bound: bool = False) -> str | None:
     """
     Where an option is explained: of a section (`behavior`), or of a strip (`section` "strip" with its type, `bound`

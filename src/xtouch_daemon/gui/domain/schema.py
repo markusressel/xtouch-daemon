@@ -399,11 +399,6 @@ def strip_models() -> dict[str, type[BaseModel]]:
     return {name: model for model in STRIP_MODELS for name in get_args(model.model_fields["type"].annotation)}
 
 
-def strip_type_help(strip_type: str) -> str:
-    """What a strip type is (the `Meanings` of `type`)."""
-    return option("type", strip_models()[strip_type].model_fields["type"]).meaning(strip_type)
-
-
 STRIP_OPTION_ORDER = (
     # what the strip controls
     "device",

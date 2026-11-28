@@ -35,7 +35,6 @@ from xtouch_daemon.gui.domain.schema import (
     sections,
     strip_models,
     strip_options,
-    strip_type_help,
 )
 from xtouch_daemon.slots.model import AppsConfig, StateConfig
 
@@ -244,7 +243,7 @@ def test_every_choice_explains_each_of_its_values():
             for choice in each.choices:
                 assert each.meaning(choice), f"{where}.{each.name}: {choice} has no meaning"
     for strip_type in strip_models():
-        assert strip_type_help(strip_type)
+        assert option("type", strip_models()[strip_type].model_fields["type"]).meaning(strip_type)
 
 
 def test_a_choice_says_what_its_value_means():
@@ -261,7 +260,8 @@ def test_a_choice_says_what_its_value_means():
     # the colors name themselves, but off needs a word
     color = next(o for o in strip_options("auto") if o.name == "color")
     assert (color.meaning("off"), color.meaning("red")) == ("No backlight.", "")
-    assert strip_type_help("empty") == "A dark strip that does nothing; its fader stays at the bottom."
+    kind = option("type", strip_models()["empty"].model_fields["type"])
+    assert kind.meaning("empty") == "A dark strip that does nothing; its fader stays at the bottom."
 
 
 def test_the_default_for_people():

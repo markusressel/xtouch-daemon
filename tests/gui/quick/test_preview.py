@@ -1,6 +1,6 @@
 """
-The drawing of the device in Qt Quick: picking and moving strips, and how strips are painted (through the items of QML and the
-images the same painting makes offscreen).
+The drawing of the device in Qt Quick: picking and moving strips, and how strips are painted (through the items of
+QML and the images the same painting makes offscreen).
 """
 
 import dataclasses

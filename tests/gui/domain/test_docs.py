@@ -105,8 +105,6 @@ def test_links_are_addresses_on_the_site():
         == f"https://markusressel.github.io/xtouch-daemon/{docs.DOCS_VERSION}/guides/home-assistant/#mqtt"
     )
     assert docs.page_link("strips") is None
-    assert docs.strip_type_link("auto") == docs.url("configuration/channels/applications/#apps-and-auto")
-    assert docs.strip_type_link("pipewire") is None
     assert docs.option_link("strip", "rec", "input") == docs.url("configuration/strip/leds/#buttons")
     # a type may link an option elsewhere
     assert docs.option_link("strip", "label", "voip") == docs.url(
@@ -120,7 +118,6 @@ def test_links_are_addresses_on_the_site():
     assert docs.option_link("strip", "color", "voip") is None
     assert docs.option_link("strip", "meter", "custom") == docs.url("configuration/strip/bindings/")
     assert docs.option_link("strip", "fader", "custom") == docs.url("configuration/channels/custom/#a-value")
-    assert docs.strip_type_link("custom") == docs.url("configuration/channels/custom/")
     assert docs.option_link("behavior", "unity_at") == docs.url("configuration/channels/#100-at-the-0-db-mark")
     assert docs.option_link("behavior", "meters") is None
     assert docs.option_link("aliases", "anything") is None

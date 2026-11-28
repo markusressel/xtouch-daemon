@@ -1,7 +1,7 @@
 """
 The drawing of the device, its backend for QML: the panel Device. It has the bar over the strips (Select and Play,
-the pills of the live view, the mode, the virtual device, the test), the strips themselves (`Drawing`), the hands of the mouse on the device in Play, the test
-of the device and the popovers of the pills.
+the pills of the live view, the mode, the virtual device, the test), the strips themselves (`Drawing`), the hands of
+the mouse on the device in Play, the test of the device and the popovers of the pills.
 
 It owns nothing of the window around it: the live view, the daemon, the preview, the virtual device the window hosts
 and the daemon "Try without a device" starts are the shell's (`app.shell`, see `window/shell.py`), the status line and
