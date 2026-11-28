@@ -28,6 +28,7 @@ from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, TableSuggest, label
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow
+from xtouch_daemon.gui.qt.motion import fading
 from xtouch_daemon.gui.qt.theme.icons import set_icon
 from xtouch_daemon.gui.qt.theme.style import set_role
 from xtouch_daemon.gui.qt.theme.tokens import Space
@@ -216,12 +217,14 @@ class Stack(QWidget):
     def show_part(self, part: QWidget) -> None:
         if part is self.part:
             return
-        if self.part is not None:
-            self.stack.removeWidget(self.part)
-            self.part.hide()
-        self.part = part
-        self.stack.addWidget(part)
-        part.show()
+        # the old part fades into the new one (see `gui/qt/motion.py`)
+        with fading(self):
+            if self.part is not None:
+                self.stack.removeWidget(self.part)
+                self.part.hide()
+            self.part = part
+            self.stack.addWidget(part)
+            part.show()
 
 
 EDGE = Space.XL

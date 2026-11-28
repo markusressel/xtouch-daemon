@@ -56,7 +56,11 @@ class Motion:
     """How long things take to change: short enough not to wait for, long enough to follow (as on Android)."""
 
     RESIZE = 200
-    """A card that grows or shrinks, in ms."""
+    """A card that grows or shrinks, or a row that comes or goes, in ms."""
+    FADE = 150
+    """A change of the look that fades (a color, a text, a page), in ms."""
+    enabled = True
+    """False: every change happens at once (in tests and screenshots, see `gui/qt/motion.py`)."""
 
 
 CONTROL_HEIGHT = 32

@@ -66,6 +66,10 @@ just screenshot      # renders docs/images/ (README and docs) offscreen from scr
   suggestions under a field are a `SuggestionList` (`gui/qt/fields/suggestions.py`, used by `NameCompleter`), never a
   `QCompleter`. No `QMenu.exec`/`popup`, `setMenu`, `menuBar()`. `conftest.no_popups` fails a test in which a popup
   shows.
+- GUI motion: a change of the look goes through `set_role`/`show_status` (they fade) or `with fading(widget)`; a row
+  that comes and goes uses `reveal(widget, shown)`, not `setVisible` (`gui/qt/motion.py`,
+  `docs/development/design/motion.md`). Tests run without motion (`no_motion`); `tests/gui/qt/test_motion.py` drives
+  the animations with `setCurrentTime`.
 - Git: on a branch, commit and push the finished, checked work; on `main` only when the user asks. Never force-push.
 
 ## Writing docs

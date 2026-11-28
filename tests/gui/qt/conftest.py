@@ -33,7 +33,7 @@ from xtouch_daemon.gui.qt.fields.sound import sounding
 from xtouch_daemon.gui.qt.pages.channels import ChannelsPage
 from xtouch_daemon.gui.qt.pages.sections import BrokerTest, PluginInstaller
 from xtouch_daemon.gui.qt.theme.style import apply_theme
-from xtouch_daemon.gui.qt.theme.tokens import ThemeMode
+from xtouch_daemon.gui.qt.theme.tokens import Motion, ThemeMode
 from xtouch_daemon.gui.qt.window.audio_loader import Follow
 from xtouch_daemon.gui.qt.window.main_window import MainWindow
 from xtouch_daemon.gui.qt.window.session import Session
@@ -77,6 +77,15 @@ class PopupWatch(QObject):
         if a1 is not None and isinstance(a0, QWidget) and a0.windowType() == Qt.WindowType.Popup:
             self.shown.append(type(a0).__name__)
         return False
+
+
+@pytest.fixture(autouse=True)
+def no_motion(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Every change of the GUI happens at once (see `gui/qt/motion.py`), so a test sees the end of it at once; the tests
+    of the motion turn it on.
+    """
+    monkeypatch.setattr(Motion, "enabled", False)
 
 
 @pytest.fixture(autouse=True)

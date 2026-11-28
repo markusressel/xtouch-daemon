@@ -10,6 +10,7 @@ from PyQt6.QtCore import QSettings, QTemporaryDir
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import QApplication, QProxyStyle, QStyle, QStyleHintReturn, QStyleOption, QWidget
 
+from xtouch_daemon.gui.qt.motion import fading
 from xtouch_daemon.gui.qt.theme.tokens import (
     CONTROL_HEIGHT,
     THEMES,
@@ -110,11 +111,13 @@ def set_role(widget: QWidget, value: str | bool, name: str = "role") -> None:
     """
     if widget.property(name) == value:
         return
-    widget.setProperty(name, value)
-    style = widget.style()
-    assert style is not None
-    style.unpolish(widget)
-    style.polish(widget)
+    # the new look fades in (see `gui/qt/motion.py`)
+    with fading(widget):
+        widget.setProperty(name, value)
+        style = widget.style()
+        assert style is not None
+        style.unpolish(widget)
+        style.polish(widget)
 
 
 def show_unset(widget: QWidget, unset: bool) -> None:

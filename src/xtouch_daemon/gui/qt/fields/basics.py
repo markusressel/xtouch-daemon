@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
 from xtouch_daemon.config.presets import Kind as PresetKind
 from xtouch_daemon.gui.domain.sources import Suggestion, preset_suggestions
 from xtouch_daemon.gui.domain.status import Status
+from xtouch_daemon.gui.qt.motion import fading
 from xtouch_daemon.gui.qt.theme.icons import icon, set_icon
 from xtouch_daemon.gui.qt.theme.style import current_colors, set_role
 from xtouch_daemon.gui.qt.theme.tokens import Entity, Radius, Space
@@ -198,10 +199,15 @@ def show_status(pill: QLabel, status: Status, more: bool = False) -> None:
     A status in a pill: its text, its tone as the color, and its tip. `more`: a click opens what it means in full (a
     popover, see `fields.popover`), which ▾ tells; its tip then says only that.
     """
-    pill.setText(f"{status.text}{MORE}" if more else status.text)
+    text = f"{status.text}{MORE}" if more else status.text
     # the first paragraph shows in the footer while the mouse is on it (see `HoverTips`)
     pill.setToolTip(f"{status.tip.split(chr(10) * 2)[0]}\n\nClick for details." if more else status.tip)
-    set_role(pill, status.tone.value, "tone")
+    if text == pill.text() and pill.property("tone") == status.tone.value:
+        return
+    # the text and the tone fade together
+    with fading(pill):
+        pill.setText(text)
+        set_role(pill, status.tone.value, "tone")
 
 
 _ENTITY_WORDS = re.compile(r"\b(states?|modes?|channels?|pools?|slots?|people|persons?|applications?)\b", re.IGNORECASE)

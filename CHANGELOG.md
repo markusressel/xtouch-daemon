@@ -129,6 +129,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Changed
 
+- GUI: changes move instead of jumping. A pill, button or row that changes its color fades to it, the pages of the
+  window Configuration and the panes of a page fade from one to the next, and the states and the what-ifs of Simulate
+  grow and shrink when Simulate opens and closes, while the cards move along.
 - GUI: the pages sit closer to the rail of the window Configuration (12 pixels instead of 24).
 - GUI, Simulate: it starts from reality, as the daemon tells it in its live view: the mode, the states that are on,
   the channels that are absent (e.g. the voice chat while Mumble doesn't run), the pools with members and the number

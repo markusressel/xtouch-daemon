@@ -76,6 +76,7 @@ from xtouch_daemon.gui.qt.file_watch import FileWatch
 from xtouch_daemon.gui.qt.live_preview import LivePreview
 from xtouch_daemon.gui.qt.live_view import LiveView
 from xtouch_daemon.gui.qt.log_view import LogView
+from xtouch_daemon.gui.qt.motion import fading
 from xtouch_daemon.gui.qt.pages.aliases import AliasesPage
 from xtouch_daemon.gui.qt.pages.base import SETTINGS_PAGES, Page
 from xtouch_daemon.gui.qt.pages.channels import ChannelsPage
@@ -752,7 +753,9 @@ class MainWindow(QMainWindow):
             self.settings.show_page(name)
             name = "settings"
         self.rail_buttons[name].setChecked(True)
-        self.stack.setCurrentIndex(RAIL_PAGES.index(name))
+        # the old page fades into the new one
+        with fading(self.stack):
+            self.stack.setCurrentIndex(RAIL_PAGES.index(name))
 
     @property
     def current_page(self) -> str:

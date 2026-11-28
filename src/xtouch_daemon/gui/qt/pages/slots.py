@@ -72,6 +72,7 @@ from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
 from xtouch_daemon.gui.qt.fields.meter import meter_row
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow, add_groups, align_titles
 from xtouch_daemon.gui.qt.fields.popover import Entry, show_popover
+from xtouch_daemon.gui.qt.motion import fading, reveal
 from xtouch_daemon.gui.qt.pages.base import Audio, Page, Sideways, Stack, button, card, edged, row, scrolled, set_text
 from xtouch_daemon.gui.qt.pages.slot_cards import NODE_ICON, StackList, node_icon
 from xtouch_daemon.gui.qt.pages.slot_controls import SlotControls
@@ -314,6 +315,7 @@ class SlotsPanel(Page):
         self.splitter = PaneSplitter("slots", self.card_scroll, self.right)
         panel = QFrame()
         set_role(panel, "card")
+        self.what_if_panel = panel
         self.what_if_bar = FlowLayout(panel, Space.L)
         self.what_if_bar.setContentsMargins(Space.M, Space.S, Space.M, Space.S)
         self.what_if_row = QWidget()
@@ -864,11 +866,13 @@ class SlotsPanel(Page):
         window = self.window()
         window.setUpdatesEnabled(False)
         try:
-            self.state_bar_row.setVisible(what_if is None)
-            self.what_if_row.setVisible(what_if is not None)
-            self.device_note.setVisible(what_if is not None)
             if config is not None and what_if is not None:
-                self._show_what_if_bar(Inputs.of(config.slots), what_if)
+                # a change of a what-if fades; the bar that opens grows (see `gui/qt/motion.py`)
+                with fading(self.what_if_panel):
+                    self._show_what_if_bar(Inputs.of(config.slots), what_if)
+            reveal(self.state_bar_row, what_if is None)
+            reveal(self.what_if_row, what_if is not None)
+            reveal(self.device_note, what_if is not None)
             self.shown_live = None
             self.show_live(self.snapshot())
             _lay_out(window)
@@ -916,7 +920,7 @@ class SlotsPanel(Page):
         column.addLayout(line)
         self.what_if_bar.addWidget(group)
         # shown now: Qt would show it only once the event loop gets to it, so the bar would first be laid out without it
-        group.setVisible(not self.what_if_row.isHidden())
+        group.show()
 
     def _count(self, name: str, value: int, what: str, counted: Callable[[int], WhatIf]) -> QWidget:
         """A built-in pool and how many members it has: a dot (● with members) and its name, and the number."""
