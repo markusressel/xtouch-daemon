@@ -58,11 +58,13 @@ names, « hides them again.
 
     Delays and overrides (`delay_on`, `delay_off`, `persist`) are folded away until a state has one. Above the form
     the GUI says since when the state is on, from which source, its override, and which slots and controls use it.
+    Under that, a bar for each of the last 24 hours shows how much of the hour the state was on; the mouse on a bar
+    says it in minutes. The daemon keeps this day in memory, so after a restart the bars start empty.
 
 === "Settings"
 
-    `[behavior]` and `[aliases]`; `[mqtt]` as "[Home Assistant](home-assistant.md)" and `[homeassistant]` as "[Home
-    Assistant API](home-assistant.md#homeassistant)"; `[switching]` as "Modes and chord"; `[device]` as "Extender"; and
+    `[behavior]` and `[aliases]`; `[mqtt]` and `[homeassistant]` together as "[Home Assistant](home-assistant.md)",
+    one below the other; `[switching]` as "Modes and chord"; `[device]` as "Extender"; and
     `[voip]` as "Voice chat", with a box for [Mumble](mumble.md) and [TeamSpeak](teamspeak.md) that tells whether the
     plugin is connected, lists the steps of its setup and installs it.
 

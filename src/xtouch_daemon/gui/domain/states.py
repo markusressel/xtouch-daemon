@@ -3,8 +3,9 @@ The states and modes of a file as the page States shows them: modes first, where
 says about it right now.
 """
 
-from collections.abc import Mapping
-from datetime import datetime
+from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
+from datetime import datetime, timedelta
 from typing import Any
 
 from xtouch_daemon.gui.domain.channels import stack_of
@@ -74,3 +75,61 @@ def describe_live(state: StateView | None) -> str:
     if state.override != "auto":
         text += f", override {state.override}"
     return text
+
+
+HOURS = 24
+"""The hours of the history of a state (see `hours_on`): a day."""
+
+
+@dataclass(frozen=True)
+class Hour:
+    """An hour of the clock in the history of a state."""
+
+    start: datetime
+    end: datetime
+    """Its end: an hour later, or now for the current hour."""
+    on: float
+    """Seconds the state was on in it."""
+    known: float
+    """Seconds of it the daemon watched the state: the share on is `on / known`; 0 for none."""
+
+    @property
+    def share(self) -> float | None:
+        """How much of the hour the state was on (0..1), None for an hour the daemon didn't watch it."""
+        return self.on / self.known if self.known else None
+
+    def describe(self) -> str:
+        """E.g. `14:00-15:00: on for 35 min`, and how long the daemon watched it if not all of it."""
+        span = f"{self.start:%H:%M}-{self.end:%H:%M}"
+        if not self.known:
+            return f"{span}: no daemon watched it"
+        if not self.on:
+            text = "off"
+        elif self.on >= self.known:
+            text = "on"
+        else:
+            minutes = round(self.on / 60)
+            text = f"on for {minutes} min" if minutes else "on for a moment"
+        if self.known < (self.end - self.start).total_seconds() - 1:
+            text += f", watched for {round(self.known / 60)} min"
+        return f"{span}: {text}"
+
+
+def hours_on(history: Sequence[tuple[float, bool]], now: float, hours: int = HOURS) -> tuple[Hour, ...]:
+    """
+    The last `hours` hours of the clock, the current one up to `now` (Unix times), oldest first: how long a state was
+    on in each, from its changes (`StateView.history`). Before its first change the daemon didn't watch it.
+    """
+    current = datetime.fromtimestamp(now).astimezone().replace(minute=0, second=0, microsecond=0)
+    result: list[Hour] = []
+    for back in range(hours - 1, -1, -1):
+        start = current - timedelta(hours=back)
+        begin, end = start.timestamp(), min(start.timestamp() + 3600, now)
+        on = known = 0.0
+        for index, (moment, value) in enumerate(history):
+            until = history[index + 1][0] if index + 1 < len(history) else now
+            overlap = max(0.0, min(until, end) - max(moment, begin))
+            known += overlap
+            on += overlap if value else 0.0
+        result.append(Hour(start, datetime.fromtimestamp(end).astimezone(), on, known))
+    return tuple(result)

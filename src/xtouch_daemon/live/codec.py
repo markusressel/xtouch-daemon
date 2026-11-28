@@ -143,7 +143,10 @@ def _slots(value: dict[str, Any] | None) -> SlotsState | None:
         value["mode"],
         value["mode_pick"],
         tuple(SlotView(**{**slot, "why": tuple(slot["why"])}) for slot in value["slots"]),
-        tuple(StateView(**state) for state in value["states"]),
+        tuple(
+            StateView(**{**state, "history": tuple((moment, on) for moment, on in state.get("history", ()))})
+            for state in value["states"]
+        ),
         {pool: tuple(members) for pool, members in value["waiting"].items()},
     )
 

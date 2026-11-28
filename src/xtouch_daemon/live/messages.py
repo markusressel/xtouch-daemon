@@ -207,6 +207,11 @@ class StateView:
     """What turned it on (`mumble runs`, `override`, ...), None while it is off."""
     override: str
     """`auto`, `on` or `off`."""
+    history: tuple[tuple[float, bool], ...] = ()
+    """
+    When it got which value in the last day, oldest first, as Unix times: its changes, and the one before them (its
+    value at the start of the day).
+    """
 
 
 @dataclass(frozen=True)

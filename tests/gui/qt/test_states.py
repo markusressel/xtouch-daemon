@@ -3,8 +3,11 @@ The page States: the modes and states of the file, live values, overrides, and e
 """
 
 import dataclasses
+import time
 
-from PyQt6.QtWidgets import QListWidgetItem
+from PyQt6.QtCore import QEvent, QPointF, Qt
+from PyQt6.QtGui import QMouseEvent
+from PyQt6.QtWidgets import QApplication, QListWidgetItem
 from pytestqt.qtbot import QtBot
 
 from tests.support.gui import click, menu_texts, open_menu_of, pick, row, type_into
@@ -137,3 +140,43 @@ def test_a_program_of_your_own_is_a_source(qtbot: QtBot, window: MainWindow):
     assert set(command.rows) == {"watch", "poll", "every"}
     command.rows["poll"].chips.add("vpn-up")
     assert window.document.get(("state", "call", "command")) == {"poll": ["vpn-up"]}
+
+
+def test_the_last_day_of_a_state_is_a_bar_per_hour(qtbot: QtBot, window: MainWindow):
+    window.document.set(("state", "gaming"), {"mode": True, "processes": ["steam"]})
+    window.editor.edited()
+    window.show_page("states")
+    page = window.states_page
+    now = time.time()
+    call = StateView("call", True, False, None, "mumble runs", "auto", ((now - 7200, False), (now - 1800, True)))
+    gaming = StateView("gaming", False, True, None, None, "auto")
+    snapshot = Snapshot(
+        "x", True, sound_server=True, mqtt=None, strips=(), slots=SlotsState("default", None, (), (call, gaming), {})
+    )
+    page.select("call")
+    page.show_live(snapshot)
+    bars = page.history
+    assert not bars.isHidden()
+    assert len(bars.hours) == 24
+    # watched from two hours ago, on for the last half hour
+    assert bars.hours[0].share is None
+    assert (bars.hours[-1].share or 0) > 0
+    assert bars.tip_at(bars.width() - 1) == bars.hours[-1].describe()
+    assert bars.tip_at(-5) == ""
+    assert not bars.grab().isNull()
+    # the mouse on a bar tells its hour
+    at = QPointF(bars.width() - 2, 5)
+    move = QMouseEvent(
+        QEvent.Type.MouseMove,
+        at,
+        bars.mapToGlobal(at),
+        Qt.MouseButton.NoButton,
+        Qt.MouseButton.NoButton,
+        Qt.KeyboardModifier.NoModifier,
+    )
+    QApplication.sendEvent(bars, move)
+    assert bars.toolTip() == bars.hours[-1].describe()
+    # without changes from the daemon there is nothing to draw
+    page.select("gaming")
+    page.show_live(snapshot)
+    assert bars.isHidden()

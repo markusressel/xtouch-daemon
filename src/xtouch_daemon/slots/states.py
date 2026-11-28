@@ -13,6 +13,11 @@ from xtouch_daemon.slots.inputs import Observation, app_matches, device_matches
 from xtouch_daemon.slots.model import DEFAULT, MODE_DELAY_OFF, STATE_DELAY_OFF, Scene, StateConfig
 from xtouch_daemon.slots.timing import Delayed
 
+HISTORY = 24 * 3600.0
+"""Seconds of the past whose changes each state keeps (see `StateEngine.history`): a day."""
+HISTORY_EDGES = 1000
+"""The most changes a state keeps: one that flickers keeps its newest ones."""
+
 
 class Override(StrEnum):
     AUTO = "auto"
@@ -85,6 +90,11 @@ class StateEngine:
         self._order = composed_order(scene)
         self._since: dict[str, float] = {}
         self._last: dict[str, bool] = {}
+        self.history: dict[str, list[tuple[float, bool]]] = {}
+        """
+        Per state (and mode), when it got which value, oldest first: the changes of the last `HISTORY` seconds, and
+        the one before them (the value at the start of that time).
+        """
         self._reasons: dict[str, str] = {}
         self._automatic = DEFAULT
         """The mode the rules want."""
@@ -103,6 +113,9 @@ class StateEngine:
             self.mode_pick = before.mode_pick
         self._since = {name: since for name, since in before._since.items() if name in states or name == DEFAULT}
         self._last = {name: value for name, value in before._last.items() if name in states or name == DEFAULT}
+        self.history = {
+            name: list(edges) for name, edges in before.history.items() if name in states or name == DEFAULT
+        }
         self._reasons = {name: why for name, why in before._reasons.items() if name in states}
         self._automatic = before._automatic if before._automatic in (DEFAULT, *self.scene.modes) else DEFAULT
 
@@ -162,8 +175,16 @@ class StateEngine:
         for name, value in values.items():
             if self._last.get(name) != value:
                 self._since[name] = now
+                self._remember(name, value, now)
         self._last = values
         return States(values, mode, reasons, dict(self._since))
+
+    def _remember(self, name: str, value: bool, now: float) -> None:
+        edges = self.history.setdefault(name, [])
+        edges.append((now, value))
+        # the changes before the time kept, but the newest of them: the value at its start
+        old = next((index for index, (moment, _) in enumerate(edges) if moment > now - HISTORY), len(edges))
+        del edges[: max(old - 1, len(edges) - HISTORY_EDGES, 0)]
 
     def deadline(self) -> float | None:
         """The next time a delay ends, if one is pending: then the states need an update."""

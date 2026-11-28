@@ -145,7 +145,11 @@ def test_a_snapshot_goes_through_a_line(surface: RecordingSurface):
         "gaming",
         None,
         (SlotView(1, 0, "out", None, None, ("shows out",)), SlotView(2, 1, None, "auto", "app:Spotify", ())),
-        (StateView("call", True, False, "2026-11-17T10:00:00+00:00", "mumble runs", "auto"),),
+        (
+            StateView(
+                "call", True, False, "2026-11-17T10:00:00+00:00", "mumble runs", "auto", ((1.0, False), (2.0, True))
+            ),
+        ),
         {"auto": ("app:mpv",)},
     )
     with_slots = Snapshot("abc", True, False, None, snapshot.strips, slots=slots)

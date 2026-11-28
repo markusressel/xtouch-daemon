@@ -5,6 +5,7 @@ is used.
 """
 
 import re
+import time
 from collections.abc import Callable
 from html import escape
 from typing import Any
@@ -31,11 +32,12 @@ from xtouch_daemon.gui.domain.clipboard import Tables, parse_tables, tables_text
 from xtouch_daemon.gui.domain.schema import options
 from xtouch_daemon.gui.domain.slots_document import OptionPath, Validation
 from xtouch_daemon.gui.domain.sources import patterns
-from xtouch_daemon.gui.domain.states import OVERRIDES, describe_live, live_state, ordered, state_uses
+from xtouch_daemon.gui.domain.states import OVERRIDES, describe_live, hours_on, live_state, ordered, state_uses
 from xtouch_daemon.gui.qt.editor import Editor
 from xtouch_daemon.gui.qt.fields.basics import Suggest, flat_button, help_label, label
 from xtouch_daemon.gui.qt.fields.condition import ConditionEdit
 from xtouch_daemon.gui.qt.fields.depth import scroll_shadows
+from xtouch_daemon.gui.qt.fields.history import HistoryBars
 from xtouch_daemon.gui.qt.fields.menu import attach_menu, describe, with_icon
 from xtouch_daemon.gui.qt.fields.option_row import OptionRow, align_titles, divider, text_width
 from xtouch_daemon.gui.qt.fields.rich_items import DOT_ROLE, DotItemDelegate
@@ -50,7 +52,9 @@ from xtouch_daemon.slots.model import DEFAULT, StateConfig
 from xtouch_daemon.slots.states import delay_off_for
 
 _ID = re.compile(r"[a-z0-9_]+")
-"""What a state can be called."""
+"""
+
+import timeWhat a state can be called."""
 SOURCES = {
     "apps": "An application plays",
     "recording": "An application records",
@@ -231,6 +235,9 @@ class StatesPage(Page):
             self.override_buttons[value] = segment
             live.addWidget(segment)
         inspector.addWidget(row(live))
+        self.history = HistoryBars()
+        """The last day of the state: how much of each hour it was on."""
+        inspector.addWidget(self.history)
         inspector.addWidget(self.problem)
         self.form, layout = card()
         self._build_form(layout)
@@ -447,6 +454,8 @@ class StatesPage(Page):
         name = self.selection
         for widget in (self.form, self.id_edit, self.used, self.live, self.duplicate_button, self.remove_button):
             widget.setVisible(name is not None)
+        if name is None:
+            self.history.hide()
         self.empty.setVisible(name is None)
         if name is None:
             set_text(self.title, "")
@@ -506,6 +515,9 @@ class StatesPage(Page):
             return
         state = live_state(snapshot, name)
         set_text(self.live, describe_live(state))
+        self.history.setVisible(state is not None and bool(state.history))
+        if state is not None and state.history:
+            self.history.show_hours(hours_on(state.history, time.time()))
         mode = bool(self.document.get(("state", name, "mode")))
         picked = snapshot.slots.mode_pick if snapshot is not None and snapshot.slots is not None else None
         # none is checked while another mode is picked: an exclusive group keeps one

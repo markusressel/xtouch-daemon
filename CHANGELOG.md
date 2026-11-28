@@ -8,6 +8,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 
 ### Added
 
+- GUI, page States: a bar for each of the last 24 hours shows how much of the hour the state or mode was on; the mouse
+  on a bar says it in minutes. The daemon keeps the changes of each state of the last day in memory and tells them in
+  the live view (`history` of a state).
 - The startup and shutdown sequences have options for their pace, each for itself and separately for the startup and
   the shutdown: the delay between the strips of `sweep` (`startup_sweep_delay`, `shutdown_sweep_delay`) and between
   the pairs of `curtain`, and the delay, the step of the light and the height of the faders of `show`

@@ -4,7 +4,7 @@ The states: their sources, delays, overrides, modes and composed states.
 
 from tests.support.slots import scene
 from xtouch_daemon.slots.inputs import Observation
-from xtouch_daemon.slots.states import Override, StateEngine
+from xtouch_daemon.slots.states import HISTORY, HISTORY_EDGES, Override, StateEngine
 
 SCENE = """
 [channel.spotify]
@@ -214,3 +214,28 @@ def test_composed_states_have_no_delays_of_their_own():
     assert (result.values["call"], result.values["quiet"]) == (True, False)
     result = states.update(Observation(homeassistant=frozenset({"night"})), frozenset(), 63)
     assert (result.values["call"], result.values["quiet"]) == (False, True)
+
+
+def test_each_state_keeps_its_changes_of_the_last_day():
+    states = engine()
+    states.update(NOTHING, frozenset(), 0)
+    states.update(Observation(playing=("mpv",)), frozenset(), 100)
+    assert states.history["video"] == [(0, False), (100, True)]
+    # with the next change a day later the old changes go, but the newest of them: the value when the day began
+    later = 100 + HISTORY + 50
+    states.update(NOTHING, frozenset(), later)
+    states.update(NOTHING, frozenset(), later + 1000)
+    assert states.history["video"] == [(100, True), (later + 1000, False)]
+    # a state that flickers keeps its newest changes
+    buds = Observation(devices=frozenset({"bluez_output.buds"}))
+    for cycle in range(HISTORY_EDGES):
+        start = later + 2000 + 10 * cycle
+        states.update(buds, frozenset(), start)
+        states.update(NOTHING, frozenset(), start + 1)
+        # past its delay_off
+        states.update(NOTHING, frozenset(), start + 5)
+    assert len(states.history["wireless"]) == HISTORY_EDGES
+    # a reload carries them
+    after = engine()
+    after.carry(states)
+    assert after.history["video"] == states.history["video"]

@@ -163,6 +163,11 @@ class SlotEngine:
         clock, wall_clock = self._clocks
         return datetime.fromtimestamp(wall_clock() - (clock() - moment), UTC).isoformat(timespec="seconds")
 
+    def unix_time(self, moment: float) -> float:
+        """A time of the clock of the steps as a Unix time, to the second."""
+        clock, wall_clock = self._clocks
+        return round(wall_clock() - (clock() - moment))
+
     def view(self) -> SlotsState | None:
         """The slots, states and mode for the live view; None before the first step."""
         active = self.active
@@ -192,6 +197,7 @@ class SlotEngine:
                     self.wall_time(states.since[name]) if name in states.since else None,
                     states.reasons.get(name) if self.value(name) else None,
                     engine.overrides.get(name, Override.AUTO).value,
+                    tuple((self.unix_time(moment), on) for moment, on in engine.history.get(name, ())),
                 )
                 for name in self.scene.states
             ),

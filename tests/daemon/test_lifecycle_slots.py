@@ -6,6 +6,7 @@ applications across a new mixer, modes by hand and by the chord, held strips, re
 import asyncio
 import json
 import logging
+from datetime import datetime
 from pathlib import Path
 
 import pytest
@@ -542,7 +543,13 @@ async def test_the_live_view_shows_the_slots_and_sets_modes_and_overrides(
     assert view.slots[1].pool == "auto"
     assert view.slots[1].member == "app:Spotify"
     call = next(state for state in view.states if state.name == "call")
-    assert call == StateView("call", False, False, call.since, None, "auto")
+    assert call == StateView("call", False, False, call.since, None, "auto", call.history)
+    # its changes of the day, as Unix times: off since the first step
+    (first,) = call.history
+    assert call.since is not None
+    # to the second, as `since`
+    assert first[1] is False
+    assert abs(first[0] - datetime.fromisoformat(call.since).timestamp()) <= 1
     assert next(state for state in view.states if state.name == "gaming").mode
 
     assert daemon.on_request(gui, SetMode("gaming")) == Reply("mode", True, "gaming")
