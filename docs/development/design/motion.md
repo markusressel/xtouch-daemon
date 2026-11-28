@@ -74,6 +74,24 @@ change, so a page needs no animation code of its own.
   pages of the window Configuration.
 - Simulate: the states and the what-ifs swap with `reveal`; the note under them too.
 
+## Prototype: the slot cards in Qt Quick
+
+Snapshot fades can't reach Compose's feel: a row whose node turns green fades as a whole, its text blinks, and the
+rows below jump while the card grows. Qt Quick animates values instead of pictures. The prototype draws the slot
+cards in Qt Quick (`gui/qt/quick/Cards.qml`, in a `QQuickWidget`) when the GUI starts with `XTOUCH_QML_CARDS=1`:
+
+```shell
+XTOUCH_QML_CARDS=1 uv run xtouch-daemon gui
+```
+
+- Each card has a list model (`RowsModel`) that changes row by row, by the key of a row (the candidate as the file
+  has it). A row whose candidate stays is changed in place: its node, its dimming and its texts animate to their new
+  values (`Behavior`), a text that changes fades through. A row that comes or goes is inserted or removed: it fades,
+  and the rows below slide along (`ListView` transitions). A reason grows in under its row.
+- The widget cards stay underneath, hidden: they keep what is picked and do the editing (drag and drop, the
+  buttons of the card are not in the prototype yet). A click on a row in Qt Quick picks it on the widget card.
+- If it feels right, the other parts of the GUI follow, part by part, in the same `QQuickWidget` way.
+
 ## Next
 
 - Hover: Qt applies `:hover` itself, before a widget hears of it; a fade needs the picture before. An event filter on
